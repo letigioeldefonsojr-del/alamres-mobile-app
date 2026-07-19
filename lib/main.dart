@@ -3444,6 +3444,50 @@ class _EmployeeNotificationsScreenState
         .delete();
   }
 
+  Future<void> _markAllRead() async {
+    final unread = await FirebaseFirestore.instance
+        .collection('employeeNotifications')
+        .where('read', isEqualTo: false)
+        .get();
+
+    if (unread.docs.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('No unread notifications.'),
+            backgroundColor: Colors.grey.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      }
+      return;
+    }
+
+    final batch = FirebaseFirestore.instance.batch();
+    for (final doc in unread.docs) {
+      batch.update(doc.reference, {'read': true});
+    }
+    await batch.commit();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('All notifications marked as read.'),
+          backgroundColor: primaryGreen,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    }
+  }
+
   Future<void> _confirmClearAll() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -3493,6 +3537,11 @@ class _EmployeeNotificationsScreenState
         foregroundColor: Colors.white,
         title: const Text('Orders Notification'),
         actions: [
+          IconButton(
+            onPressed: _markAllRead,
+            icon: const Icon(Icons.done_all),
+            tooltip: 'Mark All as Read',
+          ),
           IconButton(
             onPressed: _confirmClearAll,
             icon: const Icon(Icons.delete_sweep_outlined),
