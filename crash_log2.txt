@@ -1,0 +1,769 @@
+--------- beginning of main
+07-16 08:08:45.169   646   646 E lowmemorykiller: device memory 493529 free 69527 file 420302
+07-16 08:08:45.268 24959 26134 E LevelPlaySDK: INTERNAL: H5 run - EventsSender failed to send events - Missing Headers
+07-16 08:08:45.273 24959 26129 E LevelPlaySDK: INTERNAL: H5 run - EventsSender failed to send events - Missing Headers
+07-16 08:08:45.254 24959 26130 E LevelPlaySDK: INTERNAL: H5 run - EventsSender failed to send events - Missing Headers
+07-16 08:08:45.305 24959 26143 E LevelPlaySDK: INTERNAL: H5 run - EventsSender failed to send events - Missing Headers
+07-16 08:08:45.581 24959 24959 E AppLovinSdk: [AppLovinSdk] Unknown ad format: REWARDED_INTER
+07-16 08:08:45.747  4020  6283 E PackageUtils[u0]: checkPackageExist Exception: android.content.pm.PackageManager$NameNotFoundException: com.heytap.quicksearchbox
+07-16 08:08:45.909  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.910  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.912  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.913  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.918  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.919  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.920  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.920  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.924  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.925  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.925  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.926  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.927  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.928  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.929  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.929  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.930  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.931  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.932  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.933  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.934  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.935  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.936  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.936  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.937  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.938  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.938  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.939  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:08:45.952 15742 17356 E PhoneManager.SimilarPhotoScanner:  createClient() not support
+07-16 08:08:45.963  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:08:45.963  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:08:46.686  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:08:46.686  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:08:46.846  5206  5242 E horae   : Entering notifyAmbientTemp, binder clients size 8
+07-16 08:08:47.201  1581  4240 E PerformanceService: storage_feature: open /sys/devices/platform/soc/112b0000.ufshci//virtualtlcbuff fail
+07-16 08:08:47.242  7659  7659 E VendorNfcService: changeNfcStateByWirelessCharge: feature WIRELESS_CHARGING = true; mIsWirelessCharging: false; mIsReverseChargingSwitchOpen: false; mNfcWorkMode: 0; isOverSeaRegion() = true
+07-16 08:08:47.245  6740  6805 E Battery : a: getAISleepDuration: predictResult is null.
+07-16 08:08:47.245  6740  6805 E Battery : ChargeProtectionUtils: First Alarm is Wed Jul 15 22:00:00 GMT+08:00 2026, nowRtc  = Thu Jul 16 08:08:47 GMT+08:00 2026, too close , ignore it.
+07-16 08:08:47.245  6740  6805 E Battery : ChargeProtectionUtils: mCanlendarTmp.isEmpty()!
+07-16 08:08:47.279  4060  4060 E SmsApplication: com.android.mms lost android:read_cell_broadcasts:  (fixing)
+07-16 08:08:48.073  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:08:48.073  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:08:48.797  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:08:48.797  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+--------- beginning of system
+07-16 08:08:48.996  1990  3275 E JobScheduler.Background: Couldn't determine stopped state for unknown package: com.oplus.onet
+07-16 08:08:52.077  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:08:52.077  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:08:52.201  1581  4240 E PerformanceService: storage_feature: open /sys/devices/platform/soc/112b0000.ufshci//virtualtlcbuff fail
+07-16 08:08:52.801  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:08:52.802  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:08:53.128  7659  7659 E VendorNfcService: changeNfcStateByWirelessCharge: feature WIRELESS_CHARGING = true; mIsWirelessCharging: false; mIsReverseChargingSwitchOpen: false; mNfcWorkMode: 0; isOverSeaRegion() = true
+07-16 08:08:53.132  6740  6805 E Battery : a: getAISleepDuration: predictResult is null.
+07-16 08:08:53.132  6740  6805 E Battery : ChargeProtectionUtils: First Alarm is Wed Jul 15 22:00:00 GMT+08:00 2026, nowRtc  = Thu Jul 16 08:08:53 GMT+08:00 2026, too close , ignore it.
+07-16 08:08:53.132  6740  6805 E Battery : ChargeProtectionUtils: mCanlendarTmp.isEmpty()!
+07-16 08:08:53.459  8213 16276 E MIDASApplication: MIDASPullAtomManager: onPullAtom 150122
+07-16 08:08:53.558  1990  4149 E ArtService: Failed to check dex file existence of CLC 'PCL[];PCL[/storage/emulated/0/Android/data/com.netshort.abroad/files/device_collection_260512202513_d.dex:/storage/emulated/0/Android/data/com.netshort.abroad/files/h5_lite_260703155123_d.dex:/data/app/~~dsDdPEX0kwPPFy6WXTHOTQ==/com.netshort.abroad-KohhfJrc0un8oRofJMlDyw==/base.apk:/data/user/0/com.netshort.abroad/.jiagu/classes.dex]{PCL[/system/framework/org.apache.http.legacy.jar]}' for '/data/user/0/com.netshort.abroad/app_pccache/5/A8FCED5E1BBD1419AEB215A46D3A1E5E503CFED2/pcam.jar
+07-16 08:08:53.558  1990  4149 E ArtService: android.os.ServiceSpecificException: Failed to get status of '/storage/emulated/0/Android/data/com.netshort.abroad/files/device_collection_260512202513_d.dex': Permission denied (code 1)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at android.os.Parcel.createExceptionOrNull(Parcel.java:3285)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at android.os.Parcel.createException(Parcel.java:3255)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at android.os.Parcel.readException(Parcel.java:3238)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at android.os.Parcel.readException(Parcel.java:3180)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at com.android.server.art.IArtd$Stub$Proxy.hasAllClcDexFiles(IArtd.java:1698)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at com.android.server.art.DexUseManagerLocal.hasAllClcDexFiles(DexUseManagerLocal.java:902)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at com.android.server.art.DexUseManagerLocal.lambda$getSecondaryDexInfoImpl$8(DexUseManagerLocal.java:421)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at com.android.server.art.DexUseManagerLocal.$r8$lambda$j1xqkyhHYuV_W0IVIFUKzCMfD5w(DexUseManagerLocal.java:0)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at com.android.server.art.DexUseManagerLocal$$ExternalSyntheticLambda11.test(R8$$SyntheticClass:0)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at java.util.stream.ReferencePipeline$2$1.accept(ReferencePipeline.java:208)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:227)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at java.util.Iterator.forEachRemaining(Iterator.java:133)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at java.util.Spliterators$IteratorSpliterator.forEachRemaining(Spliterators.java:1939)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:574)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:564)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at java.util.stream.AbstractPipeline.evaluate(AbstractPipeline.java:642)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at java.util.stream.AbstractPipeline.evaluateToArrayNode(AbstractPipeline.java:294)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at java.util.stream.ReferencePipeline.toArray(ReferencePipeline.java:677)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at java.util.stream.ReferencePipeline.toArray(ReferencePipeline.java:683)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at java.util.stream.ReferencePipeline.toList(ReferencePipeline.java:688)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at com.android.server.art.DexUseManagerLocal.getSecondaryDexInfoImpl(DexUseManagerLocal.java:423)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at com.android.server.art.DexUseManagerLocal.getCheckedSecondaryDexInfo(DexUseManagerLocal.java:302)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at com.android.server.art.ArtFileManager.getSecondaryDexInfo(ArtFileManager.java:251)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at com.android.server.art.ArtFileManager.getDexAndAbis(ArtFileManager.java:88)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at com.android.server.art.ArtFileManager.getUsableArtifacts(ArtFileManager.java:156)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at com.android.server.art.ArtManagerLocal.getArtManagedFileStats(ArtManagerLocal.java:1197)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at com.android.server.usage.StorageStatsService.computeAppStatsByDataTypes(StorageStatsService.java:979)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at com.android.server.usage.StorageStatsService.queryStatsForUid(StorageStatsService.java:456)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at com.android.server.usage.StorageStatsService.queryStatsForPackage(StorageStatsService.java:383)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at android.app.usage.IStorageStatsManager$Stub.onTransact(IStorageStatsManager.java:265)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at android.os.Binder.execTransactInternal(Binder.java:1518)
+07-16 08:08:53.558  1990  4149 E ArtService: 	at android.os.Binder.execTransact(Binder.java:1457)
+07-16 08:08:53.563  1990  4149 E ArtService: Failed to check dex file existence of CLC 'PCL[];PCL[/storage/emulated/0/Android/data/com.netshort.abroad/files/device_collection_260512202513_d.dex:/storage/emulated/0/Android/data/com.netshort.abroad/files/h5_lite_260703155123_d.dex:/data/app/~~dsDdPEX0kwPPFy6WXTHOTQ==/com.netshort.abroad-KohhfJrc0un8oRofJMlDyw==/base.apk:/data/user/0/com.netshort.abroad/.jiagu/classes.dex]{PCL[/system/framework/org.apache.http.legacy.jar]}' for '/data/user/0/com.netshort.abroad/app_pccache/5/F332DAB9DB9FBFD849CE09DCC1705010D37B6EDB/pcam.jar
+07-16 08:08:53.563  1990  4149 E ArtService: android.os.ServiceSpecificException: Failed to get status of '/storage/emulated/0/Android/data/com.netshort.abroad/files/device_collection_260512202513_d.dex': Permission denied (code 1)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at android.os.Parcel.createExceptionOrNull(Parcel.java:3285)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at android.os.Parcel.createException(Parcel.java:3255)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at android.os.Parcel.readException(Parcel.java:3238)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at android.os.Parcel.readException(Parcel.java:3180)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at com.android.server.art.IArtd$Stub$Proxy.hasAllClcDexFiles(IArtd.java:1698)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at com.android.server.art.DexUseManagerLocal.hasAllClcDexFiles(DexUseManagerLocal.java:902)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at com.android.server.art.DexUseManagerLocal.lambda$getSecondaryDexInfoImpl$8(DexUseManagerLocal.java:421)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at com.android.server.art.DexUseManagerLocal.$r8$lambda$j1xqkyhHYuV_W0IVIFUKzCMfD5w(DexUseManagerLocal.java:0)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at com.android.server.art.DexUseManagerLocal$$ExternalSyntheticLambda11.test(R8$$SyntheticClass:0)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at java.util.stream.ReferencePipeline$2$1.accept(ReferencePipeline.java:208)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:227)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at java.util.Iterator.forEachRemaining(Iterator.java:133)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at java.util.Spliterators$IteratorSpliterator.forEachRemaining(Spliterators.java:1939)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:574)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:564)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at java.util.stream.AbstractPipeline.evaluate(AbstractPipeline.java:642)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at java.util.stream.AbstractPipeline.evaluateToArrayNode(AbstractPipeline.java:294)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at java.util.stream.ReferencePipeline.toArray(ReferencePipeline.java:677)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at java.util.stream.ReferencePipeline.toArray(ReferencePipeline.java:683)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at java.util.stream.ReferencePipeline.toList(ReferencePipeline.java:688)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at com.android.server.art.DexUseManagerLocal.getSecondaryDexInfoImpl(DexUseManagerLocal.java:423)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at com.android.server.art.DexUseManagerLocal.getCheckedSecondaryDexInfo(DexUseManagerLocal.java:302)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at com.android.server.art.ArtFileManager.getSecondaryDexInfo(ArtFileManager.java:251)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at com.android.server.art.ArtFileManager.getDexAndAbis(ArtFileManager.java:88)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at com.android.server.art.ArtFileManager.getUsableArtifacts(ArtFileManager.java:156)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at com.android.server.art.ArtManagerLocal.getArtManagedFileStats(ArtManagerLocal.java:1197)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at com.android.server.usage.StorageStatsService.computeAppStatsByDataTypes(StorageStatsService.java:979)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at com.android.server.usage.StorageStatsService.queryStatsForUid(StorageStatsService.java:456)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at com.android.server.usage.StorageStatsService.queryStatsForPackage(StorageStatsService.java:383)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at android.app.usage.IStorageStatsManager$Stub.onTransact(IStorageStatsManager.java:265)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at android.os.Binder.execTransactInternal(Binder.java:1518)
+07-16 08:08:53.563  1990  4149 E ArtService: 	at android.os.Binder.execTransact(Binder.java:1457)
+07-16 08:08:54.798  7659  7659 E VendorNfcService: changeNfcStateByWirelessCharge: feature WIRELESS_CHARGING = true; mIsWirelessCharging: false; mIsReverseChargingSwitchOpen: false; mNfcWorkMode: 0; isOverSeaRegion() = true
+07-16 08:08:54.801  6740  6805 E Battery : a: getAISleepDuration: predictResult is null.
+07-16 08:08:54.801  6740  6805 E Battery : ChargeProtectionUtils: First Alarm is Wed Jul 15 22:00:00 GMT+08:00 2026, nowRtc  = Thu Jul 16 08:08:54 GMT+08:00 2026, too close , ignore it.
+07-16 08:08:54.801  6740  6805 E Battery : ChargeProtectionUtils: mCanlendarTmp.isEmpty()!
+07-16 08:08:56.082  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:08:56.082  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:08:56.797  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:08:56.798  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:08:57.201  1581  4240 E PerformanceService: storage_feature: open /sys/devices/platform/soc/112b0000.ufshci//virtualtlcbuff fail
+07-16 08:08:57.615   646   646 E lowmemorykiller: device memory 529973 free 46816 file 452061
+07-16 08:08:57.716   646   646 E lowmemorykiller: device memory 528896 free 44157 file 453637
+07-16 08:08:57.812  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog Request 0xb400007e793609c8: 206 transport: UNKNOWN: From legacy status [type.googleapis.com/drive.ds.Status='CANCELLED']
+07-16 08:08:57.812  8279  8400 E Cello   : === Source Location Trace: ===
+07-16 08:08:57.812  8279  8400 E Cello   : java/com/google/android/libraries/drive/core/impl/cello/jni/http_transport.cc:57
+07-16 08:08:57.812  8279  8400 E Cello   :  reader: UNKNOWN: From legacy status [type.googleapis.com/drive.ds.Status='CANCELLED']
+07-16 08:08:57.812  8279  8400 E Cello   : === Source Location Trace: ===
+07-16 08:08:57.812  8279  8400 E Cello   : apps/drive/cello/sync/fetch_content_flow.cc:564
+07-16 08:08:57.812  8279  8400 E Cello   : apps/drive/cello/transport/authenticated_transport.cc:61
+07-16 08:08:57.812  8279  8400 E Cello   :  url: https://www.googleapis.com/drive/v2internal/files/1VWGpJmBNKn56wRYMfhSKkowvwzXO-SQM?alt=media&revisionId=0B57MtS5U5nLVTU1pU1VuYmFhQmp6WFFEaHF3QjZWUFdoY3BZPQ&auditContext=forDisplay
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog req.hdr 0xb400007e793609c8: Range=bytes=4195502-53750250
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog req.hdr 0xb400007e793609c8: x-goog-ext-525001598-bin=CgZCAGICCAM=
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog resp.hdr 0xb400007e793609c8: x-guploader-uploadid=AKhXX7IKdo68VY0DX6oqK8ccO_yWTAoNZSFH8bEpW2awMoT5ZY04rHbVreTwR9stvouub33M
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog resp.hdr 0xb400007e793609c8: access-control-allow-credentials=true
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog resp.hdr 0xb400007e793609c8: content-disposition=attachment
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog resp.hdr 0xb400007e793609c8: content-length=49554749
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog resp.hdr 0xb400007e793609c8: x-xss-protection=0
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog resp.hdr 0xb400007e793609c8: content-type=application/vnd.android.package-archive
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog resp.hdr 0xb400007e793609c8: cache-control=private, max-age=0, must-revalidate
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog resp.hdr 0xb400007e793609c8: x-content-type-options=nosniff
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog resp.hdr 0xb400007e793609c8: expires=Thu, 16 Jul 2026 00:05:21 GMT
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog resp.hdr 0xb400007e793609c8: x-frame-options=SAMEORIGIN
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog resp.hdr 0xb400007e793609c8: content-range=bytes 4195502-53750250/53750251
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog resp.hdr 0xb400007e793609c8: date=Thu, 16 Jul 2026 00:05:21 GMT
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog resp.hdr 0xb400007e793609c8: alt-svc=h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog resp.hdr 0xb400007e793609c8: etag="-1195779499"
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog resp.hdr 0xb400007e793609c8: server=ESF
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog resp.hdr 0xb400007e793609c8: vary=Origin, X-Origin
+07-16 08:08:57.813  8279  8400 E Cello   : [8400:NonCelloThread] authenticated_transport.cc:182:DumpToLog Response body 0xb400007e793609c8: (streamed data)
+07-16 08:08:57.817   646   646 E lowmemorykiller: device memory 487476 free 46323 file 451840
+07-16 08:08:57.917   646   646 E lowmemorykiller: device memory 486005 free 68034 file 428428
+07-16 08:08:58.018   646   646 E lowmemorykiller: device memory 524347 free 70146 file 423177
+07-16 08:08:58.120   646   646 E lowmemorykiller: device memory 524330 free 69249 file 424095
+07-16 08:08:58.221   646   646 E lowmemorykiller: device memory 524266 free 67638 file 425615
+07-16 08:08:58.422   646   646 E lowmemorykiller: device memory 523831 free 67086 file 425700
+07-16 08:08:58.501  5229 16097 E midasd  : Read file /sys/class/power_supply/usb/current_now failed.(No data available)
+07-16 08:08:58.523   646   646 E lowmemorykiller: device memory 522669 free 65141 file 426483
+07-16 08:08:58.919  1309  1424 E TetherController: property_get sys.radio.data.modem_share_flag return 0, 1!
+07-16 08:08:58.926   646   646 E lowmemorykiller: device memory 525654 free 68056 file 426585
+07-16 08:08:59.027   646   646 E lowmemorykiller: device memory 529527 free 71881 file 426633
+07-16 08:08:59.271  7659  7659 E VendorNfcService: changeNfcStateByWirelessCharge: feature WIRELESS_CHARGING = true; mIsWirelessCharging: false; mIsReverseChargingSwitchOpen: false; mNfcWorkMode: 0; isOverSeaRegion() = true
+07-16 08:08:59.275  6740  6805 E Battery : a: getAISleepDuration: predictResult is null.
+07-16 08:08:59.275  6740  6805 E Battery : ChargeProtectionUtils: First Alarm is Wed Jul 15 22:00:00 GMT+08:00 2026, nowRtc  = Thu Jul 16 08:08:59 GMT+08:00 2026, too close , ignore it.
+07-16 08:08:59.275  6740  6805 E Battery : ChargeProtectionUtils: mCanlendarTmp.isEmpty()!
+07-16 08:08:59.634   646   646 E lowmemorykiller: device memory 529969 free 72256 file 426700
+07-16 08:09:00.052  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:00.052  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:00.101  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:00.101  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:00.109  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:00.109  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:00.837  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:00.838  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:01.847  5206  5268 E horae   : AmbientTempWatcher clear recorded data: power_diff over threshold.
+07-16 08:09:02.201  1581  4240 E PerformanceService: storage_feature: open /sys/devices/platform/soc/112b0000.ufshci//virtualtlcbuff fail
+07-16 08:09:03.207  1309  1424 E TetherController: property_get sys.radio.data.modem_share_flag return 0, 1!
+07-16 08:09:04.090  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:04.090  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:04.809  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:04.809  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:05.153  7659  7659 E VendorNfcService: changeNfcStateByWirelessCharge: feature WIRELESS_CHARGING = true; mIsWirelessCharging: false; mIsReverseChargingSwitchOpen: false; mNfcWorkMode: 0; isOverSeaRegion() = true
+07-16 08:09:05.157  6740  6805 E Battery : a: getAISleepDuration: predictResult is null.
+07-16 08:09:05.157  6740  6805 E Battery : ChargeProtectionUtils: First Alarm is Wed Jul 15 22:00:00 GMT+08:00 2026, nowRtc  = Thu Jul 16 08:09:05 GMT+08:00 2026, too close , ignore it.
+07-16 08:09:05.157  6740  6805 E Battery : ChargeProtectionUtils: mCanlendarTmp.isEmpty()!
+07-16 08:09:07.201  1581  4240 E PerformanceService: storage_feature: open /sys/devices/platform/soc/112b0000.ufshci//virtualtlcbuff fail
+07-16 08:09:08.103  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:08.104  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:08.387  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:08.387  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:08.498 26260 26260 E libEGL  : No entry found in platform lookup table for eglSurfaceAttribMTK
+07-16 08:09:08.754 26260 26260 E app_process: createInstance(64bit) : createExtendedFactory
+07-16 08:09:08.760 26260 26260 E app_process: createInstance(64bit) : createExtendedFactory
+07-16 08:09:08.761 26260 26260 E app_process: Opened libinputextensionsimpl.so
+07-16 08:09:08.761 26260 26260 E app_process: Opened libinputextensionsimpl.so
+07-16 08:09:09.118  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:09.118  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:09.367   646   646 E lowmemorykiller: device memory 526877 free 101965 file 395396
+07-16 08:09:09.428  2618  3991 E msys    : E[C 1]_MCCLogErrorInternal(331)=>131/1228/3561/-1
+07-16 08:09:09.431  2618  3991 E msys    : E[C mem_periodic_task_manager]_MCCLogLegacy(129)=>[MCC] execute_callback/message_persistence_store_periodic_deleted_messages_purge/1
+07-16 08:09:09.443  2618 30771 E msys    : E[D WA]_WPTPersistenceStore(55)=>could not store periodic tasks to local storage: Error Domain=MCCPeriodicTasksPersistenceProviderImpl Code=-20020
+07-16 08:09:09.456  2618  3991 E msys    : E[C 1]_MCCLogErrorInternal(331)=>131/1228/3561/-1
+07-16 08:09:09.457  2618  3991 E msys    : E[C mem_periodic_task_manager]_MCCLogLegacy(129)=>[MCC] execute_callback/message_persistence_store_periodic_messages_backup/1
+07-16 08:09:09.468   646   646 E lowmemorykiller: device memory 523334 free 96966 file 397775
+07-16 08:09:09.519  2618 30774 E msys    : E[N mccw.liger]onConnectError(588)=>connect/error - address: 57.144.228.36, port: 5222, ex: folly::AsyncSocketException: AsyncSocketException: connect timed out after 9999ms, type = Timed out
+07-16 08:09:09.522  2618 30774 E msys    : E[N mccw.liger]onConnectError(588)=>connect/error - address: 57.144.228.36, port: 443, ex: folly::AsyncSocketException: AsyncSocketException: connect timed out after 9999ms, type = Timed out
+07-16 08:09:09.527  2618 30771 E msys    : E[D WA]_WPTPersistenceStore(55)=>could not store periodic tasks to local storage: Error Domain=MCCPeriodicTasksPersistenceProviderImpl Code=-20020
+07-16 08:09:09.550  2618  3348 E msys    : E[N mns:DGWClient]_LogError(328)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+07-16 08:09:09.555  2618  3348 E msys    : E[N mns:DGWClient]_LogError(328)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+07-16 08:09:09.556  2618  3264 E msys    : E[N mns:TigonMNS]_LogError(328)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+07-16 08:09:09.557  2618  3264 E msys    : E[N mns:TigonMNS]_LogError(328)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+07-16 08:09:09.569   646   646 E lowmemorykiller: device memory 521859 free 91762 file 401501
+07-16 08:09:09.671   646   646 E lowmemorykiller: device memory 520955 free 87242 file 405094
+07-16 08:09:09.771   646   646 E lowmemorykiller: device memory 520797 free 84121 file 408086
+07-16 08:09:09.801  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.801  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.802  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.803  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.804  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.805  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.805  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.806  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.807  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.807  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.808  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.808  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.809  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.809  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.810  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.811  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.812  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.812  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.813  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.814  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.815  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.815  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.816  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.816  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.817  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.818  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.818  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.819  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.836  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:09.837  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:09.861  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:09.861  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:09.869  4020  4020 E OplusBubbleTextView[u0]: initFancyIcon when Launcher --cache miss!!!
+07-16 08:09:09.872   646   646 E lowmemorykiller: device memory 520414 free 74269 file 417375
+07-16 08:09:09.899  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:09.899  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:09.910  3732  9982 E ReflectionUtils: methodInvoke SupressionGC failed1
+07-16 08:09:09.910  3732  9982 E ReflectionUtils: java.lang.NoSuchMethodException: dalvik.system.VMRuntime.SupressionGC [int, int]
+07-16 08:09:09.910  3732  9982 E ReflectionUtils: 	at java.lang.Class.getMethod(Class.java:2942)
+07-16 08:09:09.910  3732  9982 E ReflectionUtils: 	at java.lang.Class.getDeclaredMethod(Class.java:2921)
+07-16 08:09:09.910  3732  9982 E ReflectionUtils: 	at com.android.wm.shell.util.ReflectionUtils.methodInvoke(ReflectionUtils.java:32)
+07-16 08:09:09.910  3732  9982 E ReflectionUtils: 	at com.oplus.transition.OplusTransitionReflectionHelper.callGcSupression(OplusTransitionReflectionHelper.java:109)
+07-16 08:09:09.910  3732  9982 E ReflectionUtils: 	at com.android.wm.shell.ShellTaskOrganizer.addStartingWindow(ShellTaskOrganizer.java:549)
+07-16 08:09:09.910  3732  9982 E ReflectionUtils: 	at android.window.TaskOrganizer$1.addStartingWindow(TaskOrganizer.java:298)
+07-16 08:09:09.910  3732  9982 E ReflectionUtils: 	at android.window.ITaskOrganizer$Stub.onTransact(ITaskOrganizer.java:184)
+07-16 08:09:09.910  3732  9982 E ReflectionUtils: 	at android.os.Binder.execTransactInternal(Binder.java:1523)
+07-16 08:09:09.910  3732  9982 E ReflectionUtils: 	at android.os.Binder.execTransact(Binder.java:1457)
+07-16 08:09:09.925  1309  1424 E TetherController: property_get sys.radio.data.modem_share_flag return 0, 1!
+07-16 08:09:09.932  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:09.932  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:09.952  1513  1744 E ANDR-PERF-LM: MetaMeter: handleAsync() 166: AdaptLaunch Invalid Async
+07-16 08:09:09.974   646   646 E lowmemorykiller: device memory 518842 free 61295 file 428750
+07-16 08:09:09.981 26295 26295 E ion_development: Unknown bits set in runtime_flags: 0x40000000
+07-16 08:09:09.986  3732  3856 E OplusBracketLog: [OplusViewMirrorManager] updateHostViewRootIfNeeded, not support android.view.ViewRootImpl@4abaaa2
+07-16 08:09:09.991  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:09.991  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:09.991  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:09.991  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.010  1513  1744 E ANDR-PERF-LM: MetaMeter: handleAsync() 166: AdaptLaunch Invalid Async
+07-16 08:09:10.072  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.072  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.074   646   646 E lowmemorykiller: device memory 504306 free 43643 file 433929
+07-16 08:09:10.079  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.079  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.095  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.095  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.106  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.106  4128  4164 E PackageUidManager: pkgs is empty for uid 10601
+07-16 08:09:10.106  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.112  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.112  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.120  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.120  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.125  1990  2655 E OplusThermalStats: Error getting package info: com.example.capstone_application_development
+07-16 08:09:10.128  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.128  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.143  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.143  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.150  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.150  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.155  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.155  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.162  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.162  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.172  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.172  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.178   646   646 E lowmemorykiller: device memory 465385 free 43140 file 435028
+07-16 08:09:10.180  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.180  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.188  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.188  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.195  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.196  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.210 26295 26295 E SchedAssist: ofbOpen failed with error=No such file or directory
+07-16 08:09:10.210 26295 26295 E SchedAssist: sysOpen failed with error=No such file or directory
+07-16 08:09:10.210 26295 26295 E SchedAssist: open sharedFd failed with error=Permission denied
+07-16 08:09:10.210 26295 26295 E SchedAssist: open sharedFd failed with error=Permission denied
+07-16 08:09:10.210 26295 26295 E SchedAssist: open sharedFd failed with error=Permission denied
+07-16 08:09:10.210 26295 26295 E SchedAssist: open sharedFd failed with error=No such file or directory
+07-16 08:09:10.211  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.211  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.213  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.213  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.217  1990  4149 E ScrollOptim [OplusPerfService]: isScrollOptimEnable: mSoptBean = ScrollOptimBean, mOptEnable=true, mCommonOnly=false, mPreAnimStrategy=1, mPreAnimBlacklist=[com.shopify.arrive, com.max.xiaoheihe, com.heytap.themestore, com.quark.browser, org.telegram.messenger, org.telegram.messenger.web, com.kyk.world, uz.unnarsx.cherrygram, com.android.launcher], mPreAnimWhitelist=[], mInsertNum=1, mFrameInsertList={com.shopify.arrive={}, com.sankuai.meituan={com.sankuai.waimai.business.page.kingkong.KingKongActivity=0, com.sankuai.waimai.business.page.homepage.TakeoutActivity=3}, com.xueqiu.android={com.xueqiu.android.common.imagebrowse.inner.ui.ImageBrowseActivity=0}, com.max.xiaoheihe={com.max.xiaoheihe.module.bbs.post.ui.activitys.WebNewsPostPageActivity=0}, com.heytap.themestore={}, com.sina.weibo={com.sina.weibo.VisitorMainTabActivity=3}, com.tencent.mm={com.tencent.mm.ui.AlbumUI=3, com.tencent.mm.plugin.sns.ui.SnsTimeLineUI=3, com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI=3}, com.netease.newsreader.activity={com.netease.newsreader.article.framework.view.NewsPageActivity=0}, com.taobao.idlefish={}, uz.unnarsx.cherrygram={uz.unnarsx.cherrygram.CG_Icon_Cherry=0}, com.kyk.world={}, com.android.launcher={}}, mSCEnableList={com.ss.android.ugc.aweme=[com.ss.android.ugc.aweme.splash.SplashActivity], com.sankuai.meituan=[com.meituan.android.pt.homepage.activity.MainActivity, com.sankuai.waimai.business.restaurant.poicontainer.WMRestaurantActivity, com.sankuai.waimai.business.page.homepage.TakeoutActivity], com.dragon.read=[com.dragon.read.pages.main.MainFragmentActivity], com.sina.weibo=[com.sina.weibo.VisitorMainTabActivity], com.xunmeng.pinduoduo=[com.xunmeng.pinduoduo.activity.NewPageActivity], com.tencent.qqmusic=[com.tencent.qqmusic.activity.AppStarterActivity], com.tencent.mobileqq=[com.qzone.feed.ui.activity.QZoneFriendFeedActivity], com.tencent.qqlive=[com.tencent.qqlive.ona.activity.SplashHomeActivity], com.ct.client=[com.ct.client.activity.MainActivity]}
+07-16 08:09:10.217  1990  4149 E ScrollOptim [OplusPerfService]: isScrollOptimEnable: pkgName = com.example.capstone_application_development, output = Bundle[{pre_anim_enable=true, frame_insert_list=null, frame_insert_default_num=1, scroll_changed_enable_list=null}]
+07-16 08:09:10.223  1308  1330 E statsd  : Stats puller failed for tag: 150134 at 804214735650433
+07-16 08:09:10.226  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.226  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.228  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.228  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+--------- beginning of crash
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: FATAL EXCEPTION: main
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: Process: com.example.capstone_application_development, PID: 26295
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: java.lang.RuntimeException: Unable to get provider androidx.startup.InitializationProvider: a2.a: java.lang.NoSuchMethodException: androidx.work.impl.WorkDatabase_Impl.<init> []
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at android.app.ActivityThread.installProvider(ActivityThread.java:9026)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at android.app.ActivityThread.installContentProviders(ActivityThread.java:8536)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:8191)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at android.app.ActivityThread.-$$Nest$mhandleBindApplication(ActivityThread.java:0)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2642)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:107)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at android.os.Looper.loopOnce(Looper.java:282)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:387)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:9500)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:600)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1005)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: Caused by: a2.a: java.lang.NoSuchMethodException: androidx.work.impl.WorkDatabase_Impl.<init> []
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at v0.a.b(r8-map-id-4c1161ba83b30dc5236d69a1a1abdc206daec8a3db4c60adf5c5a8588047ccc3:105)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at v0.a.a(r8-map-id-4c1161ba83b30dc5236d69a1a1abdc206daec8a3db4c60adf5c5a8588047ccc3:84)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at androidx.startup.InitializationProvider.onCreate(r8-map-id-4c1161ba83b30dc5236d69a1a1abdc206daec8a3db4c60adf5c5a8588047ccc3:49)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at android.content.ContentProvider.attachInfo(ContentProvider.java:2702)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at android.content.ContentProvider.attachInfo(ContentProvider.java:2671)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at android.app.ActivityThread.installProvider(ActivityThread.java:9021)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	... 11 more
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: Caused by: java.lang.NoSuchMethodException: androidx.work.impl.WorkDatabase_Impl.<init> []
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at java.lang.Class.getConstructor0(Class.java:3387)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at java.lang.Class.getDeclaredConstructor(Class.java:3069)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at w5.c0.e(r8-map-id-4c1161ba83b30dc5236d69a1a1abdc206daec8a3db4c60adf5c5a8588047ccc3:556)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at j1.o.c(r8-map-id-4c1161ba83b30dc5236d69a1a1abdc206daec8a3db4c60adf5c5a8588047ccc3:33)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at androidx.work.WorkManagerInitializer.create(r8-map-id-4c1161ba83b30dc5236d69a1a1abdc206daec8a3db4c60adf5c5a8588047ccc3:25)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	at v0.a.b(r8-map-id-4c1161ba83b30dc5236d69a1a1abdc206daec8a3db4c60adf5c5a8588047ccc3:92)
+07-16 08:09:10.235 26295 26295 E AndroidRuntime: 	... 16 more
+07-16 08:09:10.237  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.237  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.238  1308  1330 E statsd  : Gauge Stats puller failed for tag: 150119 at 804214735650433
+07-16 08:09:10.245  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.245  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.255  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.255  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.261  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.261  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.269  1990  3788 E OsenseKillAction: KillAction: find invalid process: com.example.capstone_application_development:26295:2
+07-16 08:09:10.270  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.270  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.271  5229 16097 E midasd  : Read file /sys/class/power_supply/usb/current_now failed.(No data available)
+07-16 08:09:10.275   646   646 E lowmemorykiller: device memory 476210 free 54768 file 434351
+07-16 08:09:10.278  4020  4020 E SideSlipGesturesGuideHelper[u0]: canShowSwipeUpGuide launcher is null
+07-16 08:09:10.294  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.294  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.303  1510  2143 E ANDR-PERF-CLIENT: Process is Flooding request to PerfService
+07-16 08:09:10.309  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.309  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.309  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.309  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.311  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.312  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.335  1990  2655 E OplusThermalStats: Error getting package info: com.android.launcher
+07-16 08:09:10.337  1510  2143 E ANDR-PERF-CLIENT: Process is Flooding request to PerfService
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: methodInvoke DesupressionGC failed1
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: java.lang.NoSuchMethodException: dalvik.system.VMRuntime.DesupressionGC [int]
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at java.lang.Class.getMethod(Class.java:2942)
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at java.lang.Class.getDeclaredMethod(Class.java:2921)
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at com.android.wm.shell.util.ReflectionUtils.methodInvoke(ReflectionUtils.java:32)
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at com.oplus.transition.OplusTransitionReflectionHelper.callGcDesupression(OplusTransitionReflectionHelper.java:120)
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at com.android.wm.shell.transition.Transitions.onFinish(Transitions.java:1630)
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at com.android.wm.shell.transition.Transitions.lambda$playTransition$3(Transitions.java:1361)
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at com.android.wm.shell.transition.Transitions.$r8$lambda$96XCaSAhJXxB3nlVJy1TNPeH46k(Transitions.java:0)
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at com.android.wm.shell.transition.Transitions$$ExternalSyntheticLambda8.onTransitionFinished(R8$$SyntheticClass:0)
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at com.android.wm.shell.transition.DefaultTransitionHandler.lambda$startAnimation$2(DefaultTransitionHandler.java:396)
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at com.android.wm.shell.transition.DefaultTransitionHandler.$r8$lambda$dQGDCIj8oXu4Q3gE3IU3-TQE6Pc(DefaultTransitionHandler.java:0)
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at com.android.wm.shell.transition.DefaultTransitionHandler$$ExternalSyntheticLambda4.run(R8$$SyntheticClass:0)
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at com.android.wm.shell.transition.DefaultTransitionHandler.lambda$buildSurfaceAnimation$8(DefaultTransitionHandler.java:1171)
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at com.android.wm.shell.transition.DefaultTransitionHandler.$r8$lambda$SibS6C6yE4_jWZJm9l8mh9KjTYk(DefaultTransitionHandler.java:0)
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at com.android.wm.shell.transition.DefaultTransitionHandler$$ExternalSyntheticLambda14.run(R8$$SyntheticClass:0)
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at android.os.Handler.handleCallback(Handler.java:973)
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at android.os.Handler.dispatchMessage(Handler.java:100)
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at android.os.Looper.loopOnce(Looper.java:282)
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at android.os.Looper.loop(Looper.java:387)
+07-16 08:09:10.347  3732  3820 E ReflectionUtils: 	at android.os.HandlerThread.run(HandlerThread.java:85)
+07-16 08:09:10.368  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.368  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.375  1990  4463 E libprocessgroup: Could not read cgroup.events: : No such device
+07-16 08:09:10.375   646   646 E lowmemorykiller: device memory 490879 free 74519 file 429269
+07-16 08:09:10.394  1308  1330 E statsd  : Stats puller failed for tag: 150134 at 804214917885277
+07-16 08:09:10.395  1308  1330 E statsd  : Gauge Stats puller failed for tag: 150119 at 804214917885277
+07-16 08:09:10.402  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.402  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.407  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.407  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.408  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.408  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.411   646   646 E lowmemorykiller: device memory 533554 free 74101 file 430492
+07-16 08:09:10.413  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.414  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.433  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.434  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.445  1510  2142 E ANDR-PERF-CLIENT: Process is Flooding request to PerfService
+07-16 08:09:10.448  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.448  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.449  5229 16097 E midasd  : Read file /sys/class/power_supply/usb/current_now failed.(No data available)
+07-16 08:09:10.449  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.449  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.454  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.454  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.465  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.465  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.477   646   646 E lowmemorykiller: device memory 544320 free 81414 file 434140
+07-16 08:09:10.478  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.478  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.480  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.480  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.488  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.488  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.496  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.496  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.504  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.504  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.511  1990  4482 E OplusAthenaAm: AthenaAmManagerInternal transact code hello:6,flags:0
+07-16 08:09:10.511  1990  4482 E OplusAthenaAm: AthenaAmManagerInternal transact code hello:7,flags:0
+07-16 08:09:10.512  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.512  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.522  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.522  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.524  1990  4482 E OplusAthenaAm: AthenaAmManagerInternal transact code hello:4,flags:0
+07-16 08:09:10.524  1990  4482 E OplusAthenaAm: AthenaAmManagerInternal transact code hello:4,flags:0
+07-16 08:09:10.524  1990  4482 E OplusAthenaAm: AthenaAmManagerInternal transact code hello:4,flags:0
+07-16 08:09:10.533  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.533  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.539  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.539  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.546  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.546  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.529  4246 15960 E Athena  : AthenaService: onAthenaCleanup
+07-16 08:09:10.554  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.554  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.565  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.565  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.572  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.572  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.576   646   646 E lowmemorykiller: device memory 547811 free 82040 file 436933
+07-16 08:09:10.583  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.583  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.587  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.587  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.595  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.595  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.600 26464 26464 E onemanager:card: Unknown bits set in runtime_flags: 0x40000000
+07-16 08:09:10.605  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.605  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.613  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.613  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.616  1990  2646 E libprocessgroup: Failed to open /sys/fs/cgroup/uid_10249/pid_15982/cgroup.procs: No such file or directory
+07-16 08:09:10.643  1990  2646 E libprocessgroup: Failed to open /sys/fs/cgroup/uid_10156/pid_18811/cgroup.procs: No such file or directory
+07-16 08:09:10.675   646   646 E lowmemorykiller: device memory 548584 free 77933 file 441687
+07-16 08:09:10.686  5229 16097 E midasd  : Read file /sys/class/power_supply/usb/current_now failed.(No data available)
+07-16 08:09:10.691  4128  4164 E PackageUidManager: pkgs is empty for uid 10601
+07-16 08:09:10.727  1990  2646 E libprocessgroup: Failed to open /sys/fs/cgroup/uid_10106/pid_11931/cgroup.procs: No such file or directory
+07-16 08:09:10.764  1990  2646 E libprocessgroup: Failed to open /sys/fs/cgroup/uid_10277/pid_14138/cgroup.procs: No such file or directory
+07-16 08:09:10.777   646   646 E lowmemorykiller: device memory 554719 free 71108 file 446860
+07-16 08:09:10.806  1308  1330 E statsd  : Stats puller failed for tag: 150134 at 804215338835797
+07-16 08:09:10.846  4020  4020 E IJankManager: latencySceneEnd unknown scene 2 mScene:-1
+07-16 08:09:10.871  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:10.871  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:10.872  1990  4065 E OCvtSystemService: Cannot get map: android.system.ErrnoException: nativeBpfFdGet failed: ENOENT (No such file or directory)
+07-16 08:09:10.873  1308  1330 E statsd  : Gauge Stats puller failed for tag: 150130 at 804215393299443
+07-16 08:09:10.875   646   646 E lowmemorykiller: device memory 558575 free 69522 file 449520
+07-16 08:09:10.900  5229 16097 E midasd  : Read file /sys/class/power_supply/usb/current_now failed.(No data available)
+07-16 08:09:10.901  2262 26521 E gaia:qseetzlogtask: [collect:48]node(oemLogEncrypt) does not exist!
+07-16 08:09:10.976   646   646 E lowmemorykiller: device memory 552728 free 57087 file 454864
+07-16 08:09:10.990  1513  5649 E ANDR-PERF-LM: VmRssMeter:: start() 453: Could not find pid, can not collect vmrss data
+07-16 08:09:10.998  1513  5649 E ANDR-PERF-LM: AdaptiveLaunch: writeToDataBase() 64: Meter aborted or could not get meter data for this run
+07-16 08:09:11.003  1513  5648 E ANDR-PERF-LM: VmRssMeter:: start() 453: Could not find pid, can not collect vmrss data
+07-16 08:09:11.049  7659  7659 E VendorNfcService: changeNfcStateByWirelessCharge: feature WIRELESS_CHARGING = true; mIsWirelessCharging: false; mIsReverseChargingSwitchOpen: false; mNfcWorkMode: 0; isOverSeaRegion() = true
+07-16 08:09:11.053  6740  6805 E Battery : a: getAISleepDuration: predictResult is null.
+07-16 08:09:11.054  6740  6805 E Battery : ChargeProtectionUtils: First Alarm is Wed Jul 15 22:00:00 GMT+08:00 2026, nowRtc  = Thu Jul 16 08:09:11 GMT+08:00 2026, too close , ignore it.
+07-16 08:09:11.055  6740  6805 E Battery : ChargeProtectionUtils: mCanlendarTmp.isEmpty()!
+07-16 08:09:11.078   646   646 E lowmemorykiller: device memory 556795 free 52919 file 463122
+07-16 08:09:11.178   646   646 E lowmemorykiller: device memory 516023 free 55286 file 462778
+07-16 08:09:11.183 26464 26557 E MSP-LOG-SDK-ColorOSVersionUtils: oplus ver:34
+07-16 08:09:11.195 26464 26579 E MSP-LOG-SDK-RateLimitManager: not_allow_invoke because of time_window_not_allow queue = [1784139032790], config = RateLimitConfig{maxCalls=1, timeWindowSeconds=21600, callIntervalSeconds=0}, ipcInvokeTimeQueueMapKey = com.heytap.nearx.tangramconfig.kit.client.ICloudCtrlServiceModule?@?global-domain_1281?@?1?@?com.coloros.phonemanager:card, has already call 1 times in 21600 seconds before
+07-16 08:09:11.195 26464 26577 E MSP-LOG-SDK-RateLimitManager: not_allow_invoke because of time_window_not_allow queue = [1784145738469], config = RateLimitConfig{maxCalls=1, timeWindowSeconds=21600, callIntervalSeconds=0}, ipcInvokeTimeQueueMapKey = com.heytap.nearx.tangramconfig.kit.client.ICloudCtrlServiceModule?@?50351?@?1?@?com.coloros.phonemanager:card, has already call 1 times in 21600 seconds before
+07-16 08:09:11.199 26464 26579 E MSP-LOG-SDK-: MspSdkException{code=3014,message=com.heytap.mspsdk.ratelimit.MspRateLimitExceededException: ipc rate limit exceeded in time window}
+07-16 08:09:11.199 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.ratelimit.b.a(RateLimitInterceptor.java:46)
+07-16 08:09:11.199 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.199 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.b.a(CompatCheckInterceptor.java:183)
+07-16 08:09:11.199 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.199 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.d.invoke(InnerInvocationHandler.java:261)
+07-16 08:09:11.199 26464 26579 E MSP-LOG-SDK-: 	at java.lang.reflect.Proxy.invoke(Proxy.java:1009)
+07-16 08:09:11.199 26464 26579 E MSP-LOG-SDK-: 	at $Proxy9.getDynamicCondition(Unknown Source)
+07-16 08:09:11.199 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.getDynamicCondition$lambda$0(KitProxy.kt:25)
+07-16 08:09:11.199 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.b(KitProxy.kt:1)
+07-16 08:09:11.199 26464 26579 E MSP-LOG-SDK-: 	at com.applovin.impl.pt.run(R8$$SyntheticClass:62)
+07-16 08:09:11.199 26464 26579 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1100)
+07-16 08:09:11.199 26464 26579 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+07-16 08:09:11.199 26464 26579 E MSP-LOG-SDK-: 	at java.lang.Thread.run(Thread.java:1572)
+07-16 08:09:11.199 26464 26577 E MSP-LOG-SDK-: MspSdkException{code=3014,message=com.heytap.mspsdk.ratelimit.MspRateLimitExceededException: ipc rate limit exceeded in time window}
+07-16 08:09:11.199 26464 26577 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.ratelimit.b.a(RateLimitInterceptor.java:46)
+07-16 08:09:11.199 26464 26577 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.199 26464 26577 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.b.a(CompatCheckInterceptor.java:183)
+07-16 08:09:11.199 26464 26577 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.199 26464 26577 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.d.invoke(InnerInvocationHandler.java:261)
+07-16 08:09:11.199 26464 26577 E MSP-LOG-SDK-: 	at java.lang.reflect.Proxy.invoke(Proxy.java:1009)
+07-16 08:09:11.199 26464 26577 E MSP-LOG-SDK-: 	at $Proxy9.getDynamicCondition(Unknown Source)
+07-16 08:09:11.199 26464 26577 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.getDynamicCondition$lambda$0(KitProxy.kt:25)
+07-16 08:09:11.199 26464 26577 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.b(KitProxy.kt:1)
+07-16 08:09:11.199 26464 26577 E MSP-LOG-SDK-: 	at com.applovin.impl.pt.run(R8$$SyntheticClass:62)
+07-16 08:09:11.199 26464 26577 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1100)
+07-16 08:09:11.199 26464 26577 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+07-16 08:09:11.199 26464 26577 E MSP-LOG-SDK-: 	at java.lang.Thread.run(Thread.java:1572)
+07-16 08:09:11.213 26464 26555 E CardWidget.: get id by widget code has error For input string: "10010000011",[sdk:v2000008]
+07-16 08:09:11.222 26464 26591 E MSP-LOG-SDK-RateLimitManager: not_allow_invoke because of time_window_not_allow queue = [1784145972680], config = RateLimitConfig{maxCalls=1, timeWindowSeconds=21600, callIntervalSeconds=0}, ipcInvokeTimeQueueMapKey = com.heytap.nearx.tangramconfig.kit.client.ICloudCtrlServiceModule?@?compass_20092?@?1?@?com.coloros.phonemanager:card, has already call 1 times in 21600 seconds before
+07-16 08:09:11.223 26464 26591 E MSP-LOG-SDK-: MspSdkException{code=3014,message=com.heytap.mspsdk.ratelimit.MspRateLimitExceededException: ipc rate limit exceeded in time window}
+07-16 08:09:11.223 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.ratelimit.b.a(RateLimitInterceptor.java:46)
+07-16 08:09:11.223 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.223 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.b.a(CompatCheckInterceptor.java:183)
+07-16 08:09:11.223 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.223 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.d.invoke(InnerInvocationHandler.java:261)
+07-16 08:09:11.223 26464 26591 E MSP-LOG-SDK-: 	at java.lang.reflect.Proxy.invoke(Proxy.java:1009)
+07-16 08:09:11.223 26464 26591 E MSP-LOG-SDK-: 	at $Proxy9.getDynamicCondition(Unknown Source)
+07-16 08:09:11.223 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.getDynamicCondition$lambda$0(KitProxy.kt:25)
+07-16 08:09:11.223 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.b(KitProxy.kt:1)
+07-16 08:09:11.223 26464 26591 E MSP-LOG-SDK-: 	at com.applovin.impl.pt.run(R8$$SyntheticClass:62)
+07-16 08:09:11.223 26464 26591 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1100)
+07-16 08:09:11.223 26464 26591 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+07-16 08:09:11.223 26464 26591 E MSP-LOG-SDK-: 	at java.lang.Thread.run(Thread.java:1572)
+07-16 08:09:11.234 26464 26593 E MSP-LOG-SDK-RateLimitManager: not_allow_invoke because of time_window_not_allow queue = [1784154318277], config = RateLimitConfig{maxCalls=1, timeWindowSeconds=7200, callIntervalSeconds=0}, ipcInvokeTimeQueueMapKey = com.heytap.nearx.tangramconfig.kit.client.ICloudCtrlServiceModule?@?50351?@?2?@?com.coloros.phonemanager:card, has already call 1 times in 7200 seconds before
+07-16 08:09:11.235 26464 26593 E MSP-LOG-SDK-: MspSdkException{code=3014,message=com.heytap.mspsdk.ratelimit.MspRateLimitExceededException: ipc rate limit exceeded in time window}
+07-16 08:09:11.235 26464 26593 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.ratelimit.b.a(RateLimitInterceptor.java:46)
+07-16 08:09:11.235 26464 26593 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.235 26464 26593 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.b.a(CompatCheckInterceptor.java:183)
+07-16 08:09:11.235 26464 26593 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.235 26464 26593 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.d.invoke(InnerInvocationHandler.java:261)
+07-16 08:09:11.235 26464 26593 E MSP-LOG-SDK-: 	at java.lang.reflect.Proxy.invoke(Proxy.java:1009)
+07-16 08:09:11.235 26464 26593 E MSP-LOG-SDK-: 	at $Proxy9.getConfigData(Unknown Source)
+07-16 08:09:11.235 26464 26593 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.getConfigData$lambda$1(KitProxy.kt:29)
+07-16 08:09:11.235 26464 26593 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.c(KitProxy.kt:1)
+07-16 08:09:11.235 26464 26593 E MSP-LOG-SDK-: 	at androidx.work.impl.e.run(R8$$SyntheticClass:151)
+07-16 08:09:11.235 26464 26593 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1100)
+07-16 08:09:11.235 26464 26593 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+07-16 08:09:11.235 26464 26593 E MSP-LOG-SDK-: 	at java.lang.Thread.run(Thread.java:1572)
+07-16 08:09:11.235 26464 26579 E MSP-LOG-SDK-RateLimitManager: not_allow_invoke because of time_window_not_allow queue = [1784154132582], config = RateLimitConfig{maxCalls=1, timeWindowSeconds=7200, callIntervalSeconds=0}, ipcInvokeTimeQueueMapKey = com.heytap.nearx.tangramconfig.kit.client.ICloudCtrlServiceModule?@?50351?@?4?@?com.coloros.phonemanager:card, has already call 1 times in 7200 seconds before
+07-16 08:09:11.235 26464 26579 E MSP-LOG-SDK-: MspSdkException{code=3014,message=com.heytap.mspsdk.ratelimit.MspRateLimitExceededException: ipc rate limit exceeded in time window}
+07-16 08:09:11.235 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.ratelimit.b.a(RateLimitInterceptor.java:46)
+07-16 08:09:11.235 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.235 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.b.a(CompatCheckInterceptor.java:183)
+07-16 08:09:11.235 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.235 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.d.invoke(InnerInvocationHandler.java:261)
+07-16 08:09:11.235 26464 26579 E MSP-LOG-SDK-: 	at java.lang.reflect.Proxy.invoke(Proxy.java:1009)
+07-16 08:09:11.235 26464 26579 E MSP-LOG-SDK-: 	at $Proxy9.checkUpdateConfig(Unknown Source)
+07-16 08:09:11.235 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.checkUpdateConfig$lambda$3(KitProxy.kt:20)
+07-16 08:09:11.235 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.d(KitProxy.kt:1)
+07-16 08:09:11.235 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.a.run(R8$$SyntheticClass:9)
+07-16 08:09:11.235 26464 26579 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1100)
+07-16 08:09:11.235 26464 26579 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+07-16 08:09:11.235 26464 26579 E MSP-LOG-SDK-: 	at java.lang.Thread.run(Thread.java:1572)
+07-16 08:09:11.236 26464 26577 E MSP-LOG-SDK-RateLimitManager: not_allow_invoke because of time_window_not_allow queue = [1784145738469], config = RateLimitConfig{maxCalls=1, timeWindowSeconds=21600, callIntervalSeconds=0}, ipcInvokeTimeQueueMapKey = com.heytap.nearx.tangramconfig.kit.client.ICloudCtrlServiceModule?@?50351?@?1?@?com.coloros.phonemanager:card, has already call 1 times in 21600 seconds before
+07-16 08:09:11.236 26464 26577 E MSP-LOG-SDK-: MspSdkException{code=3014,message=com.heytap.mspsdk.ratelimit.MspRateLimitExceededException: ipc rate limit exceeded in time window}
+07-16 08:09:11.236 26464 26577 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.ratelimit.b.a(RateLimitInterceptor.java:46)
+07-16 08:09:11.236 26464 26577 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.236 26464 26577 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.b.a(CompatCheckInterceptor.java:183)
+07-16 08:09:11.236 26464 26577 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.236 26464 26577 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.d.invoke(InnerInvocationHandler.java:261)
+07-16 08:09:11.236 26464 26577 E MSP-LOG-SDK-: 	at java.lang.reflect.Proxy.invoke(Proxy.java:1009)
+07-16 08:09:11.236 26464 26577 E MSP-LOG-SDK-: 	at $Proxy9.getDynamicCondition(Unknown Source)
+07-16 08:09:11.236 26464 26577 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.getDynamicCondition$lambda$0(KitProxy.kt:25)
+07-16 08:09:11.236 26464 26577 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.b(KitProxy.kt:1)
+07-16 08:09:11.236 26464 26577 E MSP-LOG-SDK-: 	at com.applovin.impl.pt.run(R8$$SyntheticClass:62)
+07-16 08:09:11.236 26464 26577 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1100)
+07-16 08:09:11.236 26464 26577 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+07-16 08:09:11.236 26464 26577 E MSP-LOG-SDK-: 	at java.lang.Thread.run(Thread.java:1572)
+07-16 08:09:11.242 26464 26594 E MSP-LOG-SDK-RateLimitManager: not_allow_invoke because of time_window_not_allow queue = [1784145738469], config = RateLimitConfig{maxCalls=1, timeWindowSeconds=21600, callIntervalSeconds=0}, ipcInvokeTimeQueueMapKey = com.heytap.nearx.tangramconfig.kit.client.ICloudCtrlServiceModule?@?50351?@?1?@?com.coloros.phonemanager:card, has already call 1 times in 21600 seconds before
+07-16 08:09:11.242 26464 26594 E MSP-LOG-SDK-: MspSdkException{code=3014,message=com.heytap.mspsdk.ratelimit.MspRateLimitExceededException: ipc rate limit exceeded in time window}
+07-16 08:09:11.242 26464 26594 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.ratelimit.b.a(RateLimitInterceptor.java:46)
+07-16 08:09:11.242 26464 26594 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.242 26464 26594 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.b.a(CompatCheckInterceptor.java:183)
+07-16 08:09:11.242 26464 26594 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.242 26464 26594 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.d.invoke(InnerInvocationHandler.java:261)
+07-16 08:09:11.242 26464 26594 E MSP-LOG-SDK-: 	at java.lang.reflect.Proxy.invoke(Proxy.java:1009)
+07-16 08:09:11.242 26464 26594 E MSP-LOG-SDK-: 	at $Proxy9.getDynamicCondition(Unknown Source)
+07-16 08:09:11.242 26464 26594 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.getDynamicCondition$lambda$0(KitProxy.kt:25)
+07-16 08:09:11.242 26464 26594 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.b(KitProxy.kt:1)
+07-16 08:09:11.242 26464 26594 E MSP-LOG-SDK-: 	at com.applovin.impl.pt.run(R8$$SyntheticClass:62)
+07-16 08:09:11.242 26464 26594 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1100)
+07-16 08:09:11.242 26464 26594 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+07-16 08:09:11.242 26464 26594 E MSP-LOG-SDK-: 	at java.lang.Thread.run(Thread.java:1572)
+07-16 08:09:11.269  4020  4519 E ThemeCardApiLoader: isSupportThemeCard value=true
+07-16 08:09:11.279   646   646 E lowmemorykiller: device memory 555466 free 68241 file 456126
+07-16 08:09:11.286  4020  4519 E SettingsNativeApi: setSecureIntValue: launcher_card_view_ratio, java.lang.NullPointerException: getString(cr, key) must not be null
+07-16 08:09:11.290  4020  4519 E parseScaleFactor: parse json error: java.lang.IllegalStateException: Not a JSON Object: null
+07-16 08:09:11.314  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:11.314  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:11.320 26464 26582 E FeatureFlagsImplExport: android.os.flagging.AconfigStorageReadException: ERROR_PACKAGE_NOT_FOUND: package com.android.libcore cannot be found on the device
+07-16 08:09:11.380   646   646 E lowmemorykiller: device memory 554331 free 66805 file 456938
+07-16 08:09:11.481   646   646 E lowmemorykiller: device memory 554154 free 66608 file 456958
+07-16 08:09:11.655 26464 26591 E MSP-LOG-SDK-RateLimitManager: not_allow_invoke because of time_window_not_allow queue = [1784157106471], config = RateLimitConfig{maxCalls=1, timeWindowSeconds=7200, callIntervalSeconds=0}, ipcInvokeTimeQueueMapKey = com.heytap.nearx.tangramconfig.kit.client.ICloudCtrlServiceModule?@?global-domain_1281?@?4?@?com.coloros.phonemanager:card, has already call 1 times in 7200 seconds before
+07-16 08:09:11.656 26464 26591 E MSP-LOG-SDK-: MspSdkException{code=3014,message=com.heytap.mspsdk.ratelimit.MspRateLimitExceededException: ipc rate limit exceeded in time window}
+07-16 08:09:11.656 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.ratelimit.b.a(RateLimitInterceptor.java:46)
+07-16 08:09:11.656 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.656 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.b.a(CompatCheckInterceptor.java:183)
+07-16 08:09:11.656 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.656 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.d.invoke(InnerInvocationHandler.java:261)
+07-16 08:09:11.656 26464 26591 E MSP-LOG-SDK-: 	at java.lang.reflect.Proxy.invoke(Proxy.java:1009)
+07-16 08:09:11.656 26464 26591 E MSP-LOG-SDK-: 	at $Proxy9.checkUpdateConfig(Unknown Source)
+07-16 08:09:11.656 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.checkUpdateConfig$lambda$3(KitProxy.kt:20)
+07-16 08:09:11.656 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.d(KitProxy.kt:1)
+07-16 08:09:11.656 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.a.run(R8$$SyntheticClass:9)
+07-16 08:09:11.656 26464 26591 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1100)
+07-16 08:09:11.656 26464 26591 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+07-16 08:09:11.656 26464 26591 E MSP-LOG-SDK-: 	at java.lang.Thread.run(Thread.java:1572)
+07-16 08:09:11.658 26464 26593 E MSP-LOG-SDK-RateLimitManager: not_allow_invoke because of time_window_not_allow queue = [1784139032790], config = RateLimitConfig{maxCalls=1, timeWindowSeconds=21600, callIntervalSeconds=0}, ipcInvokeTimeQueueMapKey = com.heytap.nearx.tangramconfig.kit.client.ICloudCtrlServiceModule?@?global-domain_1281?@?1?@?com.coloros.phonemanager:card, has already call 1 times in 21600 seconds before
+07-16 08:09:11.659 26464 26593 E MSP-LOG-SDK-: MspSdkException{code=3014,message=com.heytap.mspsdk.ratelimit.MspRateLimitExceededException: ipc rate limit exceeded in time window}
+07-16 08:09:11.659 26464 26593 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.ratelimit.b.a(RateLimitInterceptor.java:46)
+07-16 08:09:11.659 26464 26593 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.659 26464 26593 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.b.a(CompatCheckInterceptor.java:183)
+07-16 08:09:11.659 26464 26593 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.659 26464 26593 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.d.invoke(InnerInvocationHandler.java:261)
+07-16 08:09:11.659 26464 26593 E MSP-LOG-SDK-: 	at java.lang.reflect.Proxy.invoke(Proxy.java:1009)
+07-16 08:09:11.659 26464 26593 E MSP-LOG-SDK-: 	at $Proxy9.getDynamicCondition(Unknown Source)
+07-16 08:09:11.659 26464 26593 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.getDynamicCondition$lambda$0(KitProxy.kt:25)
+07-16 08:09:11.659 26464 26593 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.b(KitProxy.kt:1)
+07-16 08:09:11.659 26464 26593 E MSP-LOG-SDK-: 	at com.applovin.impl.pt.run(R8$$SyntheticClass:62)
+07-16 08:09:11.659 26464 26593 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1100)
+07-16 08:09:11.659 26464 26593 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+07-16 08:09:11.659 26464 26593 E MSP-LOG-SDK-: 	at java.lang.Thread.run(Thread.java:1572)
+07-16 08:09:11.662 26464 26579 E MSP-LOG-SDK-RateLimitManager: not_allow_invoke because of time_window_not_allow queue = [1784157182323], config = RateLimitConfig{maxCalls=1, timeWindowSeconds=7200, callIntervalSeconds=0}, ipcInvokeTimeQueueMapKey = com.heytap.nearx.tangramconfig.kit.client.ICloudCtrlServiceModule?@?compass_20092?@?2?@?com.coloros.phonemanager:card, has already call 1 times in 7200 seconds before
+07-16 08:09:11.662 26464 26579 E MSP-LOG-SDK-: MspSdkException{code=3014,message=com.heytap.mspsdk.ratelimit.MspRateLimitExceededException: ipc rate limit exceeded in time window}
+07-16 08:09:11.662 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.ratelimit.b.a(RateLimitInterceptor.java:46)
+07-16 08:09:11.662 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.662 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.b.a(CompatCheckInterceptor.java:183)
+07-16 08:09:11.662 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.662 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.d.invoke(InnerInvocationHandler.java:261)
+07-16 08:09:11.662 26464 26579 E MSP-LOG-SDK-: 	at java.lang.reflect.Proxy.invoke(Proxy.java:1009)
+07-16 08:09:11.662 26464 26579 E MSP-LOG-SDK-: 	at $Proxy9.getConfigData(Unknown Source)
+07-16 08:09:11.662 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.getConfigData$lambda$1(KitProxy.kt:29)
+07-16 08:09:11.662 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.c(KitProxy.kt:1)
+07-16 08:09:11.662 26464 26579 E MSP-LOG-SDK-: 	at androidx.work.impl.e.run(R8$$SyntheticClass:151)
+07-16 08:09:11.662 26464 26579 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1100)
+07-16 08:09:11.662 26464 26579 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+07-16 08:09:11.662 26464 26579 E MSP-LOG-SDK-: 	at java.lang.Thread.run(Thread.java:1572)
+07-16 08:09:11.663 26464 26579 E MSP-LOG-SDK-RateLimitManager: not_allow_invoke because of time_window_not_allow queue = [1784145972680], config = RateLimitConfig{maxCalls=1, timeWindowSeconds=21600, callIntervalSeconds=0}, ipcInvokeTimeQueueMapKey = com.heytap.nearx.tangramconfig.kit.client.ICloudCtrlServiceModule?@?compass_20092?@?1?@?com.coloros.phonemanager:card, has already call 1 times in 21600 seconds before
+07-16 08:09:11.663 26464 26579 E MSP-LOG-SDK-: MspSdkException{code=3014,message=com.heytap.mspsdk.ratelimit.MspRateLimitExceededException: ipc rate limit exceeded in time window}
+07-16 08:09:11.663 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.ratelimit.b.a(RateLimitInterceptor.java:46)
+07-16 08:09:11.663 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.663 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.b.a(CompatCheckInterceptor.java:183)
+07-16 08:09:11.663 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.663 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.d.invoke(InnerInvocationHandler.java:261)
+07-16 08:09:11.663 26464 26579 E MSP-LOG-SDK-: 	at java.lang.reflect.Proxy.invoke(Proxy.java:1009)
+07-16 08:09:11.663 26464 26579 E MSP-LOG-SDK-: 	at $Proxy9.getDynamicCondition(Unknown Source)
+07-16 08:09:11.663 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.getDynamicCondition$lambda$0(KitProxy.kt:25)
+07-16 08:09:11.663 26464 26579 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.b(KitProxy.kt:1)
+07-16 08:09:11.663 26464 26579 E MSP-LOG-SDK-: 	at com.applovin.impl.pt.run(R8$$SyntheticClass:62)
+07-16 08:09:11.663 26464 26579 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1100)
+07-16 08:09:11.663 26464 26579 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+07-16 08:09:11.663 26464 26579 E MSP-LOG-SDK-: 	at java.lang.Thread.run(Thread.java:1572)
+07-16 08:09:11.666 26464 26594 E MSP-LOG-SDK-RateLimitManager: not_allow_invoke because of time_window_not_allow queue = [1784157580859], config = RateLimitConfig{maxCalls=1, timeWindowSeconds=7200, callIntervalSeconds=0}, ipcInvokeTimeQueueMapKey = com.heytap.nearx.tangramconfig.kit.client.ICloudCtrlServiceModule?@?compass_20092?@?4?@?com.coloros.phonemanager:card, has already call 1 times in 7200 seconds before
+07-16 08:09:11.666 26464 26591 E MSP-LOG-SDK-RateLimitManager: not_allow_invoke because of time_window_not_allow queue = [1784145972680], config = RateLimitConfig{maxCalls=1, timeWindowSeconds=21600, callIntervalSeconds=0}, ipcInvokeTimeQueueMapKey = com.heytap.nearx.tangramconfig.kit.client.ICloudCtrlServiceModule?@?compass_20092?@?1?@?com.coloros.phonemanager:card, has already call 1 times in 21600 seconds before
+07-16 08:09:11.666 26464 26591 E MSP-LOG-SDK-: MspSdkException{code=3014,message=com.heytap.mspsdk.ratelimit.MspRateLimitExceededException: ipc rate limit exceeded in time window}
+07-16 08:09:11.666 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.ratelimit.b.a(RateLimitInterceptor.java:46)
+07-16 08:09:11.666 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.666 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.b.a(CompatCheckInterceptor.java:183)
+07-16 08:09:11.666 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.666 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.d.invoke(InnerInvocationHandler.java:261)
+07-16 08:09:11.666 26464 26591 E MSP-LOG-SDK-: 	at java.lang.reflect.Proxy.invoke(Proxy.java:1009)
+07-16 08:09:11.666 26464 26591 E MSP-LOG-SDK-: 	at $Proxy9.getDynamicCondition(Unknown Source)
+07-16 08:09:11.666 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.getDynamicCondition$lambda$0(KitProxy.kt:25)
+07-16 08:09:11.666 26464 26591 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.b(KitProxy.kt:1)
+07-16 08:09:11.666 26464 26591 E MSP-LOG-SDK-: 	at com.applovin.impl.pt.run(R8$$SyntheticClass:62)
+07-16 08:09:11.666 26464 26591 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1100)
+07-16 08:09:11.666 26464 26591 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+07-16 08:09:11.666 26464 26591 E MSP-LOG-SDK-: 	at java.lang.Thread.run(Thread.java:1572)
+07-16 08:09:11.666 26464 26594 E MSP-LOG-SDK-: MspSdkException{code=3014,message=com.heytap.mspsdk.ratelimit.MspRateLimitExceededException: ipc rate limit exceeded in time window}
+07-16 08:09:11.666 26464 26594 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.ratelimit.b.a(RateLimitInterceptor.java:46)
+07-16 08:09:11.666 26464 26594 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.666 26464 26594 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.b.a(CompatCheckInterceptor.java:183)
+07-16 08:09:11.666 26464 26594 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.interceptor.b.b(StandardListChain.java:32)
+07-16 08:09:11.666 26464 26594 E MSP-LOG-SDK-: 	at com.heytap.mspsdk.proxy.d.invoke(InnerInvocationHandler.java:261)
+07-16 08:09:11.666 26464 26594 E MSP-LOG-SDK-: 	at java.lang.reflect.Proxy.invoke(Proxy.java:1009)
+07-16 08:09:11.666 26464 26594 E MSP-LOG-SDK-: 	at $Proxy9.checkUpdateConfig(Unknown Source)
+07-16 08:09:11.666 26464 26594 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.checkUpdateConfig$lambda$3(KitProxy.kt:20)
+07-16 08:09:11.666 26464 26594 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.KitProxy.d(KitProxy.kt:1)
+07-16 08:09:11.666 26464 26594 E MSP-LOG-SDK-: 	at com.heytap.nearx.tangramconfig.kit.client.a.run(R8$$SyntheticClass:9)
+07-16 08:09:11.666 26464 26594 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1100)
+07-16 08:09:11.666 26464 26594 E MSP-LOG-SDK-: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+07-16 08:09:11.666 26464 26594 E MSP-LOG-SDK-: 	at java.lang.Thread.run(Thread.java:1572)
+07-16 08:09:11.930  7593 13986 E CursorWindow: Failed alloc newOffset: 1117812mAllocOffset: 1117792mSlotsOffset: 1117808: Success
+07-16 08:09:11.930  7593 13986 E CursorWindow: Failed NO_MEMORY: Success
+07-16 08:09:12.011  1513  1743 E ANDR-PERF-UTIL: Failed to update node /proc/26295/sched_boost with value 0
+07-16 08:09:12.011  1513  1743 E ANDR-PERF-OPTSHANDLER: can't reset task 26295
+07-16 08:09:12.011  1513  1743 E ANDR-PERF-RESOURCEQS: Failed to reset optimization [3, 32]
+07-16 08:09:12.063  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:12.063  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:12.096  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:12.096  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:12.201  1581  1681 E PerformanceService: storage_feature: open /sys/devices/platform/soc/112b0000.ufshci//virtualtlcbuff fail
+07-16 08:09:12.408  1309  1424 E TetherController: property_get sys.radio.data.modem_share_flag return 0, 1!
+07-16 08:09:12.830  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:12.830  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:12.969  1990  4065 E OCvtSystemService: Cannot get map: android.system.ErrnoException: nativeBpfFdGet failed: ENOENT (No such file or directory)
+07-16 08:09:12.970  1308  1330 E statsd  : Gauge Stats puller failed for tag: 150130 at 804217502045901
+07-16 08:09:12.970  1308  1330 E statsd  : Gauge Stats puller failed for tag: 150130 at 804217504815015
+07-16 08:09:13.498  1308  1330 E statsd  : Gauge Stats puller failed for tag: 150130 at 804218033799598
+07-16 08:09:16.110  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:16.110  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:16.162  7659  7659 E VendorNfcService: changeNfcStateByWirelessCharge: feature WIRELESS_CHARGING = true; mIsWirelessCharging: false; mIsReverseChargingSwitchOpen: false; mNfcWorkMode: 0; isOverSeaRegion() = true
+07-16 08:09:16.165  6740  6805 E Battery : a: getAISleepDuration: predictResult is null.
+07-16 08:09:16.165  6740  6805 E Battery : ChargeProtectionUtils: First Alarm is Wed Jul 15 22:00:00 GMT+08:00 2026, nowRtc  = Thu Jul 16 08:09:16 GMT+08:00 2026, too close , ignore it.
+07-16 08:09:16.165  6740  6805 E Battery : ChargeProtectionUtils: mCanlendarTmp.isEmpty()!
+07-16 08:09:16.313  1309  1424 E TetherController: property_get sys.radio.data.modem_share_flag return 0, 1!
+07-16 08:09:16.835  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=0 not supported
+07-16 08:09:16.835  1513  1743 E ANDR-PERF-RESOURCEQS: Resource with major=15, minor=1 not supported
+07-16 08:09:17.200  1581  1681 E PerformanceService: storage_feature: open /sys/devices/platform/soc/112b0000.ufshci//virtualtlcbuff fail
+07-16 08:09:17.256  7593 13986 E CursorWindow: Failed alloc newOffset: 1230844mAllocOffset: 1230660mSlotsOffset: 1230704: Success
+07-16 08:09:17.256  7593 13986 E CursorWindow: Failed NO_MEMORY: Success
+07-16 08:09:17.468  7593 13986 E CursorWindow: Failed alloc newOffset: 1217708mAllocOffset: 1217560mSlotsOffset: 1217600: Success
+07-16 08:09:17.468  7593 13986 E CursorWindow: Failed NO_MEMORY: Success
+07-16 08:09:17.611  7593 13986 E CursorWindow: Failed alloc newOffset: 1250732mAllocOffset: 1250700mSlotsOffset: 1250720: Success
+07-16 08:09:17.611  7593 13986 E CursorWindow: Failed NO_MEMORY: Success
+07-16 08:09:17.817  7593 13986 E CursorWindow: Failed alloc newOffset: 1189072mAllocOffset: 1188924mSlotsOffset: 1188944: Success
+07-16 08:09:17.817  7593 13986 E CursorWindow: Failed NO_MEMORY: Success
+07-16 08:09:17.897  7593 13986 E CursorWindow: Failed alloc newOffset: 1236020mAllocOffset: 1235832mSlotsOffset: 1235888: Success
+07-16 08:09:17.897  7593 13986 E CursorWindow: Failed NO_MEMORY: Success
+07-16 08:09:18.177  7593 13986 E CursorWindow: Failed alloc newOffset: 1215704mAllocOffset: 1215552mSlotsOffset: 1215584: Success
+07-16 08:09:18.177  7593 13986 E CursorWindow: Failed NO_MEMORY: Success
+07-16 08:09:18.279  7593 13986 E CursorWindow: Failed alloc newOffset: 1238628mAllocOffset: 1238424mSlotsOffset: 1238480: Success
+07-16 08:09:18.279  7593 13986 E CursorWindow: Failed NO_MEMORY: Success

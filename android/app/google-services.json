@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "983672074863",
+    "project_id": "almares-328-database",
+    "storage_bucket": "almares-328-database.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:983672074863:android:717af60932c7f9cc64939a",
+        "android_client_info": {
+          "package_name": "com.example.capstone_application_development"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrZDOUp4-SwC6l834izl54btTAINBv6VA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
