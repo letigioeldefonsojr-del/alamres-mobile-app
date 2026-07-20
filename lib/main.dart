@@ -6040,8 +6040,9 @@ class _EmployeeHomeTabState extends State<EmployeeHomeTab> {
                               const Duration(days: 365),
                             ),
                           );
-                          if (picked != null)
+                          if (picked != null) {
                             setDialogState(() => scheduleStart = picked);
+                          }
                         },
                         child: Text(
                           scheduleStart == null
@@ -6064,8 +6065,9 @@ class _EmployeeHomeTabState extends State<EmployeeHomeTab> {
                               const Duration(days: 365),
                             ),
                           );
-                          if (picked != null)
+                          if (picked != null) {
                             setDialogState(() => scheduleEnd = picked);
+                          }
                         },
                         child: Text(
                           scheduleEnd == null
@@ -7215,8 +7217,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             const Duration(days: 365),
                           ),
                         );
-                        if (picked != null)
+                        if (picked != null) {
                           setDialogState(() => start = picked);
+                        }
                       },
                       child: Text(
                         start == null
@@ -11387,10 +11390,12 @@ bool isBannerCurrentlyValid(Map<String, dynamic> data) {
   final scheduleStart = data['scheduleStart'];
   final scheduleEnd = data['scheduleEnd'];
   final now = DateTime.now();
-  if (scheduleStart is Timestamp && now.isBefore(scheduleStart.toDate()))
+  if (scheduleStart is Timestamp && now.isBefore(scheduleStart.toDate())) {
     return false;
-  if (scheduleEnd is Timestamp && now.isAfter(scheduleEnd.toDate()))
+  }
+  if (scheduleEnd is Timestamp && now.isAfter(scheduleEnd.toDate())) {
     return false;
+  }
   return true;
 }
 
