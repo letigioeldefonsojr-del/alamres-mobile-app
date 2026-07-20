@@ -123,7 +123,6 @@ class _SplashScreenState extends State<SplashScreen> {
         return;
       }
 
-      // Check if this logged-in user is an employee or a customer.
       final employeeDoc = await FirebaseFirestore.instance
           .collection('employees')
           .doc(user.uid)
@@ -2953,8 +2952,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.pop(context); // close the dialog
-                  Navigator.pop(context); // back to Login screen
+                  Navigator.pop(context);
+                  Navigator.pop(context);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryGreen,
@@ -4813,8 +4812,6 @@ class _BulkImportProductsScreenState extends State<BulkImportProductsScreen> {
           .map((c) => c['label'] as String)
           .toSet();
 
-      // Group rows by product name+category so multiple rows can
-      // contribute variants to the same product.
       final Map<String, Map<String, dynamic>> productsByKey = {};
       final List<String> productOrder = [];
       final List<String> errors = [];
@@ -4846,7 +4843,6 @@ class _BulkImportProductsScreenState extends State<BulkImportProductsScreen> {
         final String key = '$name|$category';
 
         if (variantName.isNotEmpty) {
-          // Variant row.
           final double? variantPrice = double.tryParse(variantPriceRaw);
           if (variantPrice == null) {
             errors.add(
@@ -4883,7 +4879,6 @@ class _BulkImportProductsScreenState extends State<BulkImportProductsScreen> {
             'imageUrl': null,
           });
         } else {
-          // Simple product row (no variants).
           final double? price = double.tryParse(priceRaw);
           if (price == null) {
             errors.add('Row ${i + 1}: invalid price "$priceRaw".');
@@ -4933,7 +4928,6 @@ class _BulkImportProductsScreenState extends State<BulkImportProductsScreen> {
     try {
       final collection = FirebaseFirestore.instance.collection('products');
 
-      // Fetch existing product names to detect duplicates.
       final existingSnapshot = await collection.get();
       final Set<String> existingNames = existingSnapshot.docs
           .map(
@@ -4952,15 +4946,12 @@ class _BulkImportProductsScreenState extends State<BulkImportProductsScreen> {
           skippedCount++;
         } else {
           newProducts.add(product);
-          existingNames.add(
-            nameKey,
-          ); // prevent duplicates within the same CSV too
+          existingNames.add(nameKey);
         }
       }
 
       if (newProducts.isNotEmpty) {
-        const int chunkSize =
-            450; // stay safely under Firestore's 500-op batch limit
+        const int chunkSize = 450;
 
         for (int i = 0; i < newProducts.length; i += chunkSize) {
           final chunk = newProducts.sublist(
@@ -5934,6 +5925,8 @@ class _EmployeeHomeTabState extends State<EmployeeHomeTab> {
     String? currentOffer,
     String? currentDescription,
     String? currentImageUrl,
+    DateTime? currentScheduleStart,
+    DateTime? currentScheduleEnd,
   }) async {
     final offerController = TextEditingController(text: currentOffer ?? '');
     final descriptionController = TextEditingController(
@@ -5941,6 +5934,9 @@ class _EmployeeHomeTabState extends State<EmployeeHomeTab> {
     );
     String? imageUrl = currentImageUrl;
     bool isSaving = false;
+    bool useSchedule = currentScheduleEnd != null;
+    DateTime? scheduleStart = currentScheduleStart;
+    DateTime? scheduleEnd = currentScheduleEnd;
 
     await showDialog(
       context: context,
@@ -6016,6 +6012,68 @@ class _EmployeeHomeTabState extends State<EmployeeHomeTab> {
                         hintText: 'e.g. Valid for Batangas area only',
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      activeThumbColor: primaryGreen,
+                      title: const Text(
+                        'Schedule this banner',
+                        style: TextStyle(fontSize: 13.5),
+                      ),
+                      subtitle: const Text(
+                        'Auto-remove after end date',
+                        style: TextStyle(fontSize: 11.5),
+                      ),
+                      value: useSchedule,
+                      onChanged: (v) => setDialogState(() => useSchedule = v),
+                    ),
+                    if (useSchedule) ...[
+                      OutlinedButton(
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: scheduleStart ?? DateTime.now(),
+                            firstDate: DateTime.now().subtract(
+                              const Duration(days: 1),
+                            ),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 365),
+                            ),
+                          );
+                          if (picked != null)
+                            setDialogState(() => scheduleStart = picked);
+                        },
+                        child: Text(
+                          scheduleStart == null
+                              ? 'Select start date'
+                              : formatDiscountDate(scheduleStart!),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton(
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate:
+                                scheduleEnd ??
+                                (scheduleStart ?? DateTime.now()).add(
+                                  const Duration(days: 7),
+                                ),
+                            firstDate: scheduleStart ?? DateTime.now(),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 365),
+                            ),
+                          );
+                          if (picked != null)
+                            setDialogState(() => scheduleEnd = picked);
+                        },
+                        child: Text(
+                          scheduleEnd == null
+                              ? 'Select end date'
+                              : formatDiscountDate(scheduleEnd!),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -6041,11 +6099,26 @@ class _EmployeeHomeTabState extends State<EmployeeHomeTab> {
                             );
                             return;
                           }
+                          if (useSchedule &&
+                              (scheduleStart == null ||
+                                  scheduleEnd == null ||
+                                  !scheduleEnd!.isAfter(scheduleStart!))) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Please select a valid schedule range.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
                           setDialogState(() => isSaving = true);
                           await saveStoreBanner(
                             offer: offer,
                             description: description,
                             imageUrl: imageUrl,
+                            scheduleStart: useSchedule ? scheduleStart : null,
+                            scheduleEnd: useSchedule ? scheduleEnd : null,
                           );
                           if (context.mounted) Navigator.pop(context);
                         },
@@ -6342,6 +6415,10 @@ class _EmployeeHomeTabState extends State<EmployeeHomeTab> {
                           currentOffer: offer,
                           currentDescription: description,
                           currentImageUrl: data['imageUrl'] as String?,
+                          currentScheduleStart:
+                              (data['scheduleStart'] as Timestamp?)?.toDate(),
+                          currentScheduleEnd:
+                              (data['scheduleEnd'] as Timestamp?)?.toDate(),
                         ),
                         icon: const Icon(
                           Icons.edit_outlined,
@@ -7074,6 +7151,192 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
+  Future<void> _manageDiscount(Map<String, dynamic> data) async {
+    final bool hasDiscount = data['discountPercent'] != null;
+    final percentController = TextEditingController(
+      text: hasDiscount ? (data['discountPercent'] as num).toString() : '',
+    );
+    DateTime? start = (data['discountStart'] as Timestamp?)?.toDate();
+    DateTime? end = (data['discountEnd'] as Timestamp?)?.toDate();
+
+    final bool? saved = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Text(hasDiscount ? 'Edit Discount' : 'Set Discount'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: percentController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Discount (%)',
+                        hintText: 'e.g. 20',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'FROM',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    OutlinedButton(
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: start ?? DateTime.now(),
+                          firstDate: DateTime.now().subtract(
+                            const Duration(days: 1),
+                          ),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 365),
+                          ),
+                        );
+                        if (picked != null)
+                          setDialogState(() => start = picked);
+                      },
+                      child: Text(
+                        start == null
+                            ? 'Select start date'
+                            : formatDiscountDate(start!),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'UNTIL',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    OutlinedButton(
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate:
+                              end ??
+                              (start ?? DateTime.now()).add(
+                                const Duration(days: 7),
+                              ),
+                          firstDate: start ?? DateTime.now(),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 365),
+                          ),
+                        );
+                        if (picked != null) setDialogState(() => end = picked);
+                      },
+                      child: Text(
+                        end == null
+                            ? 'Select end date'
+                            : formatDiscountDate(end!),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                if (hasDiscount)
+                  TextButton(
+                    onPressed: () async {
+                      await FirebaseFirestore.instance
+                          .collection('products')
+                          .doc(widget.productId)
+                          .update({
+                            'discountPercent': FieldValue.delete(),
+                            'discountStart': FieldValue.delete(),
+                            'discountEnd': FieldValue.delete(),
+                          });
+                      if (context.mounted) Navigator.pop(context, false);
+                    },
+                    child: const Text(
+                      'Remove',
+                      style: TextStyle(color: Colors.redAccent),
+                    ),
+                  ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    final percent = double.tryParse(
+                      percentController.text.trim(),
+                    );
+                    if (percent == null || percent <= 0 || percent >= 100) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Enter a valid discount between 1-99%.',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    if (start == null || end == null || !end!.isAfter(start!)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please select a valid date range.'),
+                        ),
+                      );
+                      return;
+                    }
+                    await FirebaseFirestore.instance
+                        .collection('products')
+                        .doc(widget.productId)
+                        .update({
+                          'discountPercent': percent,
+                          'discountStart': Timestamp.fromDate(start!),
+                          'discountEnd': Timestamp.fromDate(end!),
+                        });
+                    if (context.mounted) Navigator.pop(context, true);
+                  },
+                  child: const Text(
+                    'Save',
+                    style: TextStyle(
+                      color: primaryGreen,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (saved == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Discount saved.'),
+          backgroundColor: primaryGreen,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    }
+  }
+
   Future<void> _editName(String currentName) async {
     final controller = TextEditingController(text: currentName);
     final String? newName = await showDialog<String>(
@@ -7318,6 +7581,63 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     )
                   else
                     _detailRow('Price Summary', productPriceLabel(data)),
+
+                  GestureDetector(
+                    onTap: () => _manageDiscount(data),
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: isDiscountActive(data)
+                                ? Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'DISCOUNT',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.grey.shade600,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${(data['discountPercent'] as num).toStringAsFixed(0)}% OFF  •  Now ₱${discountedPriceValue(data)!.toStringAsFixed(2)}',
+                                        style: const TextStyle(
+                                          fontSize: 14.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.redAccent,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Until ${formatDiscountDate((data['discountEnd'] as Timestamp).toDate())}',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          color: Colors.grey.shade500,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Text(
+                                    'Tap to set a discount',
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  ),
+                          ),
+                          const Icon(
+                            Icons.local_offer_outlined,
+                            size: 18,
+                            color: primaryGreen,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
 
                   const SizedBox(height: 12),
                   Row(
@@ -8416,7 +8736,6 @@ class _EmployeeMyOrdersScreenState extends State<EmployeeMyOrdersScreen>
 
   late final TabController _tabController;
 
-  // null = All Months
   DateTime? _selectedMonth;
 
   @override
@@ -10033,6 +10352,13 @@ class HomeTab extends StatelessWidget {
                 return const SizedBox.shrink();
               }
 
+              if (!isBannerCurrentlyValid(data)) {
+                if ((data['scheduleEnd'] as Timestamp?) != null) {
+                  deleteStoreBanner();
+                }
+                return const SizedBox.shrink();
+              }
+
               final String offer = data['offer'] as String? ?? '';
               final String description = data['description'] as String? ?? '';
               final String? bannerImage = data['imageUrl'] as String?;
@@ -10634,6 +10960,63 @@ String sortOptionLabel(ProductSortOption option) {
   }
 }
 
+bool isDiscountActive(Map<String, dynamic> product) {
+  final percent = product['discountPercent'];
+  final start = product['discountStart'];
+  final end = product['discountEnd'];
+  if (percent == null || percent is! num || percent <= 0) return false;
+  if (start is! Timestamp || end is! Timestamp) return false;
+  final now = DateTime.now();
+  return now.isAfter(start.toDate()) && now.isBefore(end.toDate());
+}
+
+double? discountedPriceValue(Map<String, dynamic> product) {
+  if (!isDiscountActive(product)) return null;
+  final double base = _extractSortPrice(product);
+  final double percent = (product['discountPercent'] as num).toDouble();
+  return base * (1 - percent / 100);
+}
+
+String formatDiscountDate(DateTime date) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${months[date.month - 1]} ${date.day}, ${date.year}';
+}
+
+/// If a discount has passed its end date, clears it from Firestore so the
+/// product returns to its normal price. Safe to call repeatedly.
+Future<void> checkAndExpireDiscount(
+  String? productId,
+  Map<String, dynamic> data,
+) async {
+  if (productId == null) return;
+  final percent = data['discountPercent'];
+  final end = data['discountEnd'];
+  if (percent == null || end is! Timestamp) return;
+  if (DateTime.now().isBefore(end.toDate())) return;
+
+  await FirebaseFirestore.instance
+      .collection('products')
+      .doc(productId)
+      .update({
+        'discountPercent': FieldValue.delete(),
+        'discountStart': FieldValue.delete(),
+        'discountEnd': FieldValue.delete(),
+      });
+}
+
 String productPriceLabel(Map<String, dynamic> product) {
   final flavors =
       (product['flavors'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
@@ -10810,7 +11193,7 @@ Future<String?> pickAndUploadProductImage(BuildContext context) async {
   }
 
   if (context.mounted) {
-    Navigator.pop(context); // close loading dialog
+    Navigator.pop(context);
   }
 
   if (url == null && context.mounted) {
@@ -10963,6 +11346,8 @@ Future<void> saveStoreBanner({
   required String offer,
   required String description,
   String? imageUrl,
+  DateTime? scheduleStart,
+  DateTime? scheduleEnd,
 }) async {
   await FirebaseFirestore.instance
       .collection('settings')
@@ -10971,8 +11356,25 @@ Future<void> saveStoreBanner({
         'offer': offer,
         'description': description,
         'imageUrl': imageUrl,
+        'scheduleStart': scheduleStart != null
+            ? Timestamp.fromDate(scheduleStart)
+            : null,
+        'scheduleEnd': scheduleEnd != null
+            ? Timestamp.fromDate(scheduleEnd)
+            : null,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+}
+
+bool isBannerCurrentlyValid(Map<String, dynamic> data) {
+  final scheduleStart = data['scheduleStart'];
+  final scheduleEnd = data['scheduleEnd'];
+  final now = DateTime.now();
+  if (scheduleStart is Timestamp && now.isBefore(scheduleStart.toDate()))
+    return false;
+  if (scheduleEnd is Timestamp && now.isAfter(scheduleEnd.toDate()))
+    return false;
+  return true;
 }
 
 Future<void> deleteStoreBanner() async {
@@ -11233,7 +11635,6 @@ List<Map<String, dynamic>> getOrderItems(Map<String, dynamic> data) {
     return rawItems.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
-  // Legacy single-item order fallback.
   if (data['productName'] != null) {
     return [
       {
@@ -11291,8 +11692,6 @@ String orderStatusLabel(String status) {
   }
 }
 
-/// Checks if an order's 10-minute confirmation window has passed and, if so,
-/// auto-confirms it as delivered. Safe to call repeatedly; only acts once.
 Future<void> checkAndAutoConfirmOrder(
   String orderId,
   Map<String, dynamic> data,
@@ -11331,6 +11730,13 @@ class _ProductCard extends StatelessWidget {
     final String stock = productStockLabel(product);
     final String price = productPriceLabel(product);
     final bool isOutOfStock = extractTotalStock(product) <= 0;
+    final bool onSale = isDiscountActive(product);
+    final double? discountedPrice = onSale
+        ? discountedPriceValue(product)
+        : null;
+
+    // Fire-and-forget cleanup: clears the discount once it has expired.
+    checkAndExpireDiscount(product['id'] as String?, product);
 
     return Opacity(
       opacity: isOutOfStock ? 0.5 : 1.0,
@@ -11433,6 +11839,30 @@ class _ProductCard extends StatelessWidget {
                             ),
                           ),
                         ),
+                      if (onSale && !isOutOfStock)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${(product['discountPercent'] as num).toStringAsFixed(0)}% OFF',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -11474,15 +11904,42 @@ class _ProductCard extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Flexible(
-                              child: Text(
-                                price,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: primaryGreen,
-                                ),
-                              ),
+                              child: onSale
+                                  ? Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          price,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            color: Colors.grey.shade500,
+                                            decoration:
+                                                TextDecoration.lineThrough,
+                                          ),
+                                        ),
+                                        Text(
+                                          '₱${discountedPrice!.toStringAsFixed(2)}',
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.redAccent,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Text(
+                                      price,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: primaryGreen,
+                                      ),
+                                    ),
                             ),
                             Material(
                               color: primaryGreen,
@@ -12323,7 +12780,6 @@ class _OrdersListViewState extends State<OrdersListView> {
   DateTime _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
   bool _isClearing = false;
 
-  // null = All statuses
   String? _selectedStatus;
 
   static const List<Map<String, String>> _statusOptions = [
@@ -16346,7 +16802,7 @@ class EmployeeReportsScreen extends StatefulWidget {
 class _EmployeeReportsScreenState extends State<EmployeeReportsScreen> {
   static const Color primaryGreen = Color(0xFF2E6B3E);
 
-  DateTime? _selectedMonth; // null = All Time
+  DateTime? _selectedMonth;
   bool _isExporting = false;
 
   String get _periodLabel {
@@ -17716,7 +18172,6 @@ class _CartScreenState extends State<CartScreen> {
                   );
                 }
 
-                // Default to "all selected" the first time items appear.
                 if (_selectedIds.isEmpty && docs.isNotEmpty) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted && _selectedIds.isEmpty) {
