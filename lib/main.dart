@@ -9837,8 +9837,8 @@ const List<Map<String, dynamic>> kProductCategories = [
     'color': Color(0xFFEDE3D0),
   },
   {
-    'label': 'Cookies Supplies and Essentials',
-    'icon': Icons.cake_outlined,
+    'label': 'Cooking Supplies and Essentials',
+    'icon': Icons.soup_kitchen_outlined,
     'color': Color(0xFFF9E0EC),
   },
   {
