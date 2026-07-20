@@ -10995,8 +10995,6 @@ String formatDiscountDate(DateTime date) {
   return '${months[date.month - 1]} ${date.day}, ${date.year}';
 }
 
-/// If a discount has passed its end date, clears it from Firestore so the
-/// product returns to its normal price. Safe to call repeatedly.
 Future<void> checkAndExpireDiscount(
   String? productId,
   Map<String, dynamic> data,
@@ -11735,7 +11733,6 @@ class _ProductCard extends StatelessWidget {
         ? discountedPriceValue(product)
         : null;
 
-    // Fire-and-forget cleanup: clears the discount once it has expired.
     checkAndExpireDiscount(product['id'] as String?, product);
 
     return Opacity(
