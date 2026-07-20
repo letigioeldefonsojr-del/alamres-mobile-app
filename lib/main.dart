@@ -6113,12 +6113,23 @@ class _EmployeeHomeTabState extends State<EmployeeHomeTab> {
                             return;
                           }
                           setDialogState(() => isSaving = true);
+                          final DateTime? endOfDaySchedule =
+                              (useSchedule && scheduleEnd != null)
+                              ? DateTime(
+                                  scheduleEnd!.year,
+                                  scheduleEnd!.month,
+                                  scheduleEnd!.day,
+                                  23,
+                                  59,
+                                  59,
+                                )
+                              : null;
                           await saveStoreBanner(
                             offer: offer,
                             description: description,
                             imageUrl: imageUrl,
                             scheduleStart: useSchedule ? scheduleStart : null,
-                            scheduleEnd: useSchedule ? scheduleEnd : null,
+                            scheduleEnd: useSchedule ? endOfDaySchedule : null,
                           );
                           if (context.mounted) Navigator.pop(context);
                         },
@@ -7297,13 +7308,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       );
                       return;
                     }
+                    final DateTime endOfDay = DateTime(
+                      end!.year,
+                      end!.month,
+                      end!.day,
+                      23,
+                      59,
+                      59,
+                    );
                     await FirebaseFirestore.instance
                         .collection('products')
                         .doc(widget.productId)
                         .update({
                           'discountPercent': percent,
                           'discountStart': Timestamp.fromDate(start!),
-                          'discountEnd': Timestamp.fromDate(end!),
+                          'discountEnd': Timestamp.fromDate(endOfDay),
                         });
                     if (context.mounted) Navigator.pop(context, true);
                   },
