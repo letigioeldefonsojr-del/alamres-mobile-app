@@ -1,0 +1,16 @@
+{
+  "name": "almares-328-chat-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Secure proxy between the Almares 328 app and Claude's API - see SETUP_CHATBOT.md",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  },
+  "dependencies": {
+    "jose": "^5.9.6"
+  }
+}

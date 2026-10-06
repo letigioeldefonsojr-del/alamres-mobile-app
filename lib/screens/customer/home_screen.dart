@@ -1,0 +1,310 @@
+import 'dart:ui';
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'dart:io';
+import 'package:flutter_file_dialog/flutter_file_dialog.dart';
+import 'package:csv/csv.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'categories_tab.dart';
+import 'chat_screen.dart';
+import 'home_tab.dart';
+import 'orders_tab.dart';
+import 'profile_tab.dart';
+import 'add_mobile_number_screen.dart';
+import '../../widgets/chat_panel.dart';
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  static const Color primaryGreen = Color(0xFF2E6B3E);
+
+  int _selectedIndex = 0;
+  bool _isChatOpen = false;
+  final GlobalKey<ChatPanelState> _chatPanelKey = GlobalKey<ChatPanelState>();
+
+  final List<Widget> _tabs = const [
+    HomeTab(),
+    CategoriesPlaceholderTab(),
+    OrdersPlaceholderTab(),
+    ProfileTab(),
+  ];
+
+  final List<String> _tabLabels = const [
+    'Home',
+    'Categories',
+    'Orders',
+    'Profile',
+  ];
+
+  final List<IconData> _tabIcons = const [
+    Icons.home_outlined,
+    Icons.grid_view_outlined,
+    Icons.receipt_long_outlined,
+    Icons.person_outline,
+  ];
+
+  final List<IconData> _tabIconsFilled = const [
+    Icons.home,
+    Icons.grid_view,
+    Icons.receipt_long,
+    Icons.person,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Accounts created via Google Sign-In start out with no mobile number
+    // on file. Check for that right after landing on the home screen and,
+    // if missing, force the customer through a mandatory add-number gate
+    // before they can use the rest of the app.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkMobileNumber();
+    });
+  }
+
+  Future<void> _checkMobileNumber() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      final String mobileNumber = (doc.data()?['mobileNumber'] as String?) ?? '';
+      if (mobileNumber.trim().isEmpty) {
+        if (!mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const AddMobileNumberScreen()),
+        );
+      }
+    } catch (_) {
+      // Non-blocking - if the lookup itself fails (e.g. no connection),
+      // don't lock the customer out of the app over it.
+    }
+  }
+
+  void _expandChat() {
+    // Grab whatever's been typed in the floating bubble so far, then hand
+    // it to the full-screen ChatScreen so the conversation continues
+    // instead of starting over.
+    final List<ChatMessage> conversation =
+        _chatPanelKey.currentState?.messages ?? const [];
+    setState(() => _isChatOpen = false);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(initialMessages: conversation),
+      ),
+    );
+  }
+
+  Widget _buildFloatingChatCard(BuildContext context, double keyboardInset) {
+    final Size screenSize = MediaQuery.of(context).size;
+    final double panelWidth = screenSize.width < 420
+        ? screenSize.width - 32
+        : 360.0;
+
+    // Preferred height when there's plenty of room (keyboard closed).
+    final double preferredHeight = (screenSize.height * 0.65)
+        .clamp(360.0, 560.0)
+        .toDouble();
+    // How much vertical space is actually left once the keyboard (if any)
+    // and the card's bottom anchor (see `bottom: 150 + keyboardInset` in
+    // build()) are accounted for, keeping a small 40px margin from the
+    // top of the screen so the card can never get pushed off-screen.
+    final double maxAvailableHeight =
+        (screenSize.height - keyboardInset - 150 - 40)
+            .clamp(200.0, double.infinity)
+            .toDouble();
+    final double panelHeight = preferredHeight < maxAvailableHeight
+        ? preferredHeight
+        : maxAvailableHeight;
+
+    return Material(
+      key: const ValueKey('chat-open'),
+      elevation: 12,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      color: Colors.white,
+      child: SizedBox(
+        width: panelWidth,
+        height: panelHeight,
+        child: Column(
+          children: [
+            Container(
+              color: primaryGreen,
+              padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.smart_toy_outlined,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Ask Almares 328',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Open full chat',
+                    icon: const Icon(
+                      Icons.open_in_full,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    onPressed: _expandChat,
+                  ),
+                  IconButton(
+                    tooltip: 'Close',
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    onPressed: () => setState(() => _isChatOpen = false),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(child: ChatPanel(key: _chatPanelKey)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Height of the on-screen keyboard, 0 when it's closed. Used to lift
+    // the floating chat card above the keyboard instead of letting it get
+    // covered - see AnimatedPositioned's `bottom` below.
+    final double keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Stack(
+      children: [
+        _buildHomeScaffold(context),
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          right: 16,
+          bottom: 150 + keyboardInset,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            transitionBuilder: (child, animation) => ScaleTransition(
+              scale: animation,
+              alignment: Alignment.bottomRight,
+              child: FadeTransition(opacity: animation, child: child),
+            ),
+            child: _isChatOpen
+                ? _buildFloatingChatCard(context, keyboardInset)
+                : const SizedBox.shrink(key: ValueKey('chat-closed')),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHomeScaffold(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        top: false,
+        child: IndexedStack(index: _selectedIndex, children: _tabs),
+      ),
+      // Floating chat entry point - stays visible on every tab since it
+      // lives on this shared Scaffold rather than inside an individual tab.
+      // Tapping it toggles a small floating chat bubble open/closed (see
+      // the Positioned card built in build() below); the bubble itself has
+      // an "expand" button that carries the conversation over to the
+      // full-screen ChatScreen.
+      floatingActionButton: Tooltip(
+        message: _isChatOpen ? 'Close chat' : 'Chat with Almares 328',
+        child: FloatingActionButton(
+          heroTag: 'chatAssistantFab',
+          backgroundColor: primaryGreen,
+          onPressed: () => setState(() => _isChatOpen = !_isChatOpen),
+          child: Icon(
+            _isChatOpen ? Icons.close : Icons.smart_toy_outlined,
+            color: Colors.white,
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: List.generate(_tabLabels.length, (index) {
+                final bool isSelected = _selectedIndex == index;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedIndex = index),
+                  behavior: HitTestBehavior.opaque,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isSelected ? _tabIconsFilled[index] : _tabIcons[index],
+                        color: isSelected ? primaryGreen : Colors.grey,
+                        size: 24,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _tabLabels[index],
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                          color: isSelected ? primaryGreen : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
