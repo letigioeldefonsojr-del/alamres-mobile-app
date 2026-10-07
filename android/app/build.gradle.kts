@@ -15,6 +15,9 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Required by flutter_local_notifications (the "Shop Reminders"
+        // feature) - without this the build fails with a desugaring error.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -45,6 +48,11 @@ configurations.all {
         force("androidx.work:work-runtime:2.10.0")
         force("androidx.work:work-runtime-ktx:2.10.0")
     }
+}
+
+dependencies {
+    // Required by flutter_local_notifications alongside isCoreLibraryDesugaringEnabled above.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 kotlin {

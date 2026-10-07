@@ -7,6 +7,7 @@ import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'firebase_options.dart';
 import 'services/onesignal_service.dart';
+import 'services/engagement_reminder_service.dart';
 import 'services/suspension_watcher.dart';
 import 'screens/splash_screen.dart';
 
@@ -36,6 +37,11 @@ void main() async {
     // Tapping a push (order status update, etc.) should take the customer
     // straight to their Orders tab - see OneSignalService for the details.
     OneSignalService.instance.setupNotificationClickHandling(navigatorKey);
+    // Purely local "Shop Reminders" - separate from OneSignal above, see
+    // EngagementReminderService for why. Just sets the plugin up here;
+    // whether anything actually gets scheduled depends on the customer's
+    // own toggle (checked in HomeScreen/NotificationsScreen).
+    await EngagementReminderService.instance.init();
   }
 
   if (FirebaseAuth.instance.currentUser != null) {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/onesignal_service.dart';
+import '../../services/engagement_reminder_service.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -18,6 +19,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _orderUpdates = true;
   bool _promotions = true;
   bool _appUpdates = false;
+  bool _shopReminders = false;
 
   @override
   void initState() {
@@ -41,6 +43,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _orderUpdates = prefs['orderUpdates'] ?? true;
         _promotions = prefs['promotions'] ?? true;
         _appUpdates = prefs['appUpdates'] ?? false;
+        _shopReminders = prefs['shopReminders'] ?? false;
       }
     } catch (_) {
     } finally {
@@ -56,6 +59,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         'orderUpdates': _orderUpdates,
         'promotions': _promotions,
         'appUpdates': _appUpdates,
+        'shopReminders': _shopReminders,
       },
     }, SetOptions(merge: true));
   }
@@ -107,6 +111,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   onChanged: (v) {
                     setState(() => _appUpdates = v);
                     _save();
+                  },
+                ),
+                SwitchListTile(
+                  activeThumbColor: primaryGreen,
+                  title: const Text('Shop Reminders'),
+                  subtitle: const Text(
+                    'Occasional nudges to check out Almares 328 - works even when the app is closed',
+                  ),
+                  value: _shopReminders,
+                  onChanged: (v) {
+                    setState(() => _shopReminders = v);
+                    _save();
+                    // Reschedules (or cancels) the on-device reminders right
+                    // away, same reasoning as the promotions tag above.
+                    EngagementReminderService.instance.applyPreference(v);
                   },
                 ),
               ],

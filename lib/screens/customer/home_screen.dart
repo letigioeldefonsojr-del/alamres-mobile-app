@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,6 +12,7 @@ import 'add_mobile_number_screen.dart';
 import 'edit_profile_screen.dart';
 import 'order_details_screen.dart';
 import '../../widgets/chat_panel.dart';
+import '../../services/engagement_reminder_service.dart';
 
 class HomeScreen extends StatefulWidget {
   // Which bottom-nav tab to land on when this screen first appears - 0
@@ -136,6 +138,19 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       final String address = (doc.data()?['address'] as String?) ?? '';
       _checkAddressReminder(address);
+
+      // "Tops up" the on-device Shop Reminders queue every time the
+      // customer lands on Home, so it never actually runs dry on a
+      // customer who opens the app regularly - see
+      // EngagementReminderService for why this needs refreshing at all
+      // rather than being scheduled once.
+      final prefs = doc.data()?['notificationPrefs'] as Map<String, dynamic>?;
+      final bool shopRemindersEnabled = prefs?['shopReminders'] ?? false;
+      unawaited(
+        EngagementReminderService.instance.applyPreference(
+          shopRemindersEnabled,
+        ),
+      );
     } catch (_) {
       // Non-blocking - if the lookup itself fails (e.g. no connection),
       // don't lock the customer out of the app over it.
