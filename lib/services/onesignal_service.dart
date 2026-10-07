@@ -75,7 +75,6 @@ class OneSignalService {
         navigatorKey,
         isOrderPush ? 2 : 0,
         isOrderPush ? orderId : null,
-        data,
       );
     });
   }
@@ -84,7 +83,6 @@ class OneSignalService {
     GlobalKey<NavigatorState> navigatorKey,
     int tabIndex,
     String? orderId,
-    Map<String, dynamic>? rawData,
   ) async {
     // Nothing to show an order/home screen for if nobody's signed in - let
     // the app's normal splash/login flow run its course instead of forcing
@@ -102,26 +100,6 @@ class OneSignalService {
       attempts++;
     }
     if (navState == null) return;
-
-    // TEMPORARY DEBUG - shows exactly what this notification carried, so
-    // it's visible right on the phone whether `orderId` actually came
-    // through, without needing to dig through the OneSignal dashboard.
-    // Remove this dialog once that's confirmed one way or the other.
-    await showDialog<void>(
-      context: navState.context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Debug: notification data'),
-        content: SingleChildScrollView(
-          child: Text(rawData == null ? '(no additional data at all)' : '$rawData'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('OK, continue'),
-          ),
-        ],
-      ),
-    );
 
     // Clears back to a fresh HomeScreen on the target tab rather than
     // pushing on top of whatever's there - same pattern SuspensionWatcher
