@@ -10,7 +10,12 @@ import 'add_mobile_number_screen.dart';
 import '../../widgets/chat_panel.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  // Which bottom-nav tab to land on when this screen first appears - 0
+  // (Home) unless a caller asks for a specific one, e.g. the push
+  // notification click handler jumping straight to Orders (index 2).
+  final int initialTabIndex;
+
+  const HomeScreen({super.key, this.initialTabIndex = 0});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -54,6 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.initialTabIndex;
     // Accounts created via Google Sign-In start out with no mobile number
     // on file. Check for that right after landing on the home screen and,
     // if missing, force the customer through a mandatory add-number gate

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/onesignal_service.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -59,45 +60,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }, SetOptions(merge: true));
   }
 
-  Widget _buildFuturePreference({
-    required String title,
-    required String subtitle,
-    required bool value,
-  }) {
-    return Opacity(
-      opacity: 0.5,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(
-              SnackBar(
-                content: const Text(
-                  'This feature is coming in a future update.',
-                ),
-                backgroundColor: Colors.grey.shade700,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                margin: const EdgeInsets.all(16),
-              ),
-            );
-        },
-        child: AbsorbPointer(
-          child: SwitchListTile(
-            activeThumbColor: primaryGreen,
-            title: Text(title),
-            subtitle: Text(subtitle),
-            value: value,
-            onChanged: (v) {},
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -122,15 +84,30 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     _save();
                   },
                 ),
-                _buildFuturePreference(
-                  title: 'Promotions & Offers',
-                  subtitle: 'Deals, discounts, and special offers',
+                SwitchListTile(
+                  activeThumbColor: primaryGreen,
+                  title: const Text('Promotions & Offers'),
+                  subtitle: const Text('Deals, discounts, and special offers'),
                   value: _promotions,
+                  onChanged: (v) {
+                    setState(() => _promotions = v);
+                    _save();
+                    // Keeps OneSignal's tag in sync immediately, instead of
+                    // waiting for the next login, so a promo push sent
+                    // right after toggling this off doesn't still reach
+                    // this device.
+                    OneSignalService.instance.setPromotionsTag(v);
+                  },
                 ),
-                _buildFuturePreference(
-                  title: 'App Updates',
-                  subtitle: 'News about new features',
+                SwitchListTile(
+                  activeThumbColor: primaryGreen,
+                  title: const Text('App Updates'),
+                  subtitle: const Text('News about new features'),
                   value: _appUpdates,
+                  onChanged: (v) {
+                    setState(() => _appUpdates = v);
+                    _save();
+                  },
                 ),
               ],
             ),

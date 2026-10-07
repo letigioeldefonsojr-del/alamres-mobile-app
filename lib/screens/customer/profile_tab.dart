@@ -27,6 +27,9 @@ class _ProfileTabState extends State<ProfileTab> {
 
   bool _isProcessing = false;
   String _appVersion = '';
+  String? _latestVersion;
+  String? _updateMessage;
+  bool _updateAvailable = false;
 
   @override
   void initState() {
@@ -38,6 +41,67 @@ class _ProfileTabState extends State<ProfileTab> {
   Future<void> _loadAppVersion() async {
     final info = await PackageInfo.fromPlatform();
     if (mounted) setState(() => _appVersion = info.version);
+    await _checkForUpdate();
+  }
+
+  // No push notification for this one - "there's a newer version" is
+  // naturally discovered next time the customer opens the app, so a
+  // simple on-screen notice here is enough; it doesn't need to interrupt
+  // anyone while the app is closed the way an order update does.
+  Future<void> _checkForUpdate() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      bool appUpdatesEnabled = false;
+      if (uid != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .get();
+        final prefs =
+            userDoc.data()?['notificationPrefs'] as Map<String, dynamic>?;
+        appUpdatesEnabled = (prefs?['appUpdates'] as bool?) ?? false;
+      }
+      if (!appUpdatesEnabled) return;
+
+      // Admin side sets this when a new version is released - see
+      // settings/appInfo in Firestore. Missing/empty just means nothing to
+      // compare against yet.
+      final infoDoc = await FirebaseFirestore.instance
+          .collection('settings')
+          .doc('appInfo')
+          .get();
+      final data = infoDoc.data();
+      final String? latest = data?['latestVersion'] as String?;
+      if (latest == null || latest.trim().isEmpty) return;
+      if (!_isVersionNewer(latest, _appVersion)) return;
+
+      if (mounted) {
+        setState(() {
+          _latestVersion = latest;
+          _updateMessage = data?['updateMessage'] as String?;
+          _updateAvailable = true;
+        });
+      }
+    } catch (_) {
+      // Non-critical - just skip the banner if this fails.
+    }
+  }
+
+  // Plain numeric version comparison (1.10.0 > 1.9.0), not a string
+  // comparison - a missing component is treated as 0, so "1.2" counts the
+  // same as "1.2.0".
+  bool _isVersionNewer(String latest, String current) {
+    List<int> parse(String v) =>
+        v.split('.').map((p) => int.tryParse(p.trim()) ?? 0).toList();
+    final List<int> a = parse(latest);
+    final List<int> b = parse(current);
+    final int length = a.length > b.length ? a.length : b.length;
+    for (int i = 0; i < length; i++) {
+      final int x = i < a.length ? a[i] : 0;
+      final int y = i < b.length ? b[i] : 0;
+      if (x != y) return x > y;
+    }
+    return false;
   }
 
   Stream<Map<String, int>> _orderStatsStream() {
@@ -566,6 +630,54 @@ class _ProfileTabState extends State<ProfileTab> {
                     ],
                   ),
                   const SizedBox(height: 16),
+
+                  if (_updateAvailable)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: primaryGreen.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: primaryGreen.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.system_update_outlined,
+                            color: primaryGreen,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Update available (v$_latestVersion)',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                    color: primaryGreen,
+                                  ),
+                                ),
+                                if ((_updateMessage ?? '').trim().isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _updateMessage!,
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
                   Text(
                     'Almares 328 v$_appVersion - Wholesale Grocery & Sari-Sari Store',

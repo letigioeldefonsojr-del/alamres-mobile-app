@@ -33,6 +33,9 @@ void main() async {
       'c3b735fb-99e4-49be-8f63-e8606b95d918',
     );
     await OneSignal.Notifications.requestPermission(true);
+    // Tapping a push (order status update, etc.) should take the customer
+    // straight to their Orders tab - see OneSignalService for the details.
+    OneSignalService.instance.setupNotificationClickHandling(navigatorKey);
   }
 
   if (FirebaseAuth.instance.currentUser != null) {
