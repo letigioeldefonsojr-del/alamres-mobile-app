@@ -217,7 +217,20 @@ class HomeTab extends StatelessWidget {
                         height: 130,
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFDCEBDD),
+                          // No banner image uploaded yet - same curated
+                          // gradient placeholder used for product photos,
+                          // instead of a flat color, so an empty banner
+                          // still looks intentional rather than broken.
+                          color: bannerImage != null
+                              ? const Color(0xFFDCEBDD)
+                              : null,
+                          gradient: bannerImage != null
+                              ? null
+                              : LinearGradient(
+                                  colors: placeholderGradientFor(offer),
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: Stack(
@@ -233,8 +246,8 @@ class HomeTab extends StatelessWidget {
                                       child: Icon(
                                         Icons.image_outlined,
                                         size: 40,
-                                        color: primaryGreen.withValues(
-                                          alpha: 0.35,
+                                        color: Colors.white.withValues(
+                                          alpha: 0.85,
                                         ),
                                       ),
                                     ),

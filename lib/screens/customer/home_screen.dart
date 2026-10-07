@@ -91,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (!mounted) return;
       final String address = (doc.data()?['address'] as String?) ?? '';
-      _checkAddressReminder(user, address);
+      _checkAddressReminder(address);
     } catch (_) {
       // Non-blocking - if the lookup itself fails (e.g. no connection),
       // don't lock the customer out of the app over it.
@@ -99,16 +99,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // A soft, dismissible reminder - not a mandatory gate like the mobile
-  // number check above - nudging email/password customers to add a
-  // delivery address if they haven't yet. Scoped to email accounts only:
-  // Google sign-in already asks for other missing details separately, and
-  // this isn't meant to pile on top of that.
-  void _checkAddressReminder(User user, String address) {
+  // number check above - nudging the customer to add a delivery address if
+  // they haven't yet. Applies to both email/password and Google accounts:
+  // email registration requires an address up front, so this mainly fires
+  // if it was cleared later in Edit Profile - but a Google sign-in never
+  // collects one at all, so this is the main real-world case it catches.
+  void _checkAddressReminder(String address) {
     if (address.trim().isNotEmpty) return;
-    final bool isEmailAccount = user.providerData.any(
-      (info) => info.providerId == 'password',
-    );
-    if (!isEmailAccount) return;
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(

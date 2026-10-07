@@ -14,7 +14,10 @@ const List<List<Color>> _placeholderGradients = [
   [Color(0xFF6A85B6), Color(0xFFBAC8E0)],
 ];
 
-List<Color> _gradientFor(String? seedText) {
+// Public so other spots with their own "no image" placeholder - e.g. the
+// Home tab's store banner - can reuse the same curated palette and picking
+// logic instead of rendering a flat color.
+List<Color> placeholderGradientFor(String? seedText) {
   final String text = (seedText == null || seedText.trim().isEmpty)
       ? 'almares-328'
       : seedText.trim().toLowerCase();
@@ -44,7 +47,7 @@ class ProductImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (imageUrl == null || imageUrl!.trim().isEmpty) {
-      final List<Color> gradient = _gradientFor(seedText);
+      final List<Color> gradient = placeholderGradientFor(seedText);
       return Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
