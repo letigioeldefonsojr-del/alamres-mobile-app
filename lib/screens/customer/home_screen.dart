@@ -9,6 +9,7 @@ import 'orders_tab.dart';
 import 'profile_tab.dart';
 import 'add_mobile_number_screen.dart';
 import 'edit_profile_screen.dart';
+import 'order_details_screen.dart';
 import '../../widgets/chat_panel.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -17,7 +18,21 @@ class HomeScreen extends StatefulWidget {
   // notification click handler jumping straight to Orders (index 2).
   final int initialTabIndex;
 
-  const HomeScreen({super.key, this.initialTabIndex = 0});
+  // Set by the push notification click handler when the tapped
+  // notification was about one specific order - once this screen is up,
+  // it opens straight into that order's details. Deliberately handled
+  // here, as part of this screen's own first-frame setup (same pattern as
+  // the mobile-number check below), rather than as a second, separately
+  // timed Navigator call from the click handler itself - that two-call
+  // approach left a gap where this screen could still be mid-setup when
+  // the second push landed.
+  final String? openOrderId;
+
+  const HomeScreen({
+    super.key,
+    this.initialTabIndex = 0,
+    this.openOrderId,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -66,9 +81,38 @@ class _HomeScreenState extends State<HomeScreen> {
     // on file. Check for that right after landing on the home screen and,
     // if missing, force the customer through a mandatory add-number gate
     // before they can use the rest of the app.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkMobileNumber();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _checkMobileNumber();
+      await _openOrderIfRequested();
     });
+  }
+
+  // Runs after the mobile-number gate (if any) has resolved, so a push
+  // notification arriving on a Google account that hasn't added a mobile
+  // number yet still shows that mandatory screen first, instead of two
+  // screens racing to push on top of each other at once.
+  Future<void> _openOrderIfRequested() async {
+    final String? orderId = widget.openOrderId;
+    if (orderId == null || orderId.trim().isEmpty) return;
+    if (!mounted) return;
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(orderId)
+          .get();
+      final orderData = doc.data();
+      if (orderData == null) return;
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => OrderDetailsScreen(orderId: orderId, data: orderData),
+        ),
+      );
+    } catch (_) {
+      // Non-critical - the customer still lands on their Orders tab
+      // either way, they'd just have to tap the order themselves.
+    }
   }
 
   Future<void> _checkMobileNumber() async {

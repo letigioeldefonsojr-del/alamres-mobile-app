@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import '../core/routing.dart';
 import '../screens/customer/home_screen.dart';
-import '../screens/customer/order_details_screen.dart';
 
 /// Handles OneSignal setup and linking a device to the signed-in
 /// Firebase user so pushes can be targeted at them by uid.
@@ -83,29 +82,19 @@ class OneSignalService {
     // guards its own delayed redirect with `if (!mounted) return;`, so if
     // this fires while splash is still showing, splash's own redirect
     // simply no-ops once its route has been removed from the stack.
-    await navState.pushAndRemoveUntil(
-      fadeSlideRoute(HomeScreen(initialTabIndex: tabIndex)),
+    //
+    // Opening the specific order (when orderId is set) is handled by
+    // HomeScreen itself, right after this frame - not as a second,
+    // separately timed Navigator call from here. Issuing it as its own
+    // call after an extra Firestore round-trip left a gap, after this
+    // pushAndRemoveUntil completed but before that second push landed,
+    // where the order screen could end up missing its intended target.
+    navState.pushAndRemoveUntil(
+      fadeSlideRoute(
+        HomeScreen(initialTabIndex: tabIndex, openOrderId: orderId),
+      ),
       (route) => false,
     );
-
-    // An order-update push carries that order's id - once Orders is
-    // showing, go one step further and open that exact order instead of
-    // leaving the customer to scroll around and find it themselves.
-    if (orderId == null) return;
-    try {
-      final orderDoc = await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(orderId)
-          .get();
-      final orderData = orderDoc.data();
-      if (orderData == null) return;
-      navState.push(
-        fadeSlideRoute(OrderDetailsScreen(orderId: orderId, data: orderData)),
-      );
-    } catch (_) {
-      // Non-critical - the customer still landed on their Orders tab
-      // either way, they'd just have to tap the order themselves.
-    }
   }
 
   /// Call right after a successful login (customer or employee),
