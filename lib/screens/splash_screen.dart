@@ -55,6 +55,13 @@ class _SplashScreenState extends State<SplashScreen> {
 
       if (!mounted) return;
 
+      // A push notification tap is already driving where this app lands -
+      // e.g. straight into a specific order - so this screen's own plain
+      // "go to Home tab 0 (or Login)" redirect must stay out of the way
+      // entirely, rather than risk firing on top of (or right after) that
+      // more specific redirect and undoing it.
+      if (OneSignalService.instance.handledNotificationLaunch) return;
+
       if (user == null) {
         Navigator.pushReplacement(
           context,

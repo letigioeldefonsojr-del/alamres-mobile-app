@@ -14,6 +14,18 @@ class OneSignalService {
 
   bool _initialized = false;
   bool _clickListenerRegistered = false;
+  String? _lastHandledNotificationId;
+
+  // Set the moment a notification tap starts being handled, and never
+  // cleared back to false afterward - SplashScreen checks this before its
+  // own default redirect so the two don't race each other. Without this,
+  // on a cold start where the tap is what's launching the app, splash's
+  // own 3-second timer could still fire its plain "go to Home tab 0"
+  // redirect right on top of (or right after) this service's own redirect
+  // to Orders, undoing it - which looked like the order screen opening
+  // and then immediately bouncing back to Home.
+  bool _handledNotificationLaunch = false;
+  bool get handledNotificationLaunch => _handledNotificationLaunch;
 
   /// Call once, early in main(), before runApp().
   /// [appId] is your OneSignal App ID from the OneSignal dashboard
@@ -43,6 +55,19 @@ class OneSignalService {
     _clickListenerRegistered = true;
 
     OneSignal.Notifications.addClickListener((event) {
+      // OneSignal can report the same tap more than once - e.g. once as
+      // the notification that launched the app from cold, and again once
+      // the SDK is fully set up - and a second firing would otherwise
+      // re-run this whole redirect on top of the first one. Skip any
+      // repeat of a notification id already handled this session.
+      final String? notificationId = event.notification.notificationId;
+      if (notificationId != null &&
+          notificationId == _lastHandledNotificationId) {
+        return;
+      }
+      _lastHandledNotificationId = notificationId;
+      _handledNotificationLaunch = true;
+
       final data = event.notification.additionalData;
       final String? orderId = data?['orderId'] as String?;
       final bool isOrderPush = orderId != null && orderId.trim().isNotEmpty;
@@ -78,10 +103,11 @@ class OneSignalService {
 
     // Clears back to a fresh HomeScreen on the target tab rather than
     // pushing on top of whatever's there - same pattern SuspensionWatcher
-    // uses for its own navigatorKey-driven redirects. SplashScreen already
-    // guards its own delayed redirect with `if (!mounted) return;`, so if
-    // this fires while splash is still showing, splash's own redirect
-    // simply no-ops once its route has been removed from the stack.
+    // uses for its own navigatorKey-driven redirects. SplashScreen checks
+    // handledNotificationLaunch (set above, before this async work even
+    // starts) and skips its own default redirect entirely once a
+    // notification tap is being handled, so the two never fight over
+    // which screen ends up on top.
     //
     // Opening the specific order (when orderId is set) is handled by
     // HomeScreen itself, right after this frame - not as a second,
