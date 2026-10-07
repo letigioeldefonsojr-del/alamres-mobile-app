@@ -298,6 +298,9 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
                         imageUrl:
                             (_selectedFlavor?['imageUrl'] as String?) ??
                             widget.product['imageUrl'] as String?,
+                        seedText:
+                            (_selectedFlavor?['name'] as String?) ??
+                            widget.product['name'] as String?,
                         iconSize: 36,
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -541,6 +544,7 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
                                       height: 28,
                                       child: ProductImage(
                                         imageUrl: flavor['imageUrl'] as String?,
+                                        seedText: flavor['name'] as String?,
                                         iconSize: 12,
                                         borderRadius: BorderRadius.circular(6),
                                       ),
@@ -826,6 +830,7 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
                               width: double.infinity,
                               child: ProductImage(
                                 imageUrl: item['imageUrl'] as String?,
+                                seedText: item['name'] as String?,
                                 iconSize: 22,
                                 borderRadius: BorderRadius.zero,
                               ),

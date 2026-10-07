@@ -96,6 +96,7 @@ class ProductCard extends StatelessWidget {
                               ),
                         child: ProductImage(
                           imageUrl: product['imageUrl'] as String?,
+                          seedText: name,
                           iconSize: 32,
                           borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(16),

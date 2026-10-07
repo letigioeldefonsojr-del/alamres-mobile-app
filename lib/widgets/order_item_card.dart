@@ -42,6 +42,7 @@ class OrderItemCard extends StatelessWidget {
             height: 56,
             child: ProductImage(
               imageUrl: item['imageUrl'] as String?,
+              seedText: name,
               iconSize: 24,
               borderRadius: BorderRadius.circular(10),
             ),
@@ -163,9 +164,7 @@ class _QtyButton extends StatelessWidget {
           height: 22,
           child: Icon(
             icon,
-            color: enabled
-                ? primaryGreen
-                : primaryGreen.withValues(alpha: 0.35),
+            color: enabled ? primaryGreen : primaryGreen.withValues(alpha: 0.35),
             size: 13,
           ),
         ),

@@ -326,6 +326,7 @@ class _CartScreenState extends State<CartScreen> {
                                   height: 48,
                                   child: ProductImage(
                                     imageUrl: data['imageUrl'] as String?,
+                                    seedText: productName,
                                     iconSize: 22,
                                     borderRadius: BorderRadius.circular(10),
                                   ),

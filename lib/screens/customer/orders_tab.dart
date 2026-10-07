@@ -486,6 +486,11 @@ class _OrdersListViewState extends State<OrdersListView> {
                                                               .first['imageUrl']
                                                           as String?
                                                     : null,
+                                                seedText: orderItems.isNotEmpty
+                                                    ? orderItems
+                                                              .first['productName']
+                                                          as String?
+                                                    : null,
                                                 iconSize: 22,
                                                 borderRadius:
                                                     BorderRadius.circular(10),

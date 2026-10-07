@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,6 +8,7 @@ import 'home_tab.dart';
 import 'orders_tab.dart';
 import 'profile_tab.dart';
 import 'add_mobile_number_screen.dart';
+import 'edit_profile_screen.dart';
 import '../../widgets/chat_panel.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -86,10 +88,44 @@ class _HomeScreenState extends State<HomeScreen> {
           MaterialPageRoute(builder: (_) => const AddMobileNumberScreen()),
         );
       }
+
+      if (!mounted) return;
+      final String address = (doc.data()?['address'] as String?) ?? '';
+      _checkAddressReminder(user, address);
     } catch (_) {
       // Non-blocking - if the lookup itself fails (e.g. no connection),
       // don't lock the customer out of the app over it.
     }
+  }
+
+  // A soft, dismissible reminder - not a mandatory gate like the mobile
+  // number check above - nudging email/password customers to add a
+  // delivery address if they haven't yet. Scoped to email accounts only:
+  // Google sign-in already asks for other missing details separately, and
+  // this isn't meant to pile on top of that.
+  void _checkAddressReminder(User user, String address) {
+    if (address.trim().isNotEmpty) return;
+    final bool isEmailAccount = user.providerData.any(
+      (info) => info.providerId == 'password',
+    );
+    if (!isEmailAccount) return;
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Add a delivery address so we know where to send your orders.'),
+        duration: const Duration(seconds: 6),
+        action: SnackBarAction(
+          label: 'Add',
+          textColor: Colors.white,
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   void _expandChat() {
@@ -199,6 +235,28 @@ class _HomeScreenState extends State<HomeScreen> {
     return Stack(
       children: [
         _buildHomeScaffold(context),
+        // Dims and blurs everything behind the floating chat card while
+        // it's open, so a tap meant for the chat can't land on a product
+        // underneath it. Tapping the dimmed area closes the chat, same as
+        // the card's own close button.
+        Positioned.fill(
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 180),
+            opacity: _isChatOpen ? 1.0 : 0.0,
+            curve: Curves.easeOut,
+            child: IgnorePointer(
+              ignoring: !_isChatOpen,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => setState(() => _isChatOpen = false),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+                  child: Container(color: Colors.black.withValues(alpha: 0.15)),
+                ),
+              ),
+            ),
+          ),
+        ),
         AnimatedPositioned(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
