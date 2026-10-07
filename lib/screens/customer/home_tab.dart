@@ -227,7 +227,7 @@ class HomeTab extends StatelessWidget {
                           gradient: bannerImage != null
                               ? null
                               : LinearGradient(
-                                  colors: placeholderGradientFor(offer),
+                                  colors: randomPlaceholderGradient(),
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
@@ -242,15 +242,7 @@ class HomeTab extends StatelessWidget {
                                       iconSize: 40,
                                       borderRadius: BorderRadius.circular(18),
                                     )
-                                  : Center(
-                                      child: Icon(
-                                        Icons.image_outlined,
-                                        size: 40,
-                                        color: Colors.white.withValues(
-                                          alpha: 0.85,
-                                        ),
-                                      ),
-                                    ),
+                                  : const SizedBox.shrink(),
                             ),
                             Container(
                               decoration: BoxDecoration(

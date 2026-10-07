@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 
 // Curated gradient pairs used as a placeholder background whenever a
@@ -23,6 +24,18 @@ List<Color> placeholderGradientFor(String? seedText) {
       : seedText.trim().toLowerCase();
   final int index = text.hashCode.abs() % _placeholderGradients.length;
   return _placeholderGradients[index];
+}
+
+// A fresh random pick from the same palette, rather than a seeded one - for
+// the one spot (the Home tab's store banner) where staying consistent
+// between rebuilds doesn't matter as much as not always landing on the
+// same gradient every time a banner is saved.
+final Random _placeholderRandom = Random();
+
+List<Color> randomPlaceholderGradient() {
+  return _placeholderGradients[_placeholderRandom.nextInt(
+    _placeholderGradients.length,
+  )];
 }
 
 class ProductImage extends StatelessWidget {
