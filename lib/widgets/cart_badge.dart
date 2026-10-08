@@ -3,7 +3,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CartBadge extends StatelessWidget {
-  const CartBadge({super.key});
+  // The badge's thin outline - defaults to the app's primary green (matches
+  // Home header's green background); pass white when placing this badge
+  // over a white background instead, so the ring still blends in.
+  final Color borderColor;
+
+  const CartBadge({super.key, this.borderColor = const Color(0xFF2E6B3E)});
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +35,7 @@ class CartBadge extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.redAccent,
             borderRadius: BorderRadius.circular(9),
-            border: Border.all(color: const Color(0xFF2E6B3E), width: 1.5),
+            border: Border.all(color: borderColor, width: 1.5),
           ),
           alignment: Alignment.center,
           child: Text(

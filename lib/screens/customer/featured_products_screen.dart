@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
+import '../../widgets/cart_icon_button.dart';
 import '../../widgets/product_card.dart';
 import 'all_products_screen.dart';
 
@@ -41,6 +42,7 @@ class FeaturedProductsScreen extends StatelessWidget {
               ),
             ),
           ),
+          const CartIconButton(),
         ],
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(

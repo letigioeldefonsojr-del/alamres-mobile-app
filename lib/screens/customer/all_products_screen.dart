@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/product_helpers.dart';
 import '../../core/search_helpers.dart';
+import '../../widgets/cart_icon_button.dart';
 import '../../widgets/product_card.dart';
 
 class AllProductsScreen extends StatefulWidget {
@@ -88,6 +89,7 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
             icon: const Icon(Icons.sort),
             tooltip: 'Sort',
           ),
+          const CartIconButton(),
         ],
       ),
       body: Column(

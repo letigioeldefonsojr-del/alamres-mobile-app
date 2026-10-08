@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/product_helpers.dart';
+import '../../widgets/cart_icon_button.dart';
 import '../../widgets/product_card.dart';
 
 class CategoryProductsScreen extends StatefulWidget {
@@ -83,6 +84,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
             icon: const Icon(Icons.sort),
             tooltip: 'Sort',
           ),
+          const CartIconButton(),
         ],
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(

@@ -6,6 +6,7 @@ import '../../core/cart_helpers.dart';
 import '../../core/constants.dart';
 import '../../core/product_helpers.dart';
 import '../../core/search_helpers.dart';
+import '../../widgets/cart_icon_button.dart';
 import '../../widgets/product_card.dart';
 import 'all_products_screen.dart';
 import 'category_products_screen.dart';
@@ -140,6 +141,11 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
                           ],
                         ),
                       ),
+                    ),
+                    const SizedBox(width: 4),
+                    CartIconButton(
+                      color: primaryGreen,
+                      badgeBorderColor: Colors.white,
                     ),
                   ],
                 ),
