@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
+import '../../core/delivery_helpers.dart';
 import '../../core/product_helpers.dart';
 
 class OrderConfirmationScreen extends StatefulWidget {
@@ -36,6 +37,13 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
   late final DateTime _estimatedDelivery;
   late final String _orderNumber;
 
+  // Distance-based delivery fee - recalculated whenever the delivery
+  // address changes. The app only stores addresses as text, so this
+  // re-geocodes the current address and measures it against the nearest
+  // branch each time (see delivery_helpers.dart).
+  DeliveryFeeResult? _deliveryFeeResult;
+  bool _isCalculatingFee = true;
+
   @override
   void initState() {
     super.initState();
@@ -66,8 +74,32 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
     } catch (_) {
     } finally {
       if (mounted) setState(() => _isLoading = false);
+      _recalculateDeliveryFee();
     }
   }
+
+  Future<void> _recalculateDeliveryFee() async {
+    if (_customerAddress.trim().isEmpty) {
+      setState(() {
+        _deliveryFeeResult = null;
+        _isCalculatingFee = false;
+      });
+      return;
+    }
+    setState(() => _isCalculatingFee = true);
+    final result = await computeDeliveryFee(_customerAddress);
+    if (!mounted) return;
+    setState(() {
+      _deliveryFeeResult = result;
+      _isCalculatingFee = false;
+    });
+  }
+
+  // Falls back to 0 while the fee hasn't resolved yet (still calculating,
+  // or the address couldn't be geocoded) - the order can still be placed;
+  // it's just flagged (see _confirmOrder) for the branch to confirm the
+  // fee manually in that case.
+  double get _deliveryFee => _deliveryFeeResult?.fee ?? 0;
 
   String _formatDate(DateTime date) {
     const months = [
@@ -171,7 +203,15 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
               },
             ],
             'itemCount': 1,
-            'total': total,
+            'itemsSubtotal': total,
+            'deliveryFee': _deliveryFee,
+            ...(_deliveryFeeResult != null
+                ? {
+                    'deliveryDistanceKm': _deliveryFeeResult!.distanceKm,
+                    'deliveryBranch': _deliveryFeeResult!.branchName,
+                  }
+                : {'deliveryFeeUnresolved': true}),
+            'total': total + _deliveryFee,
             'status': 'pending',
             'estimatedDelivery': Timestamp.fromDate(_estimatedDelivery),
             'createdAt': FieldValue.serverTimestamp(),
@@ -209,7 +249,15 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
             },
           ],
           'itemCount': 1,
-          'total': total,
+          'itemsSubtotal': total,
+          'deliveryFee': _deliveryFee,
+          ...(_deliveryFeeResult != null
+              ? {
+                  'deliveryDistanceKm': _deliveryFeeResult!.distanceKm,
+                  'deliveryBranch': _deliveryFeeResult!.branchName,
+                }
+              : {'deliveryFeeUnresolved': true}),
+          'total': total + _deliveryFee,
           'status': 'pending',
           'estimatedDelivery': Timestamp.fromDate(_estimatedDelivery),
           'createdAt': FieldValue.serverTimestamp(),
@@ -361,6 +409,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                         );
                         if (picked != null) {
                           setState(() => _customerAddress = picked);
+                          _recalculateDeliveryFee();
                         }
                       },
                       child: Padding(
@@ -408,6 +457,97 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                         ),
                       ),
                     ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 8,
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text(
+                                'DELIVERY FEE',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                              if (_isCalculatingFee)
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const SizedBox(
+                                      width: 12,
+                                      height: 12,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Calculating...',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              else if (_deliveryFeeResult != null)
+                                Text(
+                                  '₱${_deliveryFeeResult!.fee.toStringAsFixed(2)} '
+                                  '(${_deliveryFeeResult!.distanceKm.toStringAsFixed(1)}km from '
+                                  '${_deliveryFeeResult!.branchName})',
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                )
+                              else
+                                Text(
+                                  'To be confirmed',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: Colors.orange.shade800,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Divider(color: Colors.grey.shade300, height: 1),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'TOTAL',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              Text(
+                                '₱${(total + _deliveryFee).toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: primaryGreen,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     _detailRow(
                       'Estimated Delivery',
                       _formatDate(_estimatedDelivery),
@@ -423,7 +563,9 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: _isConfirming ? null : _confirmOrder,
+                        onPressed: (_isConfirming || _isCalculatingFee)
+                            ? null
+                            : _confirmOrder,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryGreen,
                           shape: RoundedRectangleBorder(

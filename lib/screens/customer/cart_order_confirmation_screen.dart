@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
+import '../../core/delivery_helpers.dart';
 import '../../core/product_helpers.dart';
 import '../../widgets/order_item_card.dart';
 
@@ -40,6 +41,13 @@ class _CartOrderConfirmationScreenState
   late List<Map<String, dynamic>> _items;
   List<DocumentReference<Map<String, dynamic>>>? _cartRefs;
 
+  // Distance-based delivery fee - recalculated whenever the delivery
+  // address changes. The app only stores addresses as text, so this
+  // re-geocodes the current address and measures it against the nearest
+  // branch each time (see delivery_helpers.dart).
+  DeliveryFeeResult? _deliveryFeeResult;
+  bool _isCalculatingFee = true;
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +59,24 @@ class _CartOrderConfirmationScreenState
         : (user?.email?.split('@').first ?? 'Guest');
     _items = widget.items.map((e) => Map<String, dynamic>.from(e)).toList();
     _cartRefs = widget.cartRefs == null ? null : List.of(widget.cartRefs!);
+    _recalculateDeliveryFee();
+  }
+
+  Future<void> _recalculateDeliveryFee() async {
+    if (_customerAddress.trim().isEmpty) {
+      setState(() {
+        _deliveryFeeResult = null;
+        _isCalculatingFee = false;
+      });
+      return;
+    }
+    setState(() => _isCalculatingFee = true);
+    final result = await computeDeliveryFee(_customerAddress);
+    if (!mounted) return;
+    setState(() {
+      _deliveryFeeResult = result;
+      _isCalculatingFee = false;
+    });
   }
 
   void _updateAmount(int index, int newAmount) {
@@ -76,6 +102,14 @@ class _CartOrderConfirmationScreenState
     return total;
   }
 
+  // Falls back to 0 while the fee hasn't resolved yet (still calculating,
+  // or the address couldn't be geocoded) - the order can still be placed;
+  // it's just flagged (see _confirmOrder) for the branch to confirm the
+  // fee manually in that case.
+  double get _deliveryFee => _deliveryFeeResult?.fee ?? 0;
+
+  double get _grandTotal => _total + _deliveryFee;
+
   String _formatDate(DateTime date) {
     const months = [
       'Jan',
@@ -99,7 +133,10 @@ class _CartOrderConfirmationScreenState
 
   Future<void> _changeAddress() async {
     final picked = await pickDeliveryAddress(context, _customerAddress);
-    if (picked != null) setState(() => _customerAddress = picked);
+    if (picked != null) {
+      setState(() => _customerAddress = picked);
+      _recalculateDeliveryFee();
+    }
   }
 
   Future<void> _confirmOrder() async {
@@ -204,7 +241,19 @@ class _CartOrderConfirmationScreenState
           'customerAddress': _customerAddress,
           'items': orderItems,
           'itemCount': orderItems.length,
-          'total': orderTotal,
+          'itemsSubtotal': orderTotal,
+          'deliveryFee': _deliveryFee,
+          ...(_deliveryFeeResult != null
+              ? {
+                  'deliveryDistanceKm': _deliveryFeeResult!.distanceKm,
+                  'deliveryBranch': _deliveryFeeResult!.branchName,
+                }
+              // Address couldn't be geocoded (too vague, a typo, or
+              // Nominatim briefly unreachable) - the order still goes
+              // through rather than blocking the customer, just flagged
+              // so the branch knows to confirm the real fee by hand.
+              : {'deliveryFeeUnresolved': true}),
+          'total': orderTotal + _deliveryFee,
           'status': 'pending',
           'estimatedDelivery': Timestamp.fromDate(_estimatedDelivery),
           'createdAt': FieldValue.serverTimestamp(),
@@ -289,24 +338,109 @@ class _CartOrderConfirmationScreenState
               }),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Column(
                   children: [
-                    const Text(
-                      'ORDER TOTAL',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'ITEMS SUBTOTAL',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                        Text(
+                          '₱${_total.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      '₱${_total.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: primaryGreen,
-                      ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          'DELIVERY FEE',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                        if (_isCalculatingFee)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Calculating...',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          )
+                        else if (_deliveryFeeResult != null)
+                          Text(
+                            '₱${_deliveryFeeResult!.fee.toStringAsFixed(2)} '
+                            '(${_deliveryFeeResult!.distanceKm.toStringAsFixed(1)}km from '
+                            '${_deliveryFeeResult!.branchName})',
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          )
+                        else
+                          Text(
+                            'To be confirmed',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: Colors.orange.shade800,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Divider(color: Colors.grey.shade300, height: 1),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'TOTAL',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        Text(
+                          '₱${_grandTotal.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: primaryGreen,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -423,7 +557,8 @@ class _CartOrderConfirmationScreenState
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: (_isConfirming || _items.isEmpty)
+                  onPressed:
+                      (_isConfirming || _items.isEmpty || _isCalculatingFee)
                       ? null
                       : _confirmOrder,
                   style: ElevatedButton.styleFrom(
