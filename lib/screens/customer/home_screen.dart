@@ -13,6 +13,7 @@ import 'edit_profile_screen.dart';
 import 'order_details_screen.dart';
 import '../../widgets/chat_panel.dart';
 import '../../services/engagement_reminder_service.dart';
+import '../../services/beta_announcement_service.dart';
 
 class HomeScreen extends StatefulWidget {
   // Which bottom-nav tab to land on when this screen first appears - 0
@@ -86,7 +87,43 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _checkMobileNumber();
       await _openOrderIfRequested();
+      await _checkBetaAnnouncement();
     });
+  }
+
+  // Temporary beta-testing banner - see beta_announcement_service.dart for
+  // how to turn it on/off and change its message (no app update needed),
+  // and for how to remove this feature entirely once testing is done.
+  Future<void> _checkBetaAnnouncement() async {
+    final announcement = await BetaAnnouncementService.instance
+        .fetchIfUnseen();
+    if (announcement == null || !mounted) return;
+
+    ScaffoldMessenger.of(context).showMaterialBanner(
+      MaterialBanner(
+        backgroundColor: const Color(0xFFFFF3CD),
+        content: Text(
+          announcement.message,
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
+        leading: const Icon(Icons.science_outlined, color: primaryGreen),
+        actions: [
+          TextButton(
+            onPressed: () {
+              BetaAnnouncementService.instance.markSeen(announcement.version);
+              ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+            },
+            child: const Text(
+              'Got it',
+              style: TextStyle(
+                color: primaryGreen,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // Runs after the mobile-number gate (if any) has resolved, so a push
