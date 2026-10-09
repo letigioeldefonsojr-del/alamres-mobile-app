@@ -110,6 +110,15 @@ class EngagementReminderService {
             ),
           ),
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          // Required by this package version's zonedSchedule() (removed in
+          // a later major version, but still required as of the
+          // flutter_local_notifications 18.0.1 this project is pinned to).
+          // absoluteTime is the standard choice - it's iOS-specific and
+          // this feature only configures Android anyway, so it has no
+          // real effect here, but the parameter itself is mandatory
+          // regardless of platform.
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
         );
       }
     } catch (_) {
