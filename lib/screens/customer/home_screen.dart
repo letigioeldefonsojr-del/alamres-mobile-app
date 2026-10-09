@@ -47,6 +47,11 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   bool _isChatOpen = false;
   final GlobalKey<ChatPanelState> _chatPanelKey = GlobalKey<ChatPanelState>();
+  StreamSubscription<BetaAnnouncement?>? _betaAnnouncementSub;
+  // Tracks which version (if any) is currently on screen, so an unrelated
+  // change to the Firestore doc that re-emits the same still-unseen
+  // version doesn't re-show/flicker the banner.
+  int? _shownBetaAnnouncementVersion;
 
   final List<Widget> _tabs = const [
     HomeTab(),
@@ -87,17 +92,40 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _checkMobileNumber();
       await _openOrderIfRequested();
-      await _checkBetaAnnouncement();
     });
+    // Live, not a one-off check - see beta_announcement_service.dart for
+    // how to turn the banner on/off and change its message (no app update
+    // needed), and for how to remove this feature entirely once testing
+    // is done.
+    _betaAnnouncementSub = BetaAnnouncementService.instance.watch().listen(
+      _onBetaAnnouncement,
+    );
   }
 
-  // Temporary beta-testing banner - see beta_announcement_service.dart for
-  // how to turn it on/off and change its message (no app update needed),
-  // and for how to remove this feature entirely once testing is done.
-  Future<void> _checkBetaAnnouncement() async {
-    final announcement = await BetaAnnouncementService.instance
-        .fetchIfUnseen();
-    if (announcement == null || !mounted) return;
+  @override
+  void dispose() {
+    _betaAnnouncementSub?.cancel();
+    super.dispose();
+  }
+
+  void _onBetaAnnouncement(BetaAnnouncement? announcement) {
+    if (!mounted) return;
+
+    if (announcement == null) {
+      // Turned off, or this device has now seen the current version
+      // (e.g. right after tapping "Got it") - clear whatever's showing
+      // so a dismissed/disabled banner doesn't linger.
+      if (_shownBetaAnnouncementVersion != null) {
+        ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+        _shownBetaAnnouncementVersion = null;
+      }
+      return;
+    }
+
+    // Already showing this exact version - avoid re-showing/flickering it
+    // on every unrelated change to the Firestore doc.
+    if (_shownBetaAnnouncementVersion == announcement.version) return;
+    _shownBetaAnnouncementVersion = announcement.version;
 
     ScaffoldMessenger.of(context).showMaterialBanner(
       MaterialBanner(
@@ -112,6 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               BetaAnnouncementService.instance.markSeen(announcement.version);
               ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+              _shownBetaAnnouncementVersion = null;
             },
             child: const Text(
               'Got it',

@@ -21,39 +21,47 @@ class BetaAnnouncementService {
 
   static const String _seenVersionPrefsKey = 'beta_announcement_seen_version';
 
-  /// Returns the announcement if it's enabled and this device hasn't
-  /// already dismissed this exact version of it - null otherwise (not
-  /// configured yet, turned off, or already seen).
-  Future<BetaAnnouncement?> fetchIfUnseen() async {
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('config')
-          .doc('betaAnnouncement')
-          .get();
-      final data = doc.data();
-      if (data == null) return null;
+  /// Live version of the same "should this show right now" check, as a
+  /// stream that re-evaluates every time the Firestore doc changes - so a
+  /// tester already inside the app sees the banner the moment staff flip
+  /// `enabled` or bump `version`, with no need to close and reopen the
+  /// app. HomeScreen owns the subscription (see its initState/dispose).
+  /// Emits null whenever the banner should not (or no longer) be shown:
+  /// not configured yet, turned off, or this device already dismissed
+  /// this exact version.
+  Stream<BetaAnnouncement?> watch() {
+    return FirebaseFirestore.instance
+        .collection('config')
+        .doc('betaAnnouncement')
+        .snapshots()
+        .asyncMap((doc) async {
+          try {
+            final data = doc.data();
+            if (data == null) return null;
 
-      final bool enabled = (data['enabled'] as bool?) ?? false;
-      if (!enabled) return null;
+            final bool enabled = (data['enabled'] as bool?) ?? false;
+            if (!enabled) return null;
 
-      final String message = (data['message'] as String?)?.trim() ?? '';
-      if (message.isEmpty) return null;
+            final String message = (data['message'] as String?)?.trim() ?? '';
+            if (message.isEmpty) return null;
 
-      // Bump this on the Firestore doc whenever the message changes and
-      // you want it to resurface for testers who already dismissed an
-      // earlier version - otherwise it only shows once per tester, ever.
-      final int version = (data['version'] as num?)?.toInt() ?? 1;
+            // Bump this on the Firestore doc whenever the message changes
+            // and you want it to resurface for testers who already
+            // dismissed an earlier version - otherwise it only shows once
+            // per tester, ever.
+            final int version = (data['version'] as num?)?.toInt() ?? 1;
 
-      final prefs = await SharedPreferences.getInstance();
-      final int seenVersion = prefs.getInt(_seenVersionPrefsKey) ?? 0;
-      if (version <= seenVersion) return null;
+            final prefs = await SharedPreferences.getInstance();
+            final int seenVersion = prefs.getInt(_seenVersionPrefsKey) ?? 0;
+            if (version <= seenVersion) return null;
 
-      return BetaAnnouncement(message: message, version: version);
-    } catch (_) {
-      // Non-critical - worst case a tester just doesn't see the banner
-      // this launch, rather than the app breaking over it.
-      return null;
-    }
+            return BetaAnnouncement(message: message, version: version);
+          } catch (_) {
+            // Non-critical - worst case a tester just doesn't see the
+            // banner, rather than the app breaking over it.
+            return null;
+          }
+        });
   }
 
   /// Call once the tester dismisses the banner, so this exact version
