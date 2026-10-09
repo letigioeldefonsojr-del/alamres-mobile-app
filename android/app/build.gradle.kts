@@ -34,11 +34,26 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")
-            isMinifyEnabled = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            // Was true, with proguardFiles pointing at proguard-rules.pro -
+            // turned off entirely rather than chasing exact keep rules.
+            // R8 (the code shrinker this enables) was silently stripping
+            // internal classes that Firebase Auth / Google Sign-In need to
+            // persist and restore a signed-in session, which is what broke
+            // "Keep me logged in" in every release APK build (flutter build
+            // apk defaults to this release build type) while a plain debug
+            // `flutter run` - which never minifies - worked fine. A
+            // targeted keep-rules file (still in proguard-rules.pro) is the
+            // "right" fix for a production app, but for this project a
+            // somewhat larger APK is a trivial cost next to actually having
+            // a working app - so shrinking is just off.
+            isMinifyEnabled = false
+            // Flutter's own Gradle plugin defaults release builds to
+            // shrinking resources, which Android Gradle Plugin refuses to
+            // do with isMinifyEnabled off ("Removing unused resources
+            // requires unused code shrinking to be turned on"). Override
+            // that default explicitly rather than re-enabling minification
+            // just to satisfy it.
+            isShrinkResources = false
         }
     }
 }

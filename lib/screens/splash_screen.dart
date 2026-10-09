@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../core/routing.dart';
 import '../services/onesignal_service.dart';
 import 'customer/home_screen.dart';
@@ -16,6 +18,10 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   static const Color primaryGreen = Color(0xFF2E6B3E);
+  // Keys must match the ones login_screen.dart writes to.
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  static const String _savedEmailKey = 'savedLoginEmail';
+  static const String _savedPasswordKey = 'savedLoginPassword';
 
   @override
   void initState() {
@@ -39,18 +45,26 @@ class _SplashScreenState extends State<SplashScreen> {
       // enough on every device.
       var user = await FirebaseAuth.instance.authStateChanges().first;
 
+      // Read both preferences up front - "keep me logged in" is needed
+      // whether or not Firebase handed back a user (to decide whether an
+      // already-restored user should be signed back out, or whether it's
+      // worth attempting the Google fallback below when Firebase's own
+      // session comes back empty). Defaults to staying signed in if never
+      // set (e.g. very first launch).
+      bool keepLoggedIn = true;
+      bool lastSignInWasGoogle = false;
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        keepLoggedIn = prefs.getBool('keepLoggedIn') ?? true;
+        lastSignInWasGoogle = prefs.getBool('lastSignInWasGoogle') ?? false;
+      } catch (_) {
+        // Non-critical - fall back to staying signed in.
+      }
+
       if (user != null) {
         // "Keep me logged in" was unchecked at login - honor that on this
         // fresh app launch by signing back out instead of dropping the
-        // customer straight into HomeScreen. Defaults to staying signed in
-        // if the preference was never set (e.g. very first launch).
-        bool keepLoggedIn = true;
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          keepLoggedIn = prefs.getBool('keepLoggedIn') ?? true;
-        } catch (_) {
-          // Non-critical - fall back to staying signed in.
-        }
+        // customer straight into HomeScreen.
         if (!keepLoggedIn) {
           // Same reasoning as manually logging out from the profile
           // screen - detach this device from the account before signing
@@ -64,6 +78,71 @@ class _SplashScreenState extends State<SplashScreen> {
           );
           await FirebaseAuth.instance.signOut();
           user = null;
+        }
+      } else if (keepLoggedIn && lastSignInWasGoogle) {
+        // Firebase Auth's own persisted session came back empty even
+        // though nothing in this app signed the customer out - on some
+        // devices (certain OEM Android builds in particular) that session
+        // does not reliably survive the app being killed from the
+        // recent-apps list. Google Sign-In keeps its own session in
+        // Android's system-level account manager (via Google Play
+        // Services), a separate storage layer from this app's own, so it
+        // tends to survive even when Firebase's app-local session
+        // doesn't. Only attempted when the customer's last successful
+        // login here was through Google and they had "keep me logged in"
+        // checked; entirely silent, and any failure just falls through to
+        // the normal "show Login screen" behavior below.
+        try {
+          final GoogleSignInAccount? googleUser = await GoogleSignIn()
+              .signInSilently();
+          if (googleUser != null) {
+            final GoogleSignInAuthentication googleAuth =
+                await googleUser.authentication;
+            final oauthCredential = GoogleAuthProvider.credential(
+              accessToken: googleAuth.accessToken,
+              idToken: googleAuth.idToken,
+            );
+            final userCredential = await FirebaseAuth.instance
+                .signInWithCredential(oauthCredential);
+            user = userCredential.user;
+          }
+        } catch (_) {
+          // No cached Google session, no network, Play Services
+          // unavailable, etc. - never block startup on this, just fall
+          // through to the normal Login screen below.
+        }
+      } else if (keepLoggedIn && !lastSignInWasGoogle) {
+        // Same idea as the Google fallback above, but for an email/
+        // password login. Firebase Auth has no separate outside-the-app
+        // session layer for email/password the way Google Sign-In does,
+        // so the only way to silently restore this kind of session on a
+        // device where Firebase's own persisted session doesn't survive
+        // is to keep the credentials themselves ready to replay - read
+        // here from the device's hardware-backed secure storage (never
+        // plain text), and only present at all when "keep me logged in"
+        // was checked at the most recent email/password login. Cleared
+        // immediately on manual logout, a forced sign-out, or switching
+        // to Google login - see login_screen.dart, profile_tab.dart and
+        // suspension_watcher.dart.
+        try {
+          final String? savedEmail = await _secureStorage.read(
+            key: _savedEmailKey,
+          );
+          final String? savedPassword = await _secureStorage.read(
+            key: _savedPasswordKey,
+          );
+          if (savedEmail != null && savedPassword != null) {
+            final userCredential = await FirebaseAuth.instance
+                .signInWithEmailAndPassword(
+                  email: savedEmail,
+                  password: savedPassword,
+                );
+            user = userCredential.user;
+          }
+        } catch (_) {
+          // Wrong/changed password, no network, account disabled, etc. -
+          // never block startup on this, just fall through to the normal
+          // Login screen below.
         }
       }
 

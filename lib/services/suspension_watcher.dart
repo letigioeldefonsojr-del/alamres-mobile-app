@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'onesignal_service.dart';
 import 'suspension_service.dart';
 import '../core/routing.dart';
@@ -127,6 +129,19 @@ class _SuspensionWatcherState extends State<SuspensionWatcher> {
         onTimeout: () {},
       ),
     );
+
+    // This is a forced sign-out - make sure splash_screen.dart's "keep me
+    // logged in" fallbacks (Google session / saved email+password) can't
+    // silently sign this suspended account back in on the next cold start.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('keepLoggedIn', false);
+    } catch (_) {}
+    try {
+      const secureStorage = FlutterSecureStorage();
+      await secureStorage.delete(key: 'savedLoginEmail');
+      await secureStorage.delete(key: 'savedLoginPassword');
+    } catch (_) {}
 
     await FirebaseAuth.instance.signOut();
 

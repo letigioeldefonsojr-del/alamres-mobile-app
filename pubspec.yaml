@@ -34,6 +34,11 @@ dependencies:
   firebase_auth: ^5.3.1
   google_sign_in: ^6.2.2
   shared_preferences: ^2.3.2
+  # Hardware-backed secure storage (Android Keystore / iOS Keychain) - used
+  # only to let "keep me logged in" silently restore an email/password
+  # session on cold start (see splash_screen.dart). Never stored in plain
+  # SharedPreferences.
+  flutter_secure_storage: ^9.2.2
   intl_phone_field: ^3.2.0
   google_maps_flutter: ^2.9.0
   geolocator: ^13.0.0

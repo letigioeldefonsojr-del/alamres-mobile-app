@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/dialog_helpers.dart';
 import '../../core/routing.dart';
 import '../../services/onesignal_service.dart';
@@ -197,6 +199,20 @@ class _ProfileTabState extends State<ProfileTab> {
         onTimeout: () {},
       ),
     );
+
+    // This is a deliberate, explicit logout - make sure splash_screen.dart's
+    // "keep me logged in" fallbacks (Google session / saved email+password)
+    // can never silently sign this account back in on the next cold start
+    // just because those prefs were left over from a previous login.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('keepLoggedIn', false);
+    } catch (_) {}
+    try {
+      const secureStorage = FlutterSecureStorage();
+      await secureStorage.delete(key: 'savedLoginEmail');
+      await secureStorage.delete(key: 'savedLoginPassword');
+    } catch (_) {}
 
     await FirebaseAuth.instance.signOut();
 
