@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
+import '../../core/constants.dart';
 import '../../core/delivery_helpers.dart';
 import '../../core/product_helpers.dart';
 import '../../widgets/order_item_card.dart';
@@ -39,6 +40,12 @@ class _CartOrderConfirmationScreenState
   // Local, editable copies so the quantity steppers can adjust amounts (or
   // drop an item entirely) before the order is actually placed.
   late List<Map<String, dynamic>> _items;
+  // The regular/discounted unit price each item actually had when this
+  // screen opened - kept untouched (never overwritten) so _updateAmount
+  // below always has the real baseline to fall back to when the stepper
+  // drops back under the wholesale threshold, instead of being stuck on
+  // whatever price was last computed.
+  late final List<double> _originalUnitPrices;
   List<DocumentReference<Map<String, dynamic>>>? _cartRefs;
 
   // Distance-based delivery fee - recalculated whenever the delivery
@@ -58,6 +65,9 @@ class _CartOrderConfirmationScreenState
         ? user!.displayName!
         : (user?.email?.split('@').first ?? 'Guest');
     _items = widget.items.map((e) => Map<String, dynamic>.from(e)).toList();
+    _originalUnitPrices = _items
+        .map((item) => (item['unitPrice'] as num?)?.toDouble() ?? 0)
+        .toList();
     _cartRefs = widget.cartRefs == null ? null : List.of(widget.cartRefs!);
     _recalculateDeliveryFee();
   }
@@ -79,14 +89,37 @@ class _CartOrderConfirmationScreenState
     });
   }
 
+  // Switches an item's unit price to its cached wholesale price the
+  // instant the stepper reaches kWholesaleMinimumQuantity, purely locally
+  // (no network round-trip) - and back to the original retail/discounted
+  // price if it's stepped back down below that. This mirrors the options
+  // sheet's live behavior, so the price shown while adjusting quantity
+  // here never lags behind what Confirm will actually charge. A live
+  // discount change is still only caught at the moment of Confirm itself,
+  // same as before this - that's a much rarer case and not what this is
+  // fixing.
   void _updateAmount(int index, int newAmount) {
     if (newAmount < 1) return;
     setState(() {
       final data = _items[index];
-      final double unitPrice = (data['unitPrice'] as num?)?.toDouble() ?? 0;
+      final double originalUnitPrice = _originalUnitPrices[index];
+      double unitPrice = originalUnitPrice;
+
+      if (newAmount >= kWholesaleMinimumQuantity) {
+        final String? wholesaleRaw = data['wholesalePrice'] as String?;
+        final double? wholesaleParsed =
+            (wholesaleRaw != null && wholesaleRaw.trim().isNotEmpty)
+            ? parsePesoAmount(wholesaleRaw)
+            : null;
+        if (wholesaleParsed != null && wholesaleParsed > 0) {
+          unitPrice = wholesaleParsed;
+        }
+      }
+
       _items[index] = {
         ...data,
         'amount': newAmount,
+        'unitPrice': unitPrice,
         'subtotal': unitPrice * newAmount,
       };
     });

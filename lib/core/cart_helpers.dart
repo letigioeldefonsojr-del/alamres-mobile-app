@@ -101,6 +101,12 @@ Future<void> addProductToCart({
   required Map<String, dynamic>? flavor,
   required int amount,
   required double unitPrice,
+  // Cached alongside the item so the quantity stepper on the Confirm
+  // Order screen can switch to wholesale pricing the instant the amount
+  // crosses kWholesaleMinimumQuantity, without a network round-trip - see
+  // that screen's _updateAmount(). Null when this product/flavor has no
+  // wholesale price set.
+  String? wholesalePrice,
 }) async {
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) {
@@ -128,6 +134,7 @@ Future<void> addProductToCart({
     'imageUrl': imageUrl,
     'flavor': flavorName,
     'unitPrice': unitPrice,
+    'wholesalePrice': wholesalePrice,
     'amount': FieldValue.increment(amount),
     'updatedAt': FieldValue.serverTimestamp(),
   }, SetOptions(merge: true));

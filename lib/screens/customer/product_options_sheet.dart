@@ -211,6 +211,7 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
         flavor: _selectedFlavor,
         amount: _amount,
         unitPrice: _unitPrice,
+        wholesalePrice: _unitWholesaleLabel,
       );
       navigator.pop();
       // Stay on the current screen instead of navigating to the cart - the
