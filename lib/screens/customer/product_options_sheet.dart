@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
+import '../../core/constants.dart';
 import '../../core/product_helpers.dart';
 import '../../widgets/fly_to_cart_overlay.dart';
 import '../../widgets/product_image.dart';
@@ -59,25 +60,40 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
         : (widget.product['price'] as String? ?? '₱0');
   }
 
-  // Discount-aware - this is what checkout actually charges, so it must
-  // always go through effectivePrice() rather than reading price/flavor
-  // price fields directly.
+  // Discount- and wholesale-aware - this is what checkout actually
+  // charges, so it must always go through effectivePriceForQuantity()
+  // rather than reading price/flavor price fields directly. Passing
+  // _amount in is what makes the price drop to wholesale automatically
+  // once the stepper below reaches kWholesaleMinimumQuantity.
   double get _unitPrice {
-    final String effective = effectivePrice(
+    final String effective = effectivePriceForQuantity(
       widget.product,
       _regularPriceString,
+      _amount,
       variant: _selectedFlavor,
     );
     return parsePesoAmount(effective) ?? 0;
   }
 
-  String get _priceLabel =>
-      effectivePrice(widget.product, _regularPriceString, variant: _selectedFlavor);
+  String get _priceLabel => effectivePriceForQuantity(
+    widget.product,
+    _regularPriceString,
+    _amount,
+    variant: _selectedFlavor,
+  );
 
   bool get _isOnSale =>
       isDiscountVisible(widget.product, variant: _selectedFlavor);
 
+  // Once wholesale pricing has actually kicked in, the retail discount's
+  // strikethrough/badge no longer make sense next to it (wholesale
+  // replaces the discount rather than stacking with it - see
+  // effectivePriceForQuantity()), so both get suppressed below.
+  bool get _isWholesaleApplied =>
+      _amount >= kWholesaleMinimumQuantity && _unitWholesaleLabel != null;
+
   String? get _regularPriceLabel {
+    if (_isWholesaleApplied) return null;
     if (!_isOnSale) return null;
     return discountRegularPriceLabel(
       widget.product,
@@ -93,8 +109,10 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
     return 'Ends ${formatDiscountDate(end.toDate())}';
   }
 
-  // Wholesale is purely informational here (and on the product card) -
-  // checkout always charges the retail _unitPrice above. Mirrors
+  // The wholesale price that applies at kWholesaleMinimumQuantity+ pcs -
+  // _unitPrice above already charges this automatically once _amount
+  // reaches that threshold; this getter just supplies the text for the
+  // hint/confirmation line near the amount stepper below. Mirrors
   // _unitPrice's own fallback: the selected flavor's own wholesalePrice if
   // it has one, otherwise the product's. Null (not "₱0.00") when neither
   // is set, so the UI can just skip showing a wholesale line.
@@ -240,7 +258,7 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
     final String name = widget.product['name'] as String? ?? '';
     final String price = _priceLabel;
     final String? regularPriceLabel = _regularPriceLabel;
-    final String? discountBadge = _isOnSale
+    final String? discountBadge = (_isOnSale && !_isWholesaleApplied)
         ? discountPercentLabel(widget.product)
         : null;
     final String? discountEndLabel = _discountEndLabel;
@@ -410,16 +428,22 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
                               ),
                             ),
                           ),
-                        // Informational only - checkout still charges
-                        // retail (price above).
                         if (_unitWholesaleLabel != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
                             child: Text(
-                              'Wholesale: $_unitWholesaleLabel',
+                              _isWholesaleApplied
+                                  ? 'Wholesale price applied ✓'
+                                  : 'Wholesale: $_unitWholesaleLabel at '
+                                        '$kWholesaleMinimumQuantity+ pcs',
                               style: TextStyle(
                                 fontSize: 11.5,
-                                color: Colors.grey.shade600,
+                                fontWeight: _isWholesaleApplied
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                                color: _isWholesaleApplied
+                                    ? primaryGreen
+                                    : Colors.grey.shade600,
                               ),
                             ),
                           ),

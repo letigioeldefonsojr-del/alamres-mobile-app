@@ -183,6 +183,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
             txn,
             productRef,
             widget.flavor?['name'] as String?,
+            widget.amount,
             widget.unitPrice,
           );
           final double total = unitPrice * widget.amount;

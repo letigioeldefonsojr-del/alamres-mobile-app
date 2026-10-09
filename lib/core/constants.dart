@@ -77,3 +77,9 @@ const String kCloudinaryUploadPreset = 'almares_products';
 // Until it's filled in, the chat screen shows a friendly "not set up yet"
 // message instead of trying to call it.
 const String kChatWorkerUrl = 'REPLACE_WITH_WORKER_URL';
+
+// Per the client: buying this many pieces (or more) of a single
+// product/flavor in one go counts as a wholesale purchase, and gets
+// charged that product's wholesalePrice instead of its regular price -
+// see effectivePriceForQuantity() in product_helpers.dart.
+const int kWholesaleMinimumQuantity = 6;

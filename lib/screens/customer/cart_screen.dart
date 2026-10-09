@@ -362,6 +362,7 @@ class _CartScreenState extends State<CartScreen> {
                                         docId: doc.id,
                                         productId: productId,
                                         flavorName: flavor,
+                                        amount: amount,
                                         storedUnitPrice: storedUnitPrice,
                                         knownLivePrice: _livePrices[doc.id],
                                         onLivePrice: _reportLivePrice,
@@ -604,6 +605,7 @@ class _LiveUnitPriceText extends StatelessWidget {
   final String docId;
   final String? productId;
   final String? flavorName;
+  final int amount;
   final double storedUnitPrice;
   final double? knownLivePrice;
   final void Function(String docId, double price) onLivePrice;
@@ -612,6 +614,7 @@ class _LiveUnitPriceText extends StatelessWidget {
     required this.docId,
     required this.productId,
     required this.flavorName,
+    required this.amount,
     required this.storedUnitPrice,
     required this.knownLivePrice,
     required this.onLivePrice,
@@ -643,6 +646,7 @@ class _LiveUnitPriceText extends StatelessWidget {
         final double displayPrice = liveUnitPriceFromProductDoc(
           snapshot.data?.data(),
           flavorName,
+          amount,
           fallback,
         );
         if (snapshot.hasData) {

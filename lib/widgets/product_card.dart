@@ -259,9 +259,12 @@ class ProductCard extends StatelessWidget {
                                       color: primaryGreen,
                                     ),
                                   ),
-                            // Purely informational - checkout always
-                            // charges retail, this just lets a customer
-                            // know bulk/wholesale pricing exists.
+                            // A preview only - the grid card has no amount
+                            // picker, so this just lets a customer know
+                            // wholesale pricing exists; it's actually
+                            // applied automatically once they pick
+                            // kWholesaleMinimumQuantity+ pcs in the
+                            // options sheet.
                             if (wholesaleLabel != null)
                               Text(
                                 'Wholesale: $wholesaleLabel',

@@ -174,6 +174,32 @@ String effectivePrice(
   return _formatPesoAmount(parsed * (100 - percent) / 100);
 }
 
+/// Layers wholesale pricing on top of effectivePrice(): once [amount]
+/// reaches kWholesaleMinimumQuantity, charges the product's (or variant's)
+/// wholesalePrice instead - if one is actually set. Falls back to the
+/// regular (possibly discounted) price whenever no wholesalePrice is
+/// configured for this product/variant, so a product without wholesale
+/// pricing behaves exactly as before. Wholesale, when it applies, replaces
+/// any active discount rather than stacking with it - it's already meant
+/// to be the best bulk price.
+String effectivePriceForQuantity(
+  Map<String, dynamic> product,
+  String regularPrice,
+  int amount, {
+  Map<String, dynamic>? variant,
+}) {
+  if (amount >= kWholesaleMinimumQuantity) {
+    final String? wholesaleRaw = (variant ?? product)['wholesalePrice'] as String?;
+    if (wholesaleRaw != null && wholesaleRaw.trim().isNotEmpty) {
+      final double? wholesaleParsed = parsePesoAmount(wholesaleRaw);
+      if (wholesaleParsed != null && wholesaleParsed > 0) {
+        return _formatPesoAmount(wholesaleParsed);
+      }
+    }
+  }
+  return effectivePrice(product, regularPrice, variant: variant);
+}
+
 /// The regular (pre-discount) price to show struck-through next to
 /// [effectivePrice]'s result - for a legacy discount that's the stashed
 /// `originalPrice`, otherwise it's just [regularPrice] itself.
@@ -388,11 +414,14 @@ String? discountRegularPriceRangeLabel(Map<String, dynamic> product) {
 /// liveUnitPriceFromProductDoc() (cart display, outside a transaction) -
 /// given a product document's raw data, works out what the customer
 /// should actually be charged for the named flavor (or the product itself
-/// when [flavorName] is null) right now. Falls back to [fallbackUnitPrice]
-/// if the flavor/price can't be found, e.g. the flavor was removed.
+/// when [flavorName] is null) right now, for a purchase of [amount] pieces
+/// (so wholesale pricing kicks in at kWholesaleMinimumQuantity+). Falls
+/// back to [fallbackUnitPrice] if the flavor/price can't be found, e.g.
+/// the flavor was removed.
 double _effectiveUnitPriceFromData(
   Map<String, dynamic> data,
   String? flavorName,
+  int amount,
   double fallbackUnitPrice,
 ) {
   Map<String, dynamic>? variant;
@@ -413,27 +442,35 @@ double _effectiveUnitPriceFromData(
     return fallbackUnitPrice;
   }
 
-  final String effective = effectivePrice(data, regularPrice, variant: variant);
+  final String effective = effectivePriceForQuantity(
+    data,
+    regularPrice,
+    amount,
+    variant: variant,
+  );
   return parsePesoAmount(effective) ?? fallbackUnitPrice;
 }
 
-/// Re-reads a product's current price/discount state inside an in-flight
-/// Firestore transaction and returns what should actually be charged right
-/// now - so if a scheduled discount started or ended while an item sat in
-/// the cart, checkout always bills today's price rather than the stale
-/// snapshot taken when the item was added. Falls back to
-/// [fallbackUnitPrice] if the product (or named flavor) can't be read
-/// anymore, e.g. it was deleted since the cart item was added.
+/// Re-reads a product's current price/discount/wholesale state inside an
+/// in-flight Firestore transaction and returns what should actually be
+/// charged right now for a purchase of [amount] pieces - so if a scheduled
+/// discount started or ended, or [amount] crossed the wholesale threshold,
+/// while an item sat in the cart, checkout always bills today's correct
+/// price rather than the stale snapshot taken when the item was added.
+/// Falls back to [fallbackUnitPrice] if the product (or named flavor)
+/// can't be read anymore, e.g. it was deleted since the cart item was
+/// added.
 Future<double> resolveLiveUnitPrice(
   Transaction txn,
   DocumentReference<Map<String, dynamic>> productRef,
   String? flavorName,
+  int amount,
   double fallbackUnitPrice,
 ) async {
   final snapshot = await txn.get(productRef);
   final data = snapshot.data();
   if (data == null) return fallbackUnitPrice;
-  return _effectiveUnitPriceFromData(data, flavorName, fallbackUnitPrice);
+  return _effectiveUnitPriceFromData(data, flavorName, amount, fallbackUnitPrice);
 }
 
 /// Same price-resolution logic as resolveLiveUnitPrice(), but for a plain
@@ -445,10 +482,16 @@ Future<double> resolveLiveUnitPrice(
 double liveUnitPriceFromProductDoc(
   Map<String, dynamic>? productData,
   String? flavorName,
+  int amount,
   double fallbackUnitPrice,
 ) {
   if (productData == null) return fallbackUnitPrice;
-  return _effectiveUnitPriceFromData(productData, flavorName, fallbackUnitPrice);
+  return _effectiveUnitPriceFromData(
+    productData,
+    flavorName,
+    amount,
+    fallbackUnitPrice,
+  );
 }
 
 enum StockLevel { critical, low, enough }

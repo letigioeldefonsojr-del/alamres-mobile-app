@@ -200,6 +200,7 @@ class _CartOrderConfirmationScreenState
             txn,
             productRef,
             flavorName,
+            amount,
             liveUnitPrices[i],
           );
         }
