@@ -23,7 +23,21 @@ class _SplashScreenState extends State<SplashScreen> {
     Future.delayed(const Duration(seconds: 3), () async {
       if (!mounted) return;
 
-      var user = FirebaseAuth.instance.currentUser;
+      // Read from authStateChanges() instead of the synchronous
+      // currentUser getter. Right at a cold app start - especially right
+      // after the OS has killed and fully evicted the process, which is
+      // exactly when "keep me logged in" needs to work - Firebase Auth's
+      // native layer can still be in the middle of restoring the
+      // previously-persisted session from disk. currentUser reads
+      // whatever's in memory *right now*, so it can come back null for a
+      // brief moment even though a real session is on disk and about to
+      // be restored a beat later. authStateChanges() is guaranteed by
+      // Firebase to only fire its first event once that restoration has
+      // actually resolved (to the restored user, or to a confirmed null
+      // if there genuinely isn't a session) - awaiting it instead removes
+      // this race entirely rather than hoping a fixed delay was long
+      // enough on every device.
+      var user = await FirebaseAuth.instance.authStateChanges().first;
 
       if (user != null) {
         // "Keep me logged in" was unchecked at login - honor that on this
