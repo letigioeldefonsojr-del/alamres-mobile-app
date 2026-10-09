@@ -28,8 +28,62 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
   // position for the "fly to cart" animation, right before this sheet closes.
   final GlobalKey _imageKey = GlobalKey();
 
+  // Starts as the snapshot the caller passed in (so the sheet paints
+  // instantly), then gets kept in sync with the live product doc below -
+  // this is what every price/discount/stock getter actually reads, so a
+  // discount starting or ending, or stock changing, while this sheet is
+  // open updates on screen immediately instead of only the next time it's
+  // opened.
+  late Map<String, dynamic> _liveProduct;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _productSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _liveProduct = widget.product;
+    final String? id = widget.product['id'] as String?;
+    if (id != null && id.isNotEmpty) {
+      _productSub = FirebaseFirestore.instance
+          .collection('products')
+          .doc(id)
+          .snapshots()
+          .listen(_onLiveProductUpdate);
+    }
+  }
+
+  @override
+  void dispose() {
+    _productSub?.cancel();
+    super.dispose();
+  }
+
+  void _onLiveProductUpdate(
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    if (!mounted) return;
+    final data = snapshot.data();
+    // Product was deleted/unpublished mid-view - keep showing the last
+    // known data rather than blanking the sheet out from under the
+    // customer; _checkAvailable() still guards the actual add/order action.
+    if (data == null) return;
+    setState(() {
+      _liveProduct = {...data, 'id': snapshot.id};
+      // Keep the selected flavor valid if the flavor list shrank, and clamp
+      // the chosen amount down if stock dropped below it - mirrors the
+      // clamping already done when switching flavors by hand.
+      if (_flavors.isEmpty) {
+        _selectedFlavorIndex = 0;
+      } else if (_selectedFlavorIndex >= _flavors.length) {
+        _selectedFlavorIndex = _flavors.length - 1;
+      }
+      if (_amount > _currentStock) {
+        _amount = _currentStock > 0 ? _currentStock : 1;
+      }
+    });
+  }
+
   List<Map<String, dynamic>> get _flavors =>
-      (widget.product['flavors'] as List?)?.cast<Map<String, dynamic>>() ??
+      (_liveProduct['flavors'] as List?)?.cast<Map<String, dynamic>>() ??
       const [];
 
   Map<String, dynamic>? get _selectedFlavor =>
@@ -39,7 +93,7 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
     if (_flavors.isNotEmpty) {
       return (_selectedFlavor?['available'] as bool?) ?? false;
     }
-    return (widget.product['available'] as bool?) ?? true;
+    return (_liveProduct['available'] as bool?) ?? true;
   }
 
   // Stock for whichever flavor is currently selected (or the product's own
@@ -50,14 +104,14 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
     if (_flavors.isNotEmpty) {
       return (_selectedFlavor?['stock'] as num?)?.toInt() ?? 0;
     }
-    return (widget.product['stockCount'] as num?)?.toInt() ?? 0;
+    return (_liveProduct['stockCount'] as num?)?.toInt() ?? 0;
   }
 
   String get _regularPriceString {
     final flavorPrice = _selectedFlavor?['price'] as String?;
     return (flavorPrice != null && flavorPrice.isNotEmpty)
         ? flavorPrice
-        : (widget.product['price'] as String? ?? '₱0');
+        : (_liveProduct['price'] as String? ?? '₱0');
   }
 
   // Discount- and wholesale-aware - this is what checkout actually
@@ -67,7 +121,7 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
   // once the stepper below reaches kWholesaleMinimumQuantity.
   double get _unitPrice {
     final String effective = effectivePriceForQuantity(
-      widget.product,
+      _liveProduct,
       _regularPriceString,
       _amount,
       variant: _selectedFlavor,
@@ -76,14 +130,14 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
   }
 
   String get _priceLabel => effectivePriceForQuantity(
-    widget.product,
+    _liveProduct,
     _regularPriceString,
     _amount,
     variant: _selectedFlavor,
   );
 
   bool get _isOnSale =>
-      isDiscountVisible(widget.product, variant: _selectedFlavor);
+      isDiscountVisible(_liveProduct, variant: _selectedFlavor);
 
   // Once wholesale pricing has actually kicked in, the retail discount's
   // strikethrough/badge no longer make sense next to it (wholesale
@@ -96,7 +150,7 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
     if (_isWholesaleApplied) return null;
     if (!_isOnSale) return null;
     return discountRegularPriceLabel(
-      widget.product,
+      _liveProduct,
       _regularPriceString,
       variant: _selectedFlavor,
     );
@@ -104,7 +158,7 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
 
   String? get _discountEndLabel {
     if (!_isOnSale) return null;
-    final end = widget.product['discountEnd'];
+    final end = _liveProduct['discountEnd'];
     if (end is! Timestamp) return null;
     return 'Ends ${formatDiscountDate(end.toDate())}';
   }
@@ -120,7 +174,7 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
     final flavorWholesale = _selectedFlavor?['wholesalePrice'] as String?;
     final String? raw = (flavorWholesale != null && flavorWholesale.isNotEmpty)
         ? flavorWholesale
-        : (widget.product['wholesalePrice'] as String?);
+        : (_liveProduct['wholesalePrice'] as String?);
     if (raw == null || raw.trim().isEmpty) return null;
     return raw;
   }
@@ -168,7 +222,7 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
       context,
       MaterialPageRoute(
         builder: (context) => OrderConfirmationScreen(
-          product: widget.product,
+          product: _liveProduct,
           flavor: _selectedFlavor,
           amount: _amount,
           unitPrice: _unitPrice,
@@ -203,11 +257,11 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
     }
     final String? imageUrl =
         (_selectedFlavor?['imageUrl'] as String?) ??
-        widget.product['imageUrl'] as String?;
+        _liveProduct['imageUrl'] as String?;
 
     try {
       await addProductToCart(
-        product: widget.product,
+        product: _liveProduct,
         flavor: _selectedFlavor,
         amount: _amount,
         unitPrice: _unitPrice,
@@ -256,11 +310,11 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final String name = widget.product['name'] as String? ?? '';
+    final String name = _liveProduct['name'] as String? ?? '';
     final String price = _priceLabel;
     final String? regularPriceLabel = _regularPriceLabel;
     final String? discountBadge = (_isOnSale && !_isWholesaleApplied)
-        ? discountPercentLabel(widget.product)
+        ? discountPercentLabel(_liveProduct)
         : null;
     final String? discountEndLabel = _discountEndLabel;
 
@@ -316,10 +370,10 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
                       child: ProductImage(
                         imageUrl:
                             (_selectedFlavor?['imageUrl'] as String?) ??
-                            widget.product['imageUrl'] as String?,
+                            _liveProduct['imageUrl'] as String?,
                         seedText:
                             (_selectedFlavor?['name'] as String?) ??
-                            widget.product['name'] as String?,
+                            _liveProduct['name'] as String?,
                         iconSize: 36,
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -328,7 +382,7 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
                     // badge, on the image rather than inline with the
                     // price - so it never collides with the discount
                     // banner shown next to the price below.
-                    if (isBestSeller(widget.product))
+                    if (isBestSeller(_liveProduct))
                       Positioned(
                         top: 8,
                         left: 8,
@@ -495,17 +549,17 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
                           flavor['price'] as String? ?? '';
                       final bool flavorOnSale =
                           available &&
-                          isDiscountVisible(widget.product, variant: flavor);
+                          isDiscountVisible(_liveProduct, variant: flavor);
                       final String flavorPriceLabel = flavorRegularRaw.isEmpty
                           ? ''
                           : effectivePrice(
-                              widget.product,
+                              _liveProduct,
                               flavorRegularRaw,
                               variant: flavor,
                             );
                       final String? flavorRegularLabel = flavorOnSale
                           ? discountRegularPriceLabel(
-                              widget.product,
+                              _liveProduct,
                               flavorRegularRaw,
                               variant: flavor,
                             )
@@ -781,7 +835,7 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
   }
 
   Widget _buildRelatedProducts() {
-    final String? category = widget.product['category'] as String?;
+    final String? category = _liveProduct['category'] as String?;
     if (category == null || category.trim().isEmpty) {
       return const SizedBox.shrink();
     }
@@ -795,8 +849,8 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox.shrink();
 
-        final String? currentId = widget.product['id'] as String?;
-        final String currentName = widget.product['name'] as String? ?? '';
+        final String? currentId = _liveProduct['id'] as String?;
+        final String currentName = _liveProduct['name'] as String? ?? '';
 
         final related = snapshot.data!.docs
             .map((doc) => {...doc.data(), 'id': doc.id})

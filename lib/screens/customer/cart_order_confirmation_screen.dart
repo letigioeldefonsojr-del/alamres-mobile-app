@@ -40,13 +40,21 @@ class _CartOrderConfirmationScreenState
   // Local, editable copies so the quantity steppers can adjust amounts (or
   // drop an item entirely) before the order is actually placed.
   late List<Map<String, dynamic>> _items;
-  // The regular/discounted unit price each item actually had when this
-  // screen opened - kept untouched (never overwritten) so _updateAmount
-  // below always has the real baseline to fall back to when the stepper
-  // drops back under the wholesale threshold, instead of being stuck on
-  // whatever price was last computed.
-  late final List<double> _originalUnitPrices;
+  // The regular/discounted unit price each item actually had the last time
+  // it was checked - used as the baseline _updateAmount below falls back to
+  // when the stepper drops back under the wholesale threshold, instead of
+  // being stuck on whatever price was last computed. No longer "untouched
+  // once set": _productSubs below keeps this current, so a discount
+  // starting or ending while this screen is open updates it live rather
+  // than only at the moment "Confirm Order" is tapped.
+  late List<double> _originalUnitPrices;
   List<DocumentReference<Map<String, dynamic>>>? _cartRefs;
+
+  // One live listener per item with a real product behind it (mirrors the
+  // Cart screen's own live-price listener) - purely a display nicety, since
+  // _confirmOrder's transaction always re-checks the real price regardless.
+  final List<StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>>
+  _productSubs = [];
 
   // Distance-based delivery fee - recalculated whenever the delivery
   // address changes. The app only stores addresses as text, so this
@@ -70,6 +78,78 @@ class _CartOrderConfirmationScreenState
         .toList();
     _cartRefs = widget.cartRefs == null ? null : List.of(widget.cartRefs!);
     _recalculateDeliveryFee();
+
+    for (int i = 0; i < _items.length; i++) {
+      final String? productId = _items[i]['productId'] as String?;
+      if (productId == null || productId.isEmpty) continue;
+      _productSubs.add(
+        FirebaseFirestore.instance
+            .collection('products')
+            .doc(productId)
+            .snapshots()
+            .listen((snapshot) => _onLiveProductUpdate(i, snapshot)),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final sub in _productSubs) {
+      sub.cancel();
+    }
+    super.dispose();
+  }
+
+  // Re-derives item [index]'s regular/discounted unit price from the
+  // product doc's current data and, if it actually changed, refreshes that
+  // item on screen through the same path a manual quantity edit takes -
+  // so wholesale-vs-retail selection and the subtotal/total stay correct
+  // no matter whether the price moved because of a quantity change or a
+  // live discount change.
+  void _onLiveProductUpdate(
+    int index,
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    if (!mounted) return;
+    final data = snapshot.data();
+    // Product deleted/unpublished mid-view - keep the last known price
+    // rather than blanking it; _confirmOrder's transaction is the real
+    // source of truth at checkout time regardless.
+    if (data == null) return;
+
+    final String? flavorName = _items[index]['flavor'] as String?;
+    Map<String, dynamic>? variant;
+    String? regularPriceRaw;
+    if (flavorName != null) {
+      final flavors =
+          (data['flavors'] as List?)?.cast<Map<String, dynamic>>() ??
+          const [];
+      for (final f in flavors) {
+        if (f['name'] == flavorName) {
+          variant = f;
+          break;
+        }
+      }
+      regularPriceRaw = variant?['price'] as String?;
+    }
+    regularPriceRaw ??= data['price'] as String?;
+    if (regularPriceRaw == null || regularPriceRaw.trim().isEmpty) return;
+
+    final double? liveRegularPrice = parsePesoAmount(
+      effectivePrice(data, regularPriceRaw, variant: variant),
+    );
+    if (liveRegularPrice == null) return;
+
+    _originalUnitPrices[index] = liveRegularPrice;
+    // Also pick up a live wholesalePrice change so _updateAmount's own
+    // wholesale lookup (which reads this item field) stays current too.
+    final String? liveWholesale =
+        (variant?['wholesalePrice'] as String?) ??
+        (data['wholesalePrice'] as String?);
+    if (liveWholesale != null) {
+      _items[index] = {..._items[index], 'wholesalePrice': liveWholesale};
+    }
+    _updateAmount(index, (_items[index]['amount'] as num?)?.toInt() ?? 1);
   }
 
   Future<void> _recalculateDeliveryFee() async {
