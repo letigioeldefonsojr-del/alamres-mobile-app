@@ -1,6 +1,4 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 List<Map<String, dynamic>> getOrderItems(Map<String, dynamic> data) {
   final rawItems = data['items'] as List?;
@@ -63,21 +61,4 @@ String orderStatusLabel(String status) {
     default:
       return status;
   }
-}
-
-Future<void> checkAndAutoConfirmOrder(
-  String orderId,
-  Map<String, dynamic> data,
-) async {
-  final bool awaiting =
-      (data['awaitingCustomerConfirmation'] as bool?) ?? false;
-  final Timestamp? deadline = data['confirmDeadline'] as Timestamp?;
-  if (!awaiting || deadline == null) return;
-  if (DateTime.now().isBefore(deadline.toDate())) return;
-
-  await FirebaseFirestore.instance.collection('orders').doc(orderId).update({
-    'status': 'delivered',
-    'awaitingCustomerConfirmation': false,
-    'autoConfirmed': true,
-  });
 }

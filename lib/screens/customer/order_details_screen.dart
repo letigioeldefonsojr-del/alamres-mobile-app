@@ -6,83 +6,6 @@ import '../../widgets/order_item_card.dart';
 import '../order_items_list_screen.dart';
 import 'cart_order_confirmation_screen.dart';
 
-class _ConfirmationCountdownBanner extends StatefulWidget {
-  final DateTime deadline;
-  const _ConfirmationCountdownBanner({required this.deadline});
-
-  @override
-  State<_ConfirmationCountdownBanner> createState() =>
-      _ConfirmationCountdownBannerState();
-}
-
-class _ConfirmationCountdownBannerState
-    extends State<_ConfirmationCountdownBanner> {
-  late Duration _remaining;
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _remaining = widget.deadline.difference(DateTime.now());
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      final newRemaining = widget.deadline.difference(DateTime.now());
-      if (mounted) {
-        setState(
-          () => _remaining = newRemaining.isNegative
-              ? Duration.zero
-              : newRemaining,
-        );
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final int minutes = _remaining.inMinutes;
-    final int seconds = _remaining.inSeconds % 60;
-    final bool urgent = _remaining.inMinutes < 5;
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: (urgent ? Colors.orange : Colors.blue).withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: (urgent ? Colors.orange : Colors.blue).withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.timer_outlined,
-            color: urgent ? Colors.orange.shade800 : Colors.blue.shade700,
-            size: 20,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              _remaining == Duration.zero
-                  ? 'Confirmation window has ended. This order will be auto-confirmed shortly.'
-                  : '${minutes}m ${seconds.toString().padLeft(2, '0')}s left to confirm your order.',
-              style: TextStyle(
-                color: urgent ? Colors.orange.shade800 : Colors.blue.shade700,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class OrderDetailsScreen extends StatefulWidget {
   final String orderId;
   final Map<String, dynamic> data;
@@ -155,8 +78,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   static const Color primaryGreen = Color(0xFF2E6B3E);
 
   bool _isCancelling = false;
-  bool _isConfirmingReceipt = false;
   final bool _showAllItems = false;
+  // Delivery is confirmed by the admin side marking the order "Delivered" -
+  // there's no separate customer confirmation step. This just makes sure
+  // the rating prompt (see _buildBody) only auto-opens once per time this
+  // screen is on screen, rather than re-popping on every Firestore
+  // snapshot rebuild while the order stays delivered-and-unrated.
+  bool _hasPromptedRatingThisSession = false;
 
   // Goes straight to the order-confirmation screen with this order's items
   // pre-filled - it never touches the live cart, so tapping "Order Again"
@@ -187,54 +115,6 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _confirmReceived() async {
-    setState(() => _isConfirmingReceipt = true);
-
-    try {
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(widget.orderId)
-          .update({
-            'status': 'delivered',
-            'awaitingCustomerConfirmation': false,
-          });
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text(
-            'Thanks for confirming! Order marked as delivered.',
-          ),
-          backgroundColor: primaryGreen,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          margin: const EdgeInsets.all(16),
-        ),
-      );
-      // Prompt for a satisfaction rating right after delivery is confirmed.
-      // Entirely optional - the dialog has its own X close button and this
-      // call is never awaited, so dismissing it doesn't block anything.
-      _showRatingDialog();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not confirm: $e'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          margin: const EdgeInsets.all(16),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isConfirmingReceipt = false);
-    }
   }
 
   // Shows a dismissible "rate your order" popup with a 5-star picker and an
@@ -571,8 +451,6 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
   Widget _buildBody(BuildContext context, Map<String, dynamic> data) {
     final String status = (data['status'] ?? 'pending').toString();
-    final bool awaitingConfirmation =
-        (data['awaitingCustomerConfirmation'] as bool?) ?? false;
     final List<Map<String, dynamic>> orderItems = getOrderItems(data);
     final double total =
         (data['total'] as num?)?.toDouble() ??
@@ -603,6 +481,20 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     final String? cancelReason = data['cancelReason'] as String?;
     const stageOrder = ['pending', 'approved', 'on_the_way', 'delivered'];
     final int currentStageIndex = stageOrder.indexOf(status);
+
+    // Delivery is confirmed the moment the admin side marks the order
+    // "Delivered" - there's no separate customer confirmation step. Instead,
+    // the feedback prompt itself is what greets the customer: the first
+    // time they open (or are already on) this screen for an order that's
+    // delivered and not yet rated, the rating dialog pops up on its own.
+    if (status.toLowerCase() == 'delivered' &&
+        data['rating'] == null &&
+        !_hasPromptedRatingThisSession) {
+      _hasPromptedRatingThisSession = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showRatingDialog();
+      });
+    }
 
     return SafeArea(
       top: false,
@@ -684,13 +576,6 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 20),
-            ],
-            if ((data['awaitingCustomerConfirmation'] as bool?) == true &&
-                data['confirmDeadline'] is Timestamp) ...[
-              _ConfirmationCountdownBanner(
-                deadline: (data['confirmDeadline'] as Timestamp).toDate(),
               ),
               const SizedBox(height: 20),
             ],
@@ -928,48 +813,6 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
             ),
             const SizedBox(height: 32),
 
-            if (status == 'on_the_way') ...[
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: (awaitingConfirmation && !_isConfirmingReceipt)
-                      ? _confirmReceived
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: awaitingConfirmation
-                        ? primaryGreen
-                        : Colors.grey.shade300,
-                    disabledBackgroundColor: Colors.grey.shade300,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(26),
-                    ),
-                    elevation: awaitingConfirmation ? 3 : 0,
-                  ),
-                  child: _isConfirmingReceipt
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
-                          ),
-                        )
-                      : Text(
-                          'Confirm Received Order',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: awaitingConfirmation
-                                ? Colors.white
-                                : Colors.grey.shade500,
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-
             if (status.toLowerCase() == 'delivered') ...[
               if (data['rating'] == null) ...[
                 SizedBox(
@@ -1132,7 +975,6 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
             .snapshots(),
         builder: (context, snapshot) {
           final data = snapshot.data?.data() ?? widget.data;
-          checkAndAutoConfirmOrder(widget.orderId, data);
           return _buildBody(context, data);
         },
       ),

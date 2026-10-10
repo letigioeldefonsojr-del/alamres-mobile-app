@@ -228,10 +228,6 @@ class _OrdersListViewState extends State<OrdersListView> {
           return monthMatch && statusMatch;
         }).toList();
 
-        for (final doc in allDocs) {
-          checkAndAutoConfirmOrder(doc.id, doc.data() as Map<String, dynamic>);
-        }
-
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: const SystemUiOverlayStyle(
             statusBarColor: Colors.white,
