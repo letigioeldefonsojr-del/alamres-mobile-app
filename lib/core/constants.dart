@@ -76,7 +76,8 @@ const String kCloudinaryUploadPreset = 'almares_products';
 // https://almares-328-chat-proxy.<your-subdomain>.workers.dev
 // Until it's filled in, the chat screen shows a friendly "not set up yet"
 // message instead of trying to call it.
-const String kChatWorkerUrl = 'REPLACE_WITH_WORKER_URL';
+const String kChatWorkerUrl =
+    'https://almares-328-chat-proxy.eldefonsojrletigio.workers.dev';
 
 // Per the client: buying this many pieces (or more) of a single
 // product/flavor in one go counts as a wholesale purchase, and gets

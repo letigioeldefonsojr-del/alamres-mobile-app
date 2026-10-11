@@ -3,16 +3,17 @@ import '../../widgets/chat_panel.dart';
 
 /// Full-screen "Ask Almares 328" chat. This is just the shared ChatPanel
 /// wrapped in a Scaffold + AppBar - the conversation UI itself lives in
-/// ChatPanel so it's identical whether you're here or in the floating
-/// bubble on HomeScreen.
-///
-/// [initialMessages] lets HomeScreen hand over whatever was already typed
-/// in the floating bubble when the user taps "expand," so the conversation
-/// continues instead of restarting.
+/// ChatPanel, and both this and HomeScreen's floating bubble read from the
+/// same ChatConversation singleton (see lib/services/chat_conversation.dart),
+/// so switching between them never loses or duplicates a message.
 class ChatScreen extends StatelessWidget {
-  final List<ChatMessage>? initialMessages;
+  // Not `const` - this key is created once when this ChatScreen instance
+  // is built (by whoever navigates to it) and stays tied to that same
+  // ChatPanel for the screen's lifetime, so the "New chat" button below
+  // can reach into it.
+  final GlobalKey<ChatPanelState> _chatPanelKey = GlobalKey<ChatPanelState>();
 
-  const ChatScreen({super.key, this.initialMessages});
+  ChatScreen({super.key});
 
   static const Color primaryGreen = Color(0xFF2E6B3E);
 
@@ -24,8 +25,15 @@ class ChatScreen extends StatelessWidget {
         backgroundColor: primaryGreen,
         foregroundColor: Colors.white,
         title: const Text('Ask Almares 328'),
+        actions: [
+          IconButton(
+            tooltip: 'Start new chat',
+            icon: const Icon(Icons.add_comment_outlined),
+            onPressed: () => _chatPanelKey.currentState?.startNewChat(),
+          ),
+        ],
       ),
-      body: ChatPanel(initialMessages: initialMessages),
+      body: ChatPanel(key: _chatPanelKey),
     );
   }
 }

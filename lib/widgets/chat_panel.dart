@@ -1,20 +1,33 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import '../services/chat_conversation.dart';
 import '../services/chat_service.dart';
 
 export '../services/chat_service.dart' show ChatMessage;
 
 /// The actual chat conversation UI (message list + input bar) - shared
 /// between the floating chat bubble on HomeScreen and the full-screen
-/// ChatScreen so the conversation logic only lives in one place.
+/// ChatScreen so the conversation logic only lives in one place. Both
+/// read from the same ChatConversation singleton (see that file for why),
+/// so there's only ever one real conversation no matter which view is on
+/// screen.
 ///
-/// Pass a `GlobalKey<ChatPanelState>` as `key` to read the live
-/// conversation from outside (e.g. HomeScreen uses this to hand the
-/// current messages over to ChatScreen when "expanding" the floating
-/// bubble to a full screen).
+/// Pass a `GlobalKey<ChatPanelState>` as `key` to call [startNewChat] from
+/// outside (e.g. the "New chat" buttons on ChatScreen and HomeScreen's
+/// floating chat card).
 class ChatPanel extends StatefulWidget {
-  final List<ChatMessage>? initialMessages;
+  // Whether the input bar should reserve extra space for the device's
+  // bottom system inset (gesture bar / home indicator) - true for
+  // ChatScreen, which really does sit flush against the bottom of the
+  // display. HomeScreen's floating chat card passes false: that card
+  // already floats well above the bottom nav bar, so adding the system
+  // inset on top of that was just extra blank space under the send
+  // button for no reason.
+  final bool bottomSafeArea;
 
-  const ChatPanel({super.key, this.initialMessages});
+  const ChatPanel({super.key, this.bottomSafeArea = true});
 
   @override
   State<ChatPanel> createState() => ChatPanelState();
@@ -23,32 +36,33 @@ class ChatPanel extends StatefulWidget {
 class ChatPanelState extends State<ChatPanel> {
   static const Color primaryGreen = Color(0xFF2E6B3E);
 
-  late final List<ChatMessage> _messages =
-      (widget.initialMessages != null && widget.initialMessages!.isNotEmpty)
-      ? List<ChatMessage>.from(widget.initialMessages!)
-      : [
-          const ChatMessage(
-            role: 'assistant',
-            content:
-                "Hi! I'm the Almares 328 assistant. Ask me anything about "
-                "our products, policies, or how to shop with us.",
-          ),
-        ];
-
-  /// The conversation so far. Read this from outside via a GlobalKey to
-  /// carry it over when switching between the floating and full-screen
-  /// views of the chat.
-  List<ChatMessage> get messages => List<ChatMessage>.from(_messages);
-
+  final ChatConversation _conversation = ChatConversation.instance;
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _isSending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Scrolls THIS panel's own list to bottom whenever the shared
+    // conversation changes - covers both "my own message just got sent"
+    // and "a reply came back while I was looking at the other view".
+    _conversation.addListener(_scrollToBottom);
+  }
 
   @override
   void dispose() {
+    _conversation.removeListener(_scrollToBottom);
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Clears the conversation back to just the greeting - call this from
+  /// outside via a GlobalKey to let the customer deliberately start over
+  /// instead of always continuing whatever they asked before.
+  void startNewChat() {
+    _conversation.startNewChat();
+    _controller.clear();
   }
 
   void _scrollToBottom() {
@@ -65,96 +79,115 @@ class ChatPanelState extends State<ChatPanel> {
 
   Future<void> _send() async {
     final String text = _controller.text.trim();
-    if (text.isEmpty || _isSending) return;
-
-    setState(() {
-      _messages.add(ChatMessage(role: 'user', content: text));
-      _isSending = true;
-      _controller.clear();
-    });
-    _scrollToBottom();
-
-    final String reply = await ChatService.instance.sendMessage(_messages);
-
-    if (!mounted) return;
-    setState(() {
-      _messages.add(ChatMessage(role: 'assistant', content: reply));
-      _isSending = false;
-    });
-    _scrollToBottom();
+    if (text.isEmpty || _conversation.isSending) return;
+    _controller.clear();
+    // Fire-and-forget on purpose: awaiting here would tie the reply to
+    // THIS widget's lifetime again, which is exactly the bug this
+    // refactor removes - ChatConversation.send() already notifies its
+    // listeners (any mounted ChatPanel, bubble or full-screen) once the
+    // reply lands, whether or not this particular widget is still around.
+    unawaited(_conversation.send(text));
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: Container(
-            color: const Color(0xFFF7F7F7),
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(16),
-              itemCount: _messages.length + (_isSending ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index == _messages.length) {
-                  return const ChatTypingBubble();
-                }
-                return ChatBubble(message: _messages[index]);
-              },
-            ),
-          ),
-        ),
-        SafeArea(
-          top: false,
-          child: Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    minLines: 1,
-                    maxLines: 4,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _send(),
-                    decoration: InputDecoration(
-                      hintText: 'Type your question...',
-                      filled: true,
-                      fillColor: const Color(0xFFF7F7F7),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
-                      ),
+    return ListenableBuilder(
+      listenable: _conversation,
+      builder: (context, _) {
+        final List<ChatMessage> messages = _conversation.messages;
+        final bool isSending = _conversation.isSending;
+
+        final Widget inputBar = Container(
+          color: Colors.white,
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  minLines: 1,
+                  maxLines: 4,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _send(),
+                  decoration: InputDecoration(
+                    hintText: 'Type your question...',
+                    filled: true,
+                    fillColor: const Color(0xFFF7F7F7),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  decoration: const BoxDecoration(
-                    color: primaryGreen,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    onPressed: _isSending ? null : _send,
-                    icon: const Icon(
-                      Icons.send,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                decoration: const BoxDecoration(
+                  color: primaryGreen,
+                  shape: BoxShape.circle,
                 ),
-              ],
-            ),
+                child: IconButton(
+                  onPressed: isSending ? null : _send,
+                  icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+        );
+
+        return Column(
+          children: [
+            Expanded(
+              child: Container(
+                color: const Color(0xFFF7F7F7),
+                child: ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: messages.length + (isSending ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == messages.length) {
+                      return const ChatTypingBubble();
+                    }
+                    return ChatBubble(message: messages[index]);
+                  },
+                ),
+              ),
+            ),
+            // Only reserve the device's bottom system-inset space when
+            // this panel really does sit at the physical bottom of the
+            // screen (see the `bottomSafeArea` doc comment on ChatPanel
+            // above).
+            widget.bottomSafeArea
+                ? SafeArea(top: false, child: inputBar)
+                : inputBar,
+          ],
+        );
+      },
     );
   }
+}
+
+/// Styles Markdown in an assistant bubble to look like the plain Text it
+/// replaced - same size/color as before, just with **bold** and "-" lists
+/// actually rendered instead of shown as raw characters.
+MarkdownStyleSheet _assistantMarkdownStyle(BuildContext context) {
+  const baseStyle = TextStyle(color: Colors.black87, fontSize: 14);
+  return MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+    p: baseStyle,
+    strong: baseStyle.copyWith(fontWeight: FontWeight.bold),
+    em: baseStyle.copyWith(fontStyle: FontStyle.italic),
+    listBullet: baseStyle,
+    blockquote: baseStyle,
+    code: baseStyle.copyWith(fontFamily: 'monospace'),
+    // MarkdownBody already sits inside the bubble's own padding - drop its
+    // default extra margins around paragraphs/lists so it doesn't look
+    // more spaced-out than the plain Text bubbles did.
+    pPadding: EdgeInsets.zero,
+  );
 }
 
 class ChatBubble extends StatelessWidget {
@@ -181,13 +214,20 @@ class ChatBubble extends StatelessWidget {
               color: isUser ? primaryGreen : Colors.white,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Text(
-              message.content,
-              style: TextStyle(
-                color: isUser ? Colors.white : Colors.black87,
-                fontSize: 14,
-              ),
-            ),
+            // The assistant is told to reply in Markdown (see the Worker's
+            // system prompt) so **bold** product names and "-" lists render
+            // properly instead of showing raw asterisks/dashes. Whatever
+            // the customer typed is shown as plain text instead - no
+            // reason to interpret their own message as Markdown too.
+            child: isUser
+                ? Text(
+                    message.content,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                  )
+                : MarkdownBody(
+                    data: message.content,
+                    styleSheet: _assistantMarkdownStyle(context),
+                  ),
           ),
         );
       },

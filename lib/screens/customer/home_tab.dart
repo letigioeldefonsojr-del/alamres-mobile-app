@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../core/banner_helpers.dart';
 import '../../core/cart_fly_anchor.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/constants.dart';
 import '../../core/product_helpers.dart';
 import '../../widgets/cart_badge.dart';
 import '../../widgets/product_card.dart';
-import '../../widgets/product_image.dart';
+import '../../widgets/promo_banner_carousel.dart';
 import 'all_products_screen.dart';
 import 'cart_screen.dart';
 import 'categories_tab.dart';
@@ -177,137 +176,7 @@ class HomeTab extends StatelessWidget {
 
           const SizedBox(height: 20),
 
-          StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-            stream: storeBannerStream(),
-            builder: (context, snapshot) {
-              final data = snapshot.data?.data();
-
-              if (data == null) {
-                return const SizedBox.shrink();
-              }
-
-              if (!isBannerCurrentlyValid(data)) {
-                if ((data['scheduleEnd'] as Timestamp?) != null) {
-                  deleteStoreBanner();
-                }
-                return const SizedBox.shrink();
-              }
-
-              final String offer = data['offer'] as String? ?? '';
-              final String description = data['description'] as String? ?? '';
-              final String? bannerImage = data['imageUrl'] as String?;
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: GestureDetector(
-                      onLongPress: () async {
-                        await seedProductCatalog();
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Product catalog seeded.'),
-                            ),
-                          );
-                        }
-                      },
-                      child: Container(
-                        height: 130,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          // No banner image uploaded yet - same curated
-                          // gradient placeholder used for product photos,
-                          // instead of a flat color, so an empty banner
-                          // still looks intentional rather than broken.
-                          color: bannerImage != null
-                              ? const Color(0xFFDCEBDD)
-                              : null,
-                          gradient: bannerImage != null
-                              ? null
-                              : LinearGradient(
-                                  colors: randomPlaceholderGradient(),
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: bannerImage != null
-                                  ? ProductImage(
-                                      imageUrl: bannerImage,
-                                      iconSize: 40,
-                                      borderRadius: BorderRadius.circular(18),
-                                    )
-                                  : const SizedBox.shrink(),
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(18),
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.black.withValues(alpha: 0.45),
-                                    Colors.transparent,
-                                  ],
-                                  begin: Alignment.bottomLeft,
-                                  end: Alignment.topRight,
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              left: 18,
-                              bottom: 16,
-                              right: 18,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'SPECIAL OFFER',
-                                    style: TextStyle(
-                                      color: Colors.greenAccent.shade100,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    offer,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.bold,
-                                      height: 1.2,
-                                    ),
-                                  ),
-                                  if (description.isNotEmpty) ...[
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      description,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              );
-            },
-          ),
+          const PromoBannerCarousel(),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),

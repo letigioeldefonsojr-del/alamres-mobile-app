@@ -119,13 +119,18 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
   // Shows a dismissible "rate your order" popup with a 5-star picker and an
   // optional feedback field. Closing via the X (or tapping outside) skips it
-  // entirely - nothing is written unless the customer taps Submit Feedback.
-  Future<void> _showRatingDialog() {
+  // for now - nothing is written to the order's `rating` field unless the
+  // customer taps Submit Feedback - but either way it marks the order as
+  // "already prompted" (via `ratingPromptDismissed`) so the auto-popup in
+  // _buildBody never comes back on its own for this order again. The
+  // "Rate This Order" button stays available either way, for the customer
+  // to open this same dialog manually whenever they want.
+  Future<void> _showRatingDialog() async {
     int rating = 0;
     final feedbackController = TextEditingController();
     bool isSubmitting = false;
 
-    return showDialog(
+    final bool? ratingSubmitted = await showDialog<bool>(
       context: context,
       barrierDismissible: true,
       builder: (dialogContext) {
@@ -153,7 +158,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                           ),
                         ),
                         IconButton(
-                          onPressed: () => Navigator.pop(dialogContext),
+                          onPressed: () =>
+                              Navigator.pop(dialogContext, false),
                           icon: const Icon(Icons.close),
                           splashRadius: 20,
                         ),
@@ -211,6 +217,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                               ? null
                               : () async {
                                   setDialogState(() => isSubmitting = true);
+                                  bool saved = false;
                                   try {
                                     await FirebaseFirestore.instance
                                         .collection('orders')
@@ -222,13 +229,18 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                                           'ratedAt':
                                               FieldValue.serverTimestamp(),
                                         });
+                                    saved = true;
                                   } catch (_) {
                                     // Best-effort - rating is optional, so a
                                     // failed write just gets silently dropped
-                                    // rather than blocking the customer.
+                                    // rather than blocking the customer. The
+                                    // dialog still closes as if dismissed
+                                    // (see `ratingSubmitted` below), so the
+                                    // "Rate This Order" button is still
+                                    // there for a retry later.
                                   }
                                   if (dialogContext.mounted) {
-                                    Navigator.pop(dialogContext);
+                                    Navigator.pop(dialogContext, saved);
                                   }
                                 },
                           style: ElevatedButton.styleFrom(
@@ -265,6 +277,22 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         );
       },
     );
+
+    if (ratingSubmitted != true) {
+      // Dismissed via the X or by tapping outside the dialog, or the
+      // Firestore write above failed - either way, no rating landed, but
+      // the order is still "already prompted" from here on. Best-effort:
+      // if this write itself fails (e.g. offline), the auto-popup may
+      // show again next time, which is an acceptable fallback rather than
+      // blocking anything.
+      unawaited(
+        FirebaseFirestore.instance
+            .collection('orders')
+            .doc(widget.orderId)
+            .update({'ratingPromptDismissed': true})
+            .catchError((_) {}),
+      );
+    }
   }
 
   static const List<String> _cancelReasons = [
@@ -472,6 +500,14 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     if (estimatedDelivery is Timestamp) {
       deliveryLabel = _formatDate(estimatedDelivery.toDate());
     }
+    // Once the order is actually out for delivery, the original "3 days
+    // from when you ordered" estimate stops being the useful number - what
+    // matters now is just whether it's coming today or tomorrow. 8 PM is
+    // the cutoff: marked on_the_way before 8 PM, it's still arriving
+    // today; after that, it's realistically a tomorrow delivery.
+    if (status.toLowerCase() == 'on_the_way') {
+      deliveryLabel = DateTime.now().hour < 20 ? 'Today' : 'Tomorrow';
+    }
 
     final bool isRejectedOrCancelled =
         status == 'rejected' ||
@@ -489,6 +525,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     // delivered and not yet rated, the rating dialog pops up on its own.
     if (status.toLowerCase() == 'delivered' &&
         data['rating'] == null &&
+        data['ratingPromptDismissed'] != true &&
         !_hasPromptedRatingThisSession) {
       _hasPromptedRatingThisSession = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {

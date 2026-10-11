@@ -61,8 +61,21 @@ const TOOLS = [
       'wholesale price, stock/availability, flavors/variants, best-seller ' +
       "status, and active discounts. Use this for ANY question about what's " +
       'for sale, a specific product, stock availability, best sellers, or ' +
-      'discounts - never guess this information. Returns up to 40 matches; ' +
-      'call again with a narrower search or category if needed.',
+      'discounts - never guess this information, and never do discount ' +
+      "math yourself. Each product/flavor's `price` is ALREADY the amount " +
+      "the customer pays right now (it already has any live discount " +
+      "applied) - quote that number directly as the price. `regularPrice` " +
+      'only appears when a discount is currently live, as the pre-discount ' +
+      'amount to mention alongside it (e.g. "now ₱20, was ₱35"). ' +
+      '`wholesalePrice` is separate and never combines with a discount - ' +
+      "buying 6+ pcs charges wholesalePrice INSTEAD of the discounted " +
+      'price, they never stack. Returns up to 40 matches; call again with ' +
+      'a narrower search or category if needed. A discounted product also ' +
+      'includes discountStarts/discountEnds (ISO 8601 dates) when those ' +
+      'are set - mention the end date in plain language ("through October ' +
+      '20") if a customer asks how long a discount lasts, and say it ' +
+      "doesn't have a set end date if discountEnds is absent rather than " +
+      'guessing one.',
     input_schema: {
       type: 'object',
       properties: {
@@ -101,25 +114,95 @@ const TOOLS = [
   },
 ];
 
+// Mirrors isDiscountActive() in lib/core/product_helpers.dart - a
+// discount only counts as live right now if discountPercent is positive
+// AND (there's no discountStart or it's already passed) AND (there's no
+// discountEnd or it hasn't passed yet). Dates come through from Firestore
+// as ISO 8601 strings (see fromFirestoreValue's timestampValue case).
+function isDiscountActive(p) {
+  const percent = p.discountPercent;
+  if (typeof percent !== 'number' || percent <= 0) return false;
+  const now = Date.now();
+  if (p.discountStart && now < Date.parse(p.discountStart)) return false;
+  if (p.discountEnd && now > Date.parse(p.discountEnd)) return false;
+  return true;
+}
+
+function parsePesoAmount(value) {
+  if (typeof value !== 'string') return null;
+  const digits = value.replace(/[^0-9.]/g, '');
+  if (!digits) return null;
+  const n = Number(digits);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatPesoAmount(n) {
+  return `₱${n.toFixed(2)}`;
+}
+
+// Mirrors _isLegacyDiscount() in product_helpers.dart - an older-style
+// discount was applied by rewriting `price` directly and stashing the
+// pre-discount amount in `originalPrice` (on the product, or on the
+// specific flavor when one is given). When that's the case `price` is
+// ALREADY the discounted amount, so the percentage math below must not
+// run again on top of it.
+function isLegacyDiscount(entity) {
+  const original = entity.originalPrice;
+  return typeof original === 'string' && original.trim().length > 0;
+}
+
+// Mirrors effectivePrice() in product_helpers.dart - what the customer
+// actually pays RIGHT NOW for a raw `price` string, given the product's
+// (or flavor's) discount state. Computed here, server-side, rather than
+// left for Claude to multiply itself - a chatbot getting a price wrong is
+// a much worse failure than a formatting slip.
+function effectivePrice(product, regularPrice, variant) {
+  const entity = variant || product;
+  if (isLegacyDiscount(entity)) return regularPrice;
+  if (!isDiscountActive(product)) return regularPrice;
+  const parsed = parsePesoAmount(regularPrice);
+  if (parsed == null) return regularPrice;
+  return formatPesoAmount((parsed * (100 - product.discountPercent)) / 100);
+}
+
 function summarizeProduct(p) {
   const flavors = Array.isArray(p.flavors) && p.flavors.length > 0 ? p.flavors : null;
   const base = {
     name: p.name,
     category: p.category,
     bestSeller: p.bestSeller === true,
-    onDiscount: typeof p.discountPercent === 'number' && p.discountPercent > 0,
+    onDiscount: isDiscountActive(p),
     discountPercent: p.discountPercent,
+    // Omitted entirely when not set, rather than sent as null/undefined -
+    // so the assistant isn't tempted to say "no end date" when the field
+    // just wasn't configured vs. genuinely open-ended.
+    ...(p.discountStart ? { discountStarts: p.discountStart } : {}),
+    ...(p.discountEnd ? { discountEnds: p.discountEnd } : {}),
   };
+  // price is always what the customer pays RIGHT NOW (already reflects any
+  // live discount). regularPrice only appears when that differs from the
+  // pre-discount price, to mention as the crossed-out "was" price - never
+  // present for a product that isn't currently discounted. wholesalePrice
+  // is separate and unaffected by a discount - per effectivePriceForQuantity()
+  // in product_helpers.dart, buying 6+ pcs charges wholesalePrice INSTEAD of
+  // a discount, the two never stack.
   if (flavors) {
-    base.flavors = flavors.map((f) => ({
-      name: f.name,
-      price: f.price,
-      wholesalePrice: f.wholesalePrice,
-      stock: f.stock,
-      inStock: f.available !== false && Number(f.stock || 0) > 0,
-    }));
+    base.flavors = flavors.map((f) => {
+      const effective = effectivePrice(p, f.price, f);
+      const flavorOut = {
+        name: f.name,
+        price: effective,
+        wholesalePrice: f.wholesalePrice,
+        stock: f.stock,
+        inStock: f.available !== false && Number(f.stock || 0) > 0,
+      };
+      if (effective !== f.price) flavorOut.regularPrice = f.price;
+      return flavorOut;
+    });
   } else {
-    base.price = p.price;
+    const effective = effectivePrice(p, p.price, null);
+    base.price = effective;
+    if (effective !== p.price) base.regularPrice = p.price;
     base.wholesalePrice = p.wholesalePrice;
     base.stock = p.stockCount;
     base.inStock = p.available !== false && Number(p.stockCount || 0) > 0;
@@ -307,6 +390,11 @@ export default {
     const system = buildSystemPrompt(hasFirestore);
     const messages = [...incomingMessages];
     const MAX_TOOL_ROUNDS = 4;
+    // Tallied across every round below (a single customer message can mean
+    // more than one Claude call, when a tool gets used) and logged at the
+    // end - watch it live with `npx wrangler tail` while testing.
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
 
     try {
       for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
@@ -337,6 +425,16 @@ export default {
           );
         }
 
+        if (data.usage) {
+          totalInputTokens += data.usage.input_tokens || 0;
+          totalOutputTokens += data.usage.output_tokens || 0;
+          console.log(
+            `[tokens] round ${round}: ${data.usage.input_tokens} in / ` +
+              `${data.usage.output_tokens} out (running total: ` +
+              `${totalInputTokens} in / ${totalOutputTokens} out)`,
+          );
+        }
+
         const toolUses = (data.content || []).filter((b) => b.type === 'tool_use');
 
         if (data.stop_reason === 'tool_use' && toolUses.length > 0 && round < MAX_TOOL_ROUNDS) {
@@ -360,6 +458,10 @@ export default {
             .map((b) => b.text)
             .join('\n')
             .trim() || "Sorry, I didn't catch that - could you rephrase?";
+        console.log(
+          `[tokens] this message's total: ${totalInputTokens} in / ` +
+            `${totalOutputTokens} out (${round + 1} Claude call${round === 0 ? '' : 's'})`,
+        );
         return jsonResponse({ ok: true, reply }, 200, corsHeaders);
       }
 

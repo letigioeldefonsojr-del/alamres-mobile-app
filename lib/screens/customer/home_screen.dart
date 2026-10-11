@@ -251,17 +251,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _expandChat() {
-    // Grab whatever's been typed in the floating bubble so far, then hand
-    // it to the full-screen ChatScreen so the conversation continues
-    // instead of starting over.
-    final List<ChatMessage> conversation =
-        _chatPanelKey.currentState?.messages ?? const [];
+    // No need to hand over the conversation manually anymore - the
+    // floating bubble and the full-screen ChatScreen both read from the
+    // same ChatConversation singleton (see chat_conversation.dart), so the
+    // full-screen view already shows the exact same conversation the
+    // moment it opens, reply-in-progress and all.
     setState(() => _isChatOpen = false);
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => ChatScreen(initialMessages: conversation),
-      ),
+      MaterialPageRoute(builder: (context) => ChatScreen()),
     );
   }
 
@@ -320,6 +318,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   IconButton(
+                    tooltip: 'Start new chat',
+                    icon: const Icon(
+                      Icons.add_comment_outlined,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    onPressed: () =>
+                        _chatPanelKey.currentState?.startNewChat(),
+                  ),
+                  IconButton(
                     tooltip: 'Open full chat',
                     icon: const Icon(
                       Icons.open_in_full,
@@ -340,7 +348,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-            Expanded(child: ChatPanel(key: _chatPanelKey)),
+            Expanded(
+              child: ChatPanel(key: _chatPanelKey, bottomSafeArea: false),
+            ),
           ],
         ),
       ),
@@ -384,16 +394,26 @@ class _HomeScreenState extends State<HomeScreen> {
           curve: Curves.easeOut,
           right: 16,
           bottom: 150 + keyboardInset,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
-            transitionBuilder: (child, animation) => ScaleTransition(
-              scale: animation,
+          // Deliberately NOT an AnimatedSwitcher swapping this out for a
+          // SizedBox when closed - that would unmount ChatPanel (losing
+          // _chatPanelKey's state, i.e. the whole conversation) every time
+          // the bubble closes. Instead the card stays mounted the whole
+          // time and is just scaled/faded out + made un-tappable, so
+          // closing and reopening the bubble keeps the conversation.
+          child: IgnorePointer(
+            ignoring: !_isChatOpen,
+            child: AnimatedScale(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
               alignment: Alignment.bottomRight,
-              child: FadeTransition(opacity: animation, child: child),
+              scale: _isChatOpen ? 1.0 : 0.85,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                opacity: _isChatOpen ? 1.0 : 0.0,
+                child: _buildFloatingChatCard(context, keyboardInset),
+              ),
             ),
-            child: _isChatOpen
-                ? _buildFloatingChatCard(context, keyboardInset)
-                : const SizedBox.shrink(key: ValueKey('chat-closed')),
           ),
         ),
       ],

@@ -50,6 +50,11 @@ dependencies:
   qr_flutter: ^4.1.0
   image_picker: ^1.1.2
   http: ^1.2.2
+  # Renders the chat assistant's **bold**/list replies properly in the chat
+  # bubbles instead of showing the raw Markdown characters. This is the
+  # actively-maintained continuation of Google's now-discontinued
+  # flutter_markdown package.
+  flutter_markdown_plus: ^1.0.12
   flutter_file_dialog: ^3.3.1
   csv: ^6.0.0
   package_info_plus: ^8.0.0
