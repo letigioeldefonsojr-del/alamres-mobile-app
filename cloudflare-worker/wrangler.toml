@@ -9,7 +9,7 @@ FIREBASE_PROJECT_ID = "almares-328-database"
 # https://docs.claude.com/en/docs/about-claude/models). Until this is
 # changed from the placeholder, the Worker answers with a friendly
 # "not set up yet" message instead of calling Claude.
-CLAUDE_MODEL = "REPLACE_WITH_MODEL_ID"
+CLAUDE_MODEL = "claude-haiku-5-5"
 
 # ANTHROPIC_API_KEY is NOT set here - it's a real secret. Set it with:
 #   npx wrangler secret put ANTHROPIC_API_KEY
