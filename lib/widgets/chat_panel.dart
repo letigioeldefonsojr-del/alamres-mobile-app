@@ -47,15 +47,22 @@ class ChatPanelState extends State<ChatPanel> {
     // conversation changes - covers both "my own message just got sent"
     // and "a reply came back while I was looking at the other view".
     _conversation.addListener(_scrollToBottom);
+    // Repaints the send button (grey when empty, green once there's
+    // something to send) as the customer types - typing doesn't touch
+    // the shared ChatConversation, so this needs its own listener.
+    _controller.addListener(_onTextChanged);
   }
 
   @override
   void dispose() {
     _conversation.removeListener(_scrollToBottom);
+    _controller.removeListener(_onTextChanged);
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }
+
+  void _onTextChanged() => setState(() {});
 
   /// Clears the conversation back to just the greeting - call this from
   /// outside via a GlobalKey to let the customer deliberately start over
@@ -96,6 +103,15 @@ class ChatPanelState extends State<ChatPanel> {
       builder: (context, _) {
         final List<ChatMessage> messages = _conversation.messages;
         final bool isSending = _conversation.isSending;
+        // Grey (and effectively disabled) until there's something to
+        // send, then green - same rule _send() already enforces
+        // underneath (empty text / already sending both no-op), this
+        // just makes that state visible instead of leaving the button
+        // looking pressable when it isn't.
+        final bool canSend = _controller.text.trim().isNotEmpty && !isSending;
+        final Color sendButtonColor = canSend
+            ? primaryGreen
+            : Colors.grey.shade300;
 
         final Widget inputBar = Container(
           color: Colors.white,
@@ -126,12 +142,12 @@ class ChatPanelState extends State<ChatPanel> {
               ),
               const SizedBox(width: 8),
               Container(
-                decoration: const BoxDecoration(
-                  color: primaryGreen,
+                decoration: BoxDecoration(
+                  color: sendButtonColor,
                   shape: BoxShape.circle,
                 ),
                 child: IconButton(
-                  onPressed: isSending ? null : _send,
+                  onPressed: canSend ? _send : null,
                   icon: const Icon(Icons.send, color: Colors.white, size: 20),
                 ),
               ),

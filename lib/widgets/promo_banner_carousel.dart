@@ -312,6 +312,13 @@ class _PromoCard extends StatelessWidget {
   final PromoBanner banner;
   const _PromoCard({required this.banner});
 
+  // Extra insurance on top of the scrim for the image case - a small dark
+  // blur right behind the glyphs themselves, so the caption stays legible
+  // even over a photo with bright colors right where the text sits.
+  static const List<Shadow> _captionShadow = [
+    Shadow(color: Colors.black87, blurRadius: 6, offset: Offset(0, 1)),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final String? bannerImage = banner.imageUrl;
@@ -348,14 +355,32 @@ class _PromoCard extends StatelessWidget {
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              gradient: LinearGradient(
-                colors: [
-                  Colors.black.withValues(alpha: 0.45),
-                  Colors.transparent,
-                ],
-                begin: Alignment.bottomLeft,
-                end: Alignment.topRight,
-              ),
+              // A real uploaded photo can be busy or brightly colored (and
+              // sometimes already has its own text baked into it), so it
+              // needs a much stronger, bottom-anchored scrim than the flat
+              // placeholder gradient ever did - otherwise the caption text
+              // below fights with whatever's in the picture. The
+              // placeholder case (no image yet) keeps its original subtle
+              // corner scrim since there's no competing imagery to wash out.
+              gradient: hasImage
+                  ? const LinearGradient(
+                      colors: [
+                        Colors.transparent,
+                        Colors.black45,
+                        Colors.black87,
+                      ],
+                      stops: [0.0, 0.55, 1.0],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    )
+                  : LinearGradient(
+                      colors: [
+                        Colors.black.withValues(alpha: 0.45),
+                        Colors.transparent,
+                      ],
+                      begin: Alignment.bottomLeft,
+                      end: Alignment.topRight,
+                    ),
             ),
           ),
           Positioned(
@@ -372,6 +397,7 @@ class _PromoCard extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.5,
+                    shadows: hasImage ? _captionShadow : null,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -379,11 +405,12 @@ class _PromoCard extends StatelessWidget {
                   banner.offer,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
                     height: 1.2,
+                    shadows: hasImage ? _captionShadow : null,
                   ),
                 ),
                 if (banner.description.isNotEmpty) ...[
@@ -392,7 +419,11 @@ class _PromoCard extends StatelessWidget {
                     banner.description,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      shadows: hasImage ? _captionShadow : null,
+                    ),
                   ),
                 ],
               ],

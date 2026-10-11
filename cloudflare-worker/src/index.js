@@ -210,7 +210,31 @@ function summarizeProduct(p) {
   return base;
 }
 
+// Mirrors the same rule the Flutter app's order details screen uses once
+// an order is actually out for delivery: the original "3 days from when
+// you ordered" timestamp stops being the useful number, and what matters
+// is just whether it's coming today or tomorrow. 8 PM Philippine time is
+// the cutoff - marked on_the_way before 8 PM, it's still arriving today;
+// after that, it's realistically a tomorrow delivery. The Worker runs on
+// UTC, so this converts to PHT (UTC+8, no DST) explicitly rather than
+// relying on the runtime's own clock/timezone.
+function isBeforeDeliveryCutoffPHT(now = new Date()) {
+  const phtHour = (now.getUTCHours() + 8) % 24;
+  return phtHour < 20;
+}
+
 function summarizeOrder(o) {
+  // Once the order is on_the_way, report "Today"/"Tomorrow" instead of the
+  // original stored estimate - otherwise the chatbot keeps citing a stale
+  // date (e.g. "October 13") even while the customer's own app screen has
+  // already moved on to showing "Today".
+  const estimatedDelivery =
+    o.status === 'on_the_way'
+      ? isBeforeDeliveryCutoffPHT()
+        ? 'Today'
+        : 'Tomorrow'
+      : o.estimatedDelivery;
+
   return {
     id: o.id,
     status: o.status,
@@ -225,7 +249,7 @@ function summarizeOrder(o) {
     itemsSubtotal: o.itemsSubtotal,
     deliveryFee: o.deliveryFee,
     total: o.total,
-    estimatedDelivery: o.estimatedDelivery,
+    estimatedDelivery,
     createdAt: o.createdAt,
   };
 }
