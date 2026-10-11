@@ -15,6 +15,34 @@ import 'package:geolocator/geolocator.dart';
 /// Runs entirely on free services - OpenStreetMap map tiles (via
 /// flutter_map) and the Nominatim search/reverse-geocoding API - so unlike
 /// Google Maps/Places it needs no API key and no billing account.
+/// What [AddressPickerScreen] hands back on confirm - the human-readable
+/// label *and* the exact coordinates the pin was actually sitting on,
+/// instead of just the label alone. Callers that only persisted the text
+/// before had to re-geocode that text later (to compute a delivery fee or
+/// show a map link), which doesn't reliably land back on the same spot -
+/// a landmark-style label like "Toyota ..." can resolve to a different,
+/// more "canonical" result than the specific point that was actually
+/// pinned. Keeping the real coordinates alongside the label avoids that
+/// drift entirely wherever this gets saved and reused.
+/// The two tile sources the customer can switch between on the map. Both
+/// are free, keyless tile providers (no Google Maps billing account
+/// needed, consistent with the rest of this screen):
+///  - [defaultMap] - the existing OpenStreetMap street-map tiles.
+///  - [satellite] - Esri's World Imagery aerial/satellite tiles.
+enum _MapLayer { defaultMap, satellite }
+
+class PickedAddress {
+  final String address;
+  final double lat;
+  final double lng;
+
+  const PickedAddress({
+    required this.address,
+    required this.lat,
+    required this.lng,
+  });
+}
+
 class AddressPickerScreen extends StatefulWidget {
   /// The address already on file, if any - used to center the map on the
   /// existing address when the picker opens for editing.
@@ -68,6 +96,7 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
   List<_SearchResult> _searchResults = [];
   Timer? _searchDebounce;
   Timer? _reverseGeocodeDebounce;
+  _MapLayer _mapLayer = _MapLayer.defaultMap;
 
   @override
   void initState() {
@@ -307,7 +336,13 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
       _showMessage('Please choose a location first.');
       return;
     }
-    Navigator.pop(context, address);
+    // _center is the pin's actual coordinate (the fixed center pin tracks
+    // the map underneath it - see the Stack below), not derived from the
+    // label text, so this is exactly where the customer dropped the pin.
+    Navigator.pop(
+      context,
+      PickedAddress(address: address, lat: _center.latitude, lng: _center.longitude),
+    );
   }
 
   @override
@@ -403,8 +438,19 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      // Swapping urlTemplate alone (without a new key)
+                      // would make flutter_map keep showing already-cached
+                      // tiles from the other layer for a moment - keying
+                      // on the layer forces it to rebuild its tile
+                      // provider cleanly when the customer switches.
+                      key: ValueKey(_mapLayer),
+                      urlTemplate: _mapLayer == _MapLayer.satellite
+                          // Esri World Imagery - free, keyless aerial/
+                          // satellite tiles. Note the {y} before {x}: this
+                          // is the tile coordinate order Esri's REST tile
+                          // service expects, unlike OSM's {x} then {y}.
+                          ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                          : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName:
                           'com.almares328.capstone_application_development',
                       minZoom: 3,
@@ -438,6 +484,36 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
                       onSelect: _selectSearchResult,
                     ),
                   ),
+                // Map type switch (Default street map / Satellite) - sits
+                // bottom-left so it never overlaps the search results
+                // dropdown (top) or the current-location/zoom controls
+                // (bottom-right).
+                Positioned(
+                  left: 12,
+                  bottom: 12,
+                  child: Material(
+                    color: Colors.white,
+                    elevation: 2,
+                    shape: const CircleBorder(),
+                    child: PopupMenuButton<_MapLayer>(
+                      tooltip: 'Map type',
+                      icon: const Icon(Icons.layers_outlined, color: primaryGreen),
+                      onSelected: (layer) => setState(() => _mapLayer = layer),
+                      itemBuilder: (context) => [
+                        CheckedPopupMenuItem<_MapLayer>(
+                          value: _MapLayer.defaultMap,
+                          checked: _mapLayer == _MapLayer.defaultMap,
+                          child: const Text('Default'),
+                        ),
+                        CheckedPopupMenuItem<_MapLayer>(
+                          value: _MapLayer.satellite,
+                          checked: _mapLayer == _MapLayer.satellite,
+                          child: const Text('Satellite'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 Positioned(
                   right: 12,
                   bottom: 12,

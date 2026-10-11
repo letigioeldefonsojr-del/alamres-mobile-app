@@ -15,12 +15,19 @@ class CartOrderConfirmationScreen extends StatefulWidget {
   // reordering from a past order) so nothing in the cart is touched.
   final List<DocumentReference<Map<String, dynamic>>>? cartRefs;
   final String initialAddress;
+  // Exact pin coordinates for initialAddress, when known - carried over
+  // from wherever the address was picked (cart screen) so this screen
+  // doesn't have to re-geocode the address text to show/store a map pin.
+  final double? initialLat;
+  final double? initialLng;
 
   const CartOrderConfirmationScreen({
     super.key,
     required this.items,
     this.cartRefs,
     required this.initialAddress,
+    this.initialLat,
+    this.initialLng,
   });
 
   @override
@@ -35,6 +42,19 @@ class _CartOrderConfirmationScreenState
   bool _isConfirming = false;
   String _customerName = '';
   late String _customerAddress;
+  // Exact pin coordinates for _customerAddress, when known - preferred
+  // over _deliveryFeeResult's geocoded coordinates below, since those are
+  // only an approximation re-derived from the address text.
+  double? _customerAddressLat;
+  double? _customerAddressLng;
+  // What actually gets written to the order: the exact pin when known,
+  // else the fee calculation's own approximate geocode once that has
+  // resolved - computed independently of fee success so a failed fee
+  // lookup never also blanks out a pin we do have.
+  double? get _resolvedDeliveryLat =>
+      _customerAddressLat ?? _deliveryFeeResult?.customerLat;
+  double? get _resolvedDeliveryLng =>
+      _customerAddressLng ?? _deliveryFeeResult?.customerLng;
   late final DateTime _estimatedDelivery;
 
   // Local, editable copies so the quantity steppers can adjust amounts (or
@@ -67,6 +87,8 @@ class _CartOrderConfirmationScreenState
   void initState() {
     super.initState();
     _customerAddress = widget.initialAddress;
+    _customerAddressLat = widget.initialLat;
+    _customerAddressLng = widget.initialLng;
     _estimatedDelivery = DateTime.now().add(const Duration(days: 3));
     final user = FirebaseAuth.instance.currentUser;
     _customerName = (user?.displayName?.trim().isNotEmpty ?? false)
@@ -122,8 +144,10 @@ class _CartOrderConfirmationScreenState
     String? regularPriceRaw;
     if (flavorName != null) {
       final flavors =
-          (data['flavors'] as List?)?.cast<Map<String, dynamic>>() ??
-          const [];
+          (data['flavors'] as List?)
+              ?.map((f) => Map<String, dynamic>.from(f as Map))
+              .toList() ??
+          const <Map<String, dynamic>>[];
       for (final f in flavors) {
         if (f['name'] == flavorName) {
           variant = f;
@@ -161,7 +185,16 @@ class _CartOrderConfirmationScreenState
       return;
     }
     setState(() => _isCalculatingFee = true);
-    final result = await computeDeliveryFee(_customerAddress);
+    // Prefer the exact pinned coordinates when known - instant, and
+    // immune to the text-geocoding failures ("too vague", a typo,
+    // Nominatim briefly down) that otherwise land the customer on "To
+    // be confirmed". Only falls back to geocoding the address text when
+    // no exact pin is on file for it yet.
+    final double? lat = _customerAddressLat;
+    final double? lng = _customerAddressLng;
+    final DeliveryFeeResult? result = (lat != null && lng != null)
+        ? computeDeliveryFeeFromCoordinates(lat, lng)
+        : await computeDeliveryFee(_customerAddress);
     if (!mounted) return;
     setState(() {
       _deliveryFeeResult = result;
@@ -247,7 +280,11 @@ class _CartOrderConfirmationScreenState
   Future<void> _changeAddress() async {
     final picked = await pickDeliveryAddress(context, _customerAddress);
     if (picked != null) {
-      setState(() => _customerAddress = picked);
+      setState(() {
+        _customerAddress = picked.address;
+        _customerAddressLat = picked.lat;
+        _customerAddressLng = picked.lng;
+      });
       _recalculateDeliveryFee();
     }
   }
@@ -367,6 +404,20 @@ class _CartOrderConfirmationScreenState
               // through rather than blocking the customer, just flagged
               // so the branch knows to confirm the real fee by hand.
               : {'deliveryFeeUnresolved': true}),
+          // Written independently of whether the fee itself resolved -
+          // an exact pin (or the fee calc's own approximate geocode) can
+          // be known even when the fee lookup failed for an unrelated
+          // reason, and the admin map should still get it.
+          ...(_resolvedDeliveryLat != null && _resolvedDeliveryLng != null
+              ? {
+                  'deliveryLat': _resolvedDeliveryLat,
+                  'deliveryLng': _resolvedDeliveryLng,
+                  'deliveryMapUrl': mapUrlFor(
+                    _resolvedDeliveryLat!,
+                    _resolvedDeliveryLng!,
+                  ),
+                }
+              : <String, dynamic>{}),
           'total': orderTotal + _deliveryFee,
           'status': 'pending',
           'estimatedDelivery': Timestamp.fromDate(_estimatedDelivery),

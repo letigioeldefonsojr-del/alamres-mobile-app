@@ -16,7 +16,10 @@ enum ProductSortOption {
 
 double _extractSortPrice(Map<String, dynamic> product) {
   final flavors =
-      (product['flavors'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+      (product['flavors'] as List?)
+          ?.map((f) => Map<String, dynamic>.from(f as Map))
+          .toList() ??
+      const <Map<String, dynamic>>[];
   if (flavors.isNotEmpty) {
     final prices = flavors
         .map(
@@ -248,7 +251,10 @@ String formatDiscountDate(DateTime date) {
 
 String productPriceLabel(Map<String, dynamic> product) {
   final flavors =
-      (product['flavors'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+      (product['flavors'] as List?)
+          ?.map((f) => Map<String, dynamic>.from(f as Map))
+          .toList() ??
+      const <Map<String, dynamic>>[];
   if (flavors.isNotEmpty) {
     final prices = flavors
         .map((f) {
@@ -278,7 +284,10 @@ String productPriceLabel(Map<String, dynamic> product) {
 /// instead of displaying "null" or a misleading "₱0.00".
 String? productWholesalePriceLabel(Map<String, dynamic> product) {
   final flavors =
-      (product['flavors'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+      (product['flavors'] as List?)
+          ?.map((f) => Map<String, dynamic>.from(f as Map))
+          .toList() ??
+      const <Map<String, dynamic>>[];
   if (flavors.isNotEmpty) {
     final prices = flavors
         .map((f) {
@@ -314,7 +323,10 @@ bool isOutOfStock(Map<String, dynamic> product) {
   final bool productUnavailable = product['available'] == false;
 
   final flavors =
-      (product['flavors'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+      (product['flavors'] as List?)
+          ?.map((f) => Map<String, dynamic>.from(f as Map))
+          .toList() ??
+      const <Map<String, dynamic>>[];
   if (flavors.isNotEmpty) {
     if (productUnavailable) return true;
     return flavors.every((f) {
@@ -343,7 +355,10 @@ bool isBestSeller(Map<String, dynamic> product) {
 /// a discount that should currently be shown to the customer.
 bool productHasVisibleDiscount(Map<String, dynamic> product) {
   final flavors =
-      (product['flavors'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+      (product['flavors'] as List?)
+          ?.map((f) => Map<String, dynamic>.from(f as Map))
+          .toList() ??
+      const <Map<String, dynamic>>[];
   if (flavors.isNotEmpty) {
     return flavors.any((f) => isDiscountVisible(product, variant: f));
   }
@@ -355,7 +370,10 @@ bool productHasVisibleDiscount(Map<String, dynamic> product) {
 /// low/"From" price across flavors computed the same discount-aware way).
 String effectivePriceLabel(Map<String, dynamic> product) {
   final flavors =
-      (product['flavors'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+      (product['flavors'] as List?)
+          ?.map((f) => Map<String, dynamic>.from(f as Map))
+          .toList() ??
+      const <Map<String, dynamic>>[];
   if (flavors.isNotEmpty) {
     final prices = flavors
         .map((f) {
@@ -385,7 +403,10 @@ String effectivePriceLabel(Map<String, dynamic> product) {
 String? discountRegularPriceRangeLabel(Map<String, dynamic> product) {
   if (!productHasVisibleDiscount(product)) return null;
   final flavors =
-      (product['flavors'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+      (product['flavors'] as List?)
+          ?.map((f) => Map<String, dynamic>.from(f as Map))
+          .toList() ??
+      const <Map<String, dynamic>>[];
   if (flavors.isNotEmpty) {
     final prices = flavors
         .map((f) {
@@ -428,7 +449,10 @@ double _effectiveUnitPriceFromData(
   String? regularPrice;
   if (flavorName != null) {
     final flavors =
-        (data['flavors'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+        (data['flavors'] as List?)
+            ?.map((f) => Map<String, dynamic>.from(f as Map))
+            .toList() ??
+        const <Map<String, dynamic>>[];
     for (final f in flavors) {
       if (f['name'] == flavorName) {
         variant = f;
@@ -504,7 +528,10 @@ StockLevel getStockLevel(int totalStock) {
 
 int extractTotalStock(Map<String, dynamic> product) {
   final flavors =
-      (product['flavors'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+      (product['flavors'] as List?)
+          ?.map((f) => Map<String, dynamic>.from(f as Map))
+          .toList() ??
+      const <Map<String, dynamic>>[];
   if (flavors.isNotEmpty) {
     return flavors.fold<int>(
       0,
@@ -538,7 +565,10 @@ Color stockLevelColor(StockLevel level) {
 
 String productStockLabel(Map<String, dynamic> product) {
   final flavors =
-      (product['flavors'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+      (product['flavors'] as List?)
+          ?.map((f) => Map<String, dynamic>.from(f as Map))
+          .toList() ??
+      const <Map<String, dynamic>>[];
   final int total = flavors.isNotEmpty
       ? flavors.fold<int>(
           0,

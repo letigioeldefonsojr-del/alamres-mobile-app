@@ -167,6 +167,12 @@ class _AddMobileNumberScreenState extends State<AddMobileNumberScreen> {
                       return null;
                     },
                   ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Please double-check your number - our logistics team '
+                    'will contact you on this number for delivery.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  ),
                   if (_errorMessage != null) ...[
                     const SizedBox(height: 16),
                     Container(

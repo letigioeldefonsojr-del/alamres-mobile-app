@@ -6,6 +6,7 @@ import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../core/routing.dart';
 import '../../core/validators.dart';
+import '../../core/ph_locations.dart';
 import 'address_picker_screen.dart';
 import 'home_screen.dart';
 
@@ -30,7 +31,54 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // leading 0), matching how the field itself splits them.
   String _mobileCountryDialCode = '+63';
   String _mobileNationalNumber = '';
-  final TextEditingController _addressController = TextEditingController();
+  // House/Lot No., Street, and Purok stay fully manual - there's no
+  // bundled dataset for those. Region/Province/City-Municipality/Barangay
+  // are picked from the bundled PSGC dataset instead (see below), so
+  // there's never a mismatched or misspelled barangay name.
+  final TextEditingController _houseNoController = TextEditingController();
+  final TextEditingController _streetController = TextEditingController();
+  final TextEditingController _purokController = TextEditingController();
+  // Exact coordinates from the last "Pick on Map" selection - the basis
+  // for the delivery fee and the pin shown in the admin. Deliberately
+  // independent of the address fields above: picking a location never
+  // overwrites what's typed, and editing those fields afterward never
+  // invalidates the pin already attached.
+  double? _addressLat;
+  double? _addressLng;
+  bool get _hasAddressPin => _addressLat != null && _addressLng != null;
+
+  // The bundled Region/Province/City-Municipality/Barangay dataset, plus
+  // whichever of the four the customer has picked so far. Each level is
+  // only enabled once its parent is chosen, and choosing a new value at
+  // one level clears everything picked below it (see _pickRegion etc.).
+  PhLocationsData? _phLocations;
+  String? _regionCode;
+  String? _regionName;
+  String? _provinceCode;
+  String? _provinceName;
+  String? _municipalityCode;
+  String? _municipalityName;
+  String? _barangayCode;
+  String? _barangayName;
+  bool get _hasBarangaySelected => _barangayCode != null;
+
+  // The address fields combined into the single string stored as
+  // 'address' and used everywhere else in the app (orders, the admin
+  // website, the chatbot) that expects one address line.
+  String get _combinedAddressText {
+    final String houseNo = _houseNoController.text.trim();
+    final String street = _streetController.text.trim();
+    final String purok = _purokController.text.trim();
+    final parts = <String>[
+      if (houseNo.isNotEmpty) houseNo,
+      if (street.isNotEmpty) street,
+      if (purok.isNotEmpty) 'Purok $purok',
+      if (_barangayName != null) 'Barangay $_barangayName',
+      if (_municipalityName != null) _municipalityName!,
+      if (_provinceName != null) _provinceName!,
+    ];
+    return parts.join(', ');
+  }
   final TextEditingController _landmarkController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -47,11 +95,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _errorMessage;
 
   @override
+  void initState() {
+    super.initState();
+    _loadPhLocationsData();
+  }
+
+  // Set only if the dataset genuinely failed to load (e.g. the asset
+  // isn't in the build yet) - lets the Region field show what actually
+  // happened and offer a retry, instead of sitting on "Loading
+  // regions..." forever with no way to tell a real failure apart from
+  // one that's just slow.
+  String? _phLocationsError;
+
+  Future<void> _loadPhLocationsData() async {
+    setState(() => _phLocationsError = null);
+    try {
+      final PhLocationsData data = await PhLocations.load();
+      if (mounted) setState(() => _phLocations = data);
+    } catch (e) {
+      if (mounted) setState(() => _phLocationsError = e.toString());
+    }
+  }
+
+  @override
   void dispose() {
     _firstNameController.dispose();
     _middleInitialController.dispose();
     _lastNameController.dispose();
-    _addressController.dispose();
+    _houseNoController.dispose();
+    _streetController.dispose();
+    _purokController.dispose();
     _landmarkController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -79,19 +152,139 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  // Small sub-label for each of the four address fields, nested under
+  // the ADDRESS section header - lighter weight than the main
+  // field labels (FIRST NAME, MOBILE NUMBER, etc.) so the grouping
+  // reads clearly as one section.
+  Widget _addressSubLabel(String text, {bool optional = false}) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Row(
+      children: [
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade700,
+          ),
+        ),
+        if (optional) ...[
+          const SizedBox(width: 6),
+          Text(
+            '(optional)',
+            style: TextStyle(fontSize: 10.5, color: Colors.grey.shade500),
+          ),
+        ],
+      ],
+    ),
+  );
+
+  Future<void> _pickRegion() async {
+    final PhLocationsData? data = _phLocations;
+    if (data == null) return;
+    final PhLocationItem? picked = await pickPhLocation(
+      context: context,
+      title: 'Select Region',
+      items: data.regions,
+    );
+    if (picked == null) return;
+    setState(() {
+      _regionCode = picked.code;
+      _regionName = picked.name;
+      // Picking a new region invalidates whatever was picked below it -
+      // a province from the old region doesn't belong under the new one.
+      _provinceCode = null;
+      _provinceName = null;
+      _municipalityCode = null;
+      _municipalityName = null;
+      _barangayCode = null;
+      _barangayName = null;
+    });
+  }
+
+  Future<void> _pickProvince() async {
+    final PhLocationsData? data = _phLocations;
+    if (data == null || _regionCode == null) return;
+    final PhLocationItem? picked = await pickPhLocation(
+      context: context,
+      title: 'Select Province',
+      items: data.provincesOf(_regionCode),
+    );
+    if (picked == null) return;
+    setState(() {
+      _provinceCode = picked.code;
+      _provinceName = picked.name;
+      _municipalityCode = null;
+      _municipalityName = null;
+      _barangayCode = null;
+      _barangayName = null;
+    });
+  }
+
+  Future<void> _pickMunicipality() async {
+    final PhLocationsData? data = _phLocations;
+    if (data == null || _provinceCode == null) return;
+    final PhLocationItem? picked = await pickPhLocation(
+      context: context,
+      title: 'Select City/Municipality',
+      items: data.municipalitiesOf(_provinceCode),
+    );
+    if (picked == null) return;
+    setState(() {
+      _municipalityCode = picked.code;
+      _municipalityName = picked.name;
+      _barangayCode = null;
+      _barangayName = null;
+    });
+    // Barangays are the bulk of the dataset and are only parsed on first
+    // use - kick that off now, in the background, so it's usually ready
+    // by the time the customer actually taps "Select Barangay" below.
+    data.prefetchBarangays();
+  }
+
+  bool _isLoadingBarangays = false;
+
+  Future<void> _pickBarangay() async {
+    final PhLocationsData? data = _phLocations;
+    if (data == null || _municipalityCode == null) return;
+    setState(() => _isLoadingBarangays = true);
+    final List<PhLocationItem> items = await data.barangaysOf(
+      _municipalityCode,
+    );
+    if (!mounted) return;
+    setState(() => _isLoadingBarangays = false);
+    final PhLocationItem? picked = await pickPhLocation(
+      context: context,
+      title: 'Select Barangay',
+      items: items,
+    );
+    if (picked == null) return;
+    setState(() {
+      _barangayCode = picked.code;
+      _barangayName = picked.name;
+    });
+  }
+
   Future<void> _pickAddressOnMap() async {
-    final String? picked = await Navigator.push<String>(
+    final PickedAddress? picked = await Navigator.push<PickedAddress>(
       context,
       MaterialPageRoute(
         builder: (context) => AddressPickerScreen(
-          initialAddress: _addressController.text.trim().isEmpty
+          initialAddress: _combinedAddressText.isEmpty
               ? null
-              : _addressController.text.trim(),
+              : _combinedAddressText,
         ),
       ),
     );
-    if (picked != null && picked.trim().isNotEmpty) {
-      setState(() => _addressController.text = picked);
+    if (picked != null) {
+      // Only the coordinate is used - with four separate fields there's
+      // no single text box to usefully prefill from the map's
+      // reverse-geocoded label, so picking a location never touches
+      // anything the customer typed.
+      setState(() {
+        _addressLat = picked.lat;
+        _addressLng = picked.lng;
+      });
     }
   }
 
@@ -119,6 +312,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
+    // Not one of the fields' own validators - the region/province/
+    // city-municipality/barangay cascade and the map pin are each a
+    // property of the address as a whole, not any single field.
+    if (!_hasBarangaySelected) {
+      setState(() {
+        _errorMessage = 'Please select your Region, Province, '
+            'City/Municipality, and Barangay before continuing.';
+      });
+      return;
+    }
+    if (!_hasAddressPin) {
+      setState(() {
+        _errorMessage = 'Please tap "Pick on Map" and pin your exact '
+            'location before continuing.';
+      });
+      return;
+    }
+
+    final bool confirmed = await confirmPhAddress(
+      context: context,
+      houseNo: _houseNoController.text.trim(),
+      street: _streetController.text.trim(),
+      purok: _purokController.text.trim(),
+      barangay: _barangayName!,
+      municipality: _municipalityName!,
+      province: _provinceName!,
+      landmark: _landmarkController.text.trim(),
+      hasPin: _hasAddressPin,
+    );
+    if (!confirmed) return;
 
     setState(() {
       _isSubmitting = true;
@@ -202,7 +425,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
             'lastName': lastName,
             'fullName': fullName,
             'mobileNumber': mobileDigits,
-            'address': _addressController.text.trim(),
+            'address': _combinedAddressText,
+            'houseNo': _houseNoController.text.trim(),
+            'street': _streetController.text.trim(),
+            'purok': _purokController.text.trim(),
+            'region': _regionName,
+            'regionCode': _regionCode,
+            'province': _provinceName,
+            'provinceCode': _provinceCode,
+            'municipality': _municipalityName,
+            'municipalityCode': _municipalityCode,
+            'barangay': _barangayName,
+            'barangayCode': _barangayCode,
+            if (_hasAddressPin) 'addressLat': _addressLat,
+            if (_hasAddressPin) 'addressLng': _addressLng,
             'landmark': _landmarkController.text.trim(),
             // What the customer actually gave us - blank if they skipped
             // it. Use authEmail (below) for anything sign-in related.
@@ -261,7 +497,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      final googleSignIn = GoogleSignIn();
+      // Same reasoning as the Login screen's Google button: without this,
+      // the plugin silently reuses whatever Google account is already
+      // cached on the device instead of showing the account picker, so
+      // there'd be no way to pick a different (possibly already-registered)
+      // Gmail to sign up with.
+      await googleSignIn.signOut();
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
         // Customer closed the account picker - not an error, just bail out.
         return;
@@ -289,7 +532,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final existingDoc = await docRef.get();
       if (existingDoc.exists) {
         await FirebaseAuth.instance.signOut();
-        await GoogleSignIn().signOut();
+        await googleSignIn.signOut();
         if (!mounted) return;
         setState(() {
           _errorMessage =
@@ -551,19 +794,42 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           return null;
                         },
                       ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Please double-check your number - our logistics '
+                        'team will contact you on this number for delivery.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
                       const SizedBox(height: 20),
 
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'ADDRESS',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                              letterSpacing: 0.5,
-                            ),
+                          Row(
+                            children: [
+                              const Text(
+                                'ADDRESS',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '(REQUIRED)',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey.shade500,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
                           ),
                           TextButton.icon(
                             onPressed: _pickAddressOnMap,
@@ -588,19 +854,112 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
+                      Text(
+                        'A pin (tap "Pick on Map" above) is also required - '
+                        'it\'s what keeps your delivery fee accurate.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _addressSubLabel('Region'),
+                      PhLocationSelectField(
+                        hint: _phLocationsError != null
+                            ? "Couldn't load - tap to retry"
+                            : (_phLocations == null
+                                  ? 'Loading regions...'
+                                  : 'Select Region'),
+                        icon: _phLocationsError != null
+                            ? Icons.refresh
+                            : Icons.map_outlined,
+                        value: _regionName,
+                        enabled: _phLocations != null || _phLocationsError != null,
+                        onTap: _phLocationsError != null
+                            ? _loadPhLocationsData
+                            : _pickRegion,
+                      ),
+                      if (_phLocationsError != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          _phLocationsError!,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: Colors.redAccent.shade700,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+                      _addressSubLabel('Province'),
+                      PhLocationSelectField(
+                        hint: 'Select Province',
+                        icon: Icons.terrain_outlined,
+                        value: _provinceName,
+                        enabled: _regionCode != null,
+                        onTap: _pickProvince,
+                      ),
+                      const SizedBox(height: 14),
+                      _addressSubLabel('City/Municipality'),
+                      PhLocationSelectField(
+                        hint: 'Select City/Municipality',
+                        icon: Icons.location_city_outlined,
+                        value: _municipalityName,
+                        enabled: _provinceCode != null,
+                        onTap: _pickMunicipality,
+                      ),
+                      const SizedBox(height: 14),
+                      _addressSubLabel('Barangay'),
+                      PhLocationSelectField(
+                        hint: _isLoadingBarangays
+                            ? 'Loading barangays...'
+                            : 'Select Barangay',
+                        icon: Icons.holiday_village_outlined,
+                        value: _barangayName,
+                        enabled: _municipalityCode != null &&
+                            !_isLoadingBarangays,
+                        onTap: _pickBarangay,
+                      ),
+                      const SizedBox(height: 14),
+                      _addressSubLabel('House/Lot No.'),
                       TextFormField(
-                        controller: _addressController,
+                        controller: _houseNoController,
                         textCapitalization: TextCapitalization.words,
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Address is required';
+                            return 'House/Lot No. is required';
                           }
                           return null;
                         },
                         decoration: _fieldDecoration(
-                          hint: 'House No., Street, Barangay',
-                          icon: Icons.location_on_outlined,
+                          hint: 'e.g. 123',
+                          icon: Icons.tag_outlined,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _addressSubLabel('Street'),
+                      TextFormField(
+                        controller: _streetController,
+                        textCapitalization: TextCapitalization.words,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Street is required';
+                          }
+                          return null;
+                        },
+                        decoration: _fieldDecoration(
+                          hint: 'e.g. Mabini Street',
+                          icon: Icons.signpost_outlined,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _addressSubLabel('Purok', optional: true),
+                      TextFormField(
+                        controller: _purokController,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: _fieldDecoration(
+                          hint: 'e.g. 5 (leave blank if none)',
+                          icon: Icons.signpost_outlined,
                         ),
                       ),
                       const SizedBox(height: 20),

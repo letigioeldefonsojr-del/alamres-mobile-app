@@ -83,8 +83,10 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
   }
 
   List<Map<String, dynamic>> get _flavors =>
-      (_liveProduct['flavors'] as List?)?.cast<Map<String, dynamic>>() ??
-      const [];
+      (_liveProduct['flavors'] as List?)
+          ?.map((f) => Map<String, dynamic>.from(f as Map))
+          .toList() ??
+      const <Map<String, dynamic>>[];
 
   Map<String, dynamic>? get _selectedFlavor =>
       _flavors.isNotEmpty ? _flavors[_selectedFlavorIndex] : null;

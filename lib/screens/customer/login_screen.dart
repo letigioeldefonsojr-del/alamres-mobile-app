@@ -330,7 +330,17 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      final googleSignIn = GoogleSignIn();
+      // Sign out of any cached Google session first - otherwise, once a
+      // customer has signed in with Google once on this device, the plugin
+      // silently reuses that same account on every later tap instead of
+      // showing the account picker, which looks like "Login with Google"
+      // doing nothing but redirect straight in. Signing out here forces the
+      // picker to show every time, so they can choose any Gmail on the
+      // device - the existing/not-existing Firestore check right below
+      // still decides what happens with whichever one they pick.
+      await googleSignIn.signOut();
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
         // Customer closed the account picker - not an error, just bail out.
         return;
@@ -363,7 +373,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // but with no Firestore profile this still isn't a real account in
         // this app - sign back out and send them to register instead.
         await FirebaseAuth.instance.signOut();
-        await GoogleSignIn().signOut();
+        await googleSignIn.signOut();
         if (!mounted) return;
         setState(() {
           _errorMessage =

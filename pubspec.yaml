@@ -92,8 +92,17 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
-  assets: 
+  assets:
     - assets/images/
+    # PH region/province/city-municipality dataset (PSGC, bundled offline
+    # - no network call needed to populate the cascading address pickers
+    # on Register/Edit Profile/Saved Addresses). Kept small (~100KB) on
+    # purpose so Region/Province/City-Municipality show up instantly.
+    - assets/data/ph_locations.json
+    # Barangays alone (~42,000 of them, ~2.5MB) - the vast majority of the
+    # dataset's size. Loaded separately, lazily, only the first time a
+    # customer actually opens the Barangay picker, not on screen open.
+    - assets/data/ph_barangays.json
   fonts: 
     - family: BricolageGrotesque
       fonts:

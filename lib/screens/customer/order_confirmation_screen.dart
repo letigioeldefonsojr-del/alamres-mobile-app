@@ -33,6 +33,22 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
 
   String _customerName = '';
   String _customerAddress = '';
+  // Exact pin coordinates for _customerAddress, when known (the profile's
+  // stored pin, or whatever was just picked via pickDeliveryAddress) -
+  // preferred over _deliveryFeeResult's geocoded coordinates below, since
+  // those are only an approximation re-derived from the address text and
+  // can land far from where the customer actually pinned.
+  double? _customerAddressLat;
+  double? _customerAddressLng;
+  // What actually gets written to the order: the exact pin when known,
+  // else whatever the fee calculation's own approximate geocode came up
+  // with (only available once that has resolved). Computed independently
+  // of fee success so a failed fee lookup never also blanks out a pin we
+  // do have.
+  double? get _resolvedDeliveryLat =>
+      _customerAddressLat ?? _deliveryFeeResult?.customerLat;
+  double? get _resolvedDeliveryLng =>
+      _customerAddressLng ?? _deliveryFeeResult?.customerLng;
   late final DateTime _orderTime;
   late final DateTime _estimatedDelivery;
   late final String _orderNumber;
@@ -70,6 +86,8 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
           (data?['address'] as String?) ?? '',
           data?['landmark'] as String?,
         );
+        _customerAddressLat = (data?['addressLat'] as num?)?.toDouble();
+        _customerAddressLng = (data?['addressLng'] as num?)?.toDouble();
       }
     } catch (_) {
     } finally {
@@ -87,7 +105,16 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
       return;
     }
     setState(() => _isCalculatingFee = true);
-    final result = await computeDeliveryFee(_customerAddress);
+    // Prefer the exact pinned coordinates when known - instant, and
+    // immune to the text-geocoding failures ("too vague", a typo,
+    // Nominatim briefly down) that otherwise land the customer on "To
+    // be confirmed". Only falls back to geocoding the address text when
+    // no exact pin is on file for it yet.
+    final double? lat = _customerAddressLat;
+    final double? lng = _customerAddressLng;
+    final DeliveryFeeResult? result = (lat != null && lng != null)
+        ? computeDeliveryFeeFromCoordinates(lat, lng)
+        : await computeDeliveryFee(_customerAddress);
     if (!mounted) return;
     setState(() {
       _deliveryFeeResult = result;
@@ -212,6 +239,20 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                     'deliveryBranch': _deliveryFeeResult!.branchName,
                   }
                 : {'deliveryFeeUnresolved': true}),
+            // Written independently of whether the fee itself resolved -
+            // an exact pin (or even the fee calc's own approximate geocode)
+            // can be known even when, say, the fee lookup failed for an
+            // unrelated reason, and the admin map should still get it.
+            ...(_resolvedDeliveryLat != null && _resolvedDeliveryLng != null
+                ? {
+                    'deliveryLat': _resolvedDeliveryLat,
+                    'deliveryLng': _resolvedDeliveryLng,
+                    'deliveryMapUrl': mapUrlFor(
+                      _resolvedDeliveryLat!,
+                      _resolvedDeliveryLng!,
+                    ),
+                  }
+                : <String, dynamic>{}),
             'total': total + _deliveryFee,
             'status': 'pending',
             'estimatedDelivery': Timestamp.fromDate(_estimatedDelivery),
@@ -258,6 +299,16 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                   'deliveryBranch': _deliveryFeeResult!.branchName,
                 }
               : {'deliveryFeeUnresolved': true}),
+          ...(_resolvedDeliveryLat != null && _resolvedDeliveryLng != null
+              ? {
+                  'deliveryLat': _resolvedDeliveryLat,
+                  'deliveryLng': _resolvedDeliveryLng,
+                  'deliveryMapUrl': mapUrlFor(
+                    _resolvedDeliveryLat!,
+                    _resolvedDeliveryLng!,
+                  ),
+                }
+              : <String, dynamic>{}),
           'total': total + _deliveryFee,
           'status': 'pending',
           'estimatedDelivery': Timestamp.fromDate(_estimatedDelivery),
@@ -409,7 +460,11 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                           _customerAddress,
                         );
                         if (picked != null) {
-                          setState(() => _customerAddress = picked);
+                          setState(() {
+                            _customerAddress = picked.address;
+                            _customerAddressLat = picked.lat;
+                            _customerAddressLng = picked.lng;
+                          });
                           _recalculateDeliveryFee();
                         }
                       },

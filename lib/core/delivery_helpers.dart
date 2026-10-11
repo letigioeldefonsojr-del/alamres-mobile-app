@@ -131,14 +131,54 @@ class DeliveryFeeResult {
   final double fee;
   final double distanceMeters;
   final String branchName;
+  // The coordinates the customer's address text actually resolved to -
+  // whether that text came from dragging the pin on the map picker,
+  // tapping a saved address, or typing one by hand. Carried along here
+  // (rather than only inside the map picker) because this is the one
+  // place that geocodes *whatever* address ends up on the order, so it's
+  // the only place that can attach a real pin location to every order
+  // that resolves a fee at all, not just ones picked fresh on the map.
+  final double customerLat;
+  final double customerLng;
 
   const DeliveryFeeResult({
     required this.fee,
     required this.distanceMeters,
     required this.branchName,
+    required this.customerLat,
+    required this.customerLng,
   });
 
   double get distanceKm => distanceMeters / 1000;
+}
+
+/// An OpenStreetMap link centered on and pinning the given coordinates -
+/// no API key needed (same free service the app already uses for the map
+/// picker and geocoding), so this is also what gets handed to the admin
+/// website to show staff exactly where a delivery is going.
+String mapUrlFor(double lat, double lng) {
+  return 'https://www.openstreetmap.org/?mlat=$lat&mlon=$lng#map=17/$lat/$lng';
+}
+
+/// Same fee computation as [computeDeliveryFee], but starting from
+/// coordinates that are already known exactly (the customer's saved map
+/// pin) instead of geocoding address text. No network call, so it never
+/// fails the way text geocoding can (vague address, typo, Nominatim
+/// briefly unreachable) - whenever an exact pin is on file, prefer this
+/// over [computeDeliveryFee] so the fee is both instant and accurate,
+/// and the customer is far less likely to ever see "To be confirmed".
+/// Returns null only if no branch has a location on file yet.
+DeliveryFeeResult? computeDeliveryFeeFromCoordinates(double lat, double lng) {
+  final NearestBranchResult? nearest = nearestBranch(lat, lng);
+  if (nearest == null) return null;
+
+  return DeliveryFeeResult(
+    fee: deliveryFeeForDistanceMeters(nearest.distanceMeters),
+    distanceMeters: nearest.distanceMeters,
+    branchName: nearest.branch.name,
+    customerLat: lat,
+    customerLng: lng,
+  );
 }
 
 /// One call that does the whole job: geocode the address, find the
@@ -160,5 +200,7 @@ Future<DeliveryFeeResult?> computeDeliveryFee(String address) async {
     fee: deliveryFeeForDistanceMeters(nearest.distanceMeters),
     distanceMeters: nearest.distanceMeters,
     branchName: nearest.branch.name,
+    customerLat: geocoded.lat,
+    customerLng: geocoded.lng,
   );
 }

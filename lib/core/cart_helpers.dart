@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../screens/customer/product_options_sheet.dart';
+import '../screens/customer/address_picker_screen.dart';
 
 Future<Set<String>> fetchBestSellingProductIds({int topN = 5}) async {
   final ordersSnapshot = await FirebaseFirestore.instance
@@ -62,7 +63,10 @@ Future<Map<String, dynamic>> readStockDeduction(
   }
 
   final flavors =
-      (data['flavors'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+      (data['flavors'] as List?)
+          ?.map((f) => Map<String, dynamic>.from(f as Map))
+          .toList() ??
+      const <Map<String, dynamic>>[];
 
   if (flavors.isNotEmpty && flavorName != null) {
     final index = flavors.indexWhere((f) => f['name'] == flavorName);
@@ -171,44 +175,6 @@ void showProductOptions(
   );
 }
 
-Future<String?> _editAddressDialog(
-  BuildContext context, {
-  required String title,
-  String initialValue = '',
-}) {
-  final controller = TextEditingController(text: initialValue);
-  return showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text(title),
-      content: TextField(
-        controller: controller,
-        maxLines: 2,
-        autofocus: true,
-        decoration: const InputDecoration(hintText: 'Full address'),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-        ),
-        TextButton(
-          onPressed: () {
-            final text = controller.text.trim();
-            if (text.isEmpty) return;
-            Navigator.pop(context, text);
-          },
-          child: const Text(
-            'Save',
-            style: TextStyle(color: Color(0xFF2E6B3E)),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
 /// Combines a plain address with an optional landmark into the single
 /// string used everywhere a delivery address is picked, stored on an
 /// order, or shown to whoever fulfills it - kept in one place so a
@@ -219,7 +185,21 @@ String combineAddressAndLandmark(String address, String? landmark) {
   return '$address (Landmark: $trimmedLandmark)';
 }
 
-Future<String?> pickDeliveryAddress(
+/// Result of [pickDeliveryAddress] - the combined address text plus the
+/// exact pinned coordinates behind it (read straight from the profile or
+/// saved-address doc, no re-geocoding), when that address was captured
+/// through the map picker. Null lat/lng means only the text is known
+/// (e.g. an address typed in before this fix, or edited manually), and
+/// checkout should fall back to its own approximate geocoding for that
+/// case.
+class PickedDeliveryAddress {
+  final String address;
+  final double? lat;
+  final double? lng;
+  const PickedDeliveryAddress({required this.address, this.lat, this.lng});
+}
+
+Future<PickedDeliveryAddress?> pickDeliveryAddress(
   BuildContext context,
   String currentAddress,
 ) async {
@@ -232,6 +212,11 @@ Future<String?> pickDeliveryAddress(
   String profileAddress = (userDoc.data()?['address'] as String?) ?? '';
   final String profileLandmark =
       (userDoc.data()?['landmark'] as String?) ?? '';
+  // Exact pin coordinates for the profile address, when it was captured
+  // via the map picker. Cleared below whenever the address text is
+  // edited manually, since the pin no longer matches the text.
+  double? profileLat = (userDoc.data()?['addressLat'] as num?)?.toDouble();
+  double? profileLng = (userDoc.data()?['addressLng'] as num?)?.toDouble();
 
   final addressesSnapshot = await userRef
       .collection('addresses')
@@ -243,7 +228,7 @@ Future<String?> pickDeliveryAddress(
 
   if (!context.mounted) return null;
 
-  return showModalBottomSheet<String>(
+  return showModalBottomSheet<PickedDeliveryAddress>(
     context: context,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
@@ -268,15 +253,31 @@ Future<String?> pickDeliveryAddress(
             profileLandmark,
           );
 
+          // Routed through the map picker (not a plain text dialog) so a
+          // "quick edit" here can never leave the profile address without
+          // exact coordinates - that gap was exactly what let addresses
+          // slip through to the unreliable, Nominatim-dependent delivery
+          // fee fallback instead of the fast, exact coordinate-based one.
           Future<void> editProfileAddress() async {
-            final updated = await _editAddressDialog(
+            final PickedAddress? picked = await Navigator.push<PickedAddress>(
               context,
-              title: 'Edit Profile Address',
-              initialValue: profileAddress,
+              MaterialPageRoute(
+                builder: (context) => AddressPickerScreen(
+                  initialAddress: profileAddress.trim().isEmpty
+                      ? null
+                      : profileAddress.trim(),
+                ),
+              ),
             );
-            if (updated == null) return;
-            await userRef.set({'address': updated}, SetOptions(merge: true));
-            profileAddress = updated;
+            if (picked == null || picked.address.trim().isEmpty) return;
+            await userRef.set({
+              'address': picked.address,
+              'addressLat': picked.lat,
+              'addressLng': picked.lng,
+            }, SetOptions(merge: true));
+            profileAddress = picked.address;
+            profileLat = picked.lat;
+            profileLng = picked.lng;
             setSheetState(() {});
           }
 
@@ -314,7 +315,11 @@ Future<String?> pickDeliveryAddress(
                               child: InkWell(
                                 onTap: () => Navigator.pop(
                                   sheetContext,
-                                  combinedProfileAddress,
+                                  PickedDeliveryAddress(
+                                    address: combinedProfileAddress,
+                                    lat: profileLat,
+                                    lng: profileLng,
+                                  ),
                                 ),
                                 child: Padding(
                                   padding: const EdgeInsets.fromLTRB(
@@ -406,6 +411,8 @@ Future<String?> pickDeliveryAddress(
                       );
                       final bool isSelected =
                           currentAddress == combinedAddress;
+                      final double? lat = (data['lat'] as num?)?.toDouble();
+                      final double? lng = (data['lng'] as num?)?.toDouble();
                       return ListTile(
                         leading: Icon(
                           isSelected
@@ -419,8 +426,14 @@ Future<String?> pickDeliveryAddress(
                               ? address
                               : '$address\nLandmark: $landmark',
                         ),
-                        onTap: () =>
-                            Navigator.pop(sheetContext, combinedAddress),
+                        onTap: () => Navigator.pop(
+                          sheetContext,
+                          PickedDeliveryAddress(
+                            address: combinedAddress,
+                            lat: lat,
+                            lng: lng,
+                          ),
+                        ),
                       );
                     }),
                     const Divider(height: 1),

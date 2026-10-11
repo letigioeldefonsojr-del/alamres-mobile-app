@@ -20,6 +20,11 @@ class _CartScreenState extends State<CartScreen> {
   final bool _isCheckingOut = false;
   final Set<String> _selectedIds = {};
   String _selectedAddress = '';
+  // Exact pin coordinates for _selectedAddress, when known - carried
+  // through to CartOrderConfirmationScreen so checkout doesn't have to
+  // re-geocode the address text to show/store an accurate map pin.
+  double? _selectedAddressLat;
+  double? _selectedAddressLng;
   bool _addressLoaded = false;
 
   // Live, discount-aware unit prices keyed by cart doc id - populated as
@@ -60,6 +65,8 @@ class _CartScreenState extends State<CartScreen> {
           (data?['address'] as String?) ?? '',
           data?['landmark'] as String?,
         );
+        _selectedAddressLat = (data?['addressLat'] as num?)?.toDouble();
+        _selectedAddressLng = (data?['addressLng'] as num?)?.toDouble();
         _addressLoaded = true;
       });
     }
@@ -67,7 +74,13 @@ class _CartScreenState extends State<CartScreen> {
 
   Future<void> _changeAddress() async {
     final picked = await pickDeliveryAddress(context, _selectedAddress);
-    if (picked != null) setState(() => _selectedAddress = picked);
+    if (picked != null) {
+      setState(() {
+        _selectedAddress = picked.address;
+        _selectedAddressLat = picked.lat;
+        _selectedAddressLng = picked.lng;
+      });
+    }
   }
 
   void _toggleSelected(String docId) {
@@ -553,6 +566,10 @@ class _CartScreenState extends State<CartScreen> {
                                                       .toList(),
                                                   initialAddress:
                                                       _selectedAddress,
+                                                  initialLat:
+                                                      _selectedAddressLat,
+                                                  initialLng:
+                                                      _selectedAddressLng,
                                                 ),
                                           ),
                                         );
