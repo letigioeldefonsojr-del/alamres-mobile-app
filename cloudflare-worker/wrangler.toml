@@ -10,8 +10,32 @@ FIREBASE_PROJECT_ID = "almares-328-database"
 # changed from the placeholder, the Worker answers with a friendly
 # "not set up yet" message instead of calling Claude.
 CLAUDE_MODEL = "claude-haiku-5-5"
+# OneSignal's App ID is NOT a secret - it's a public identifier every
+# client SDK necessarily embeds just to register a device for push, and
+# the Flutter app already has this same value hard-coded in main.dart to
+# initialize the OneSignal SDK on-device. Safe to commit.
+ONESIGNAL_APP_ID = "c3b735fb-99e4-49be-8f63-e8606b95d918"
 
 # ANTHROPIC_API_KEY is NOT set here - it's a real secret. Set it with:
 #   npx wrangler secret put ANTHROPIC_API_KEY
 # (see SETUP_CHATBOT.md). That stores it encrypted on Cloudflare, not in
 # this file, so it never ends up in git.
+
+# FIREBASE_SERVICE_ACCOUNT_KEY is also NOT set here - also a real secret.
+# It's what lets the chatbot look up real products, stock, and order
+# status from Firestore instead of just answering generic questions. Set
+# it with (see SETUP_CHATBOT.md for where to get the key file):
+#   npx wrangler secret put FIREBASE_SERVICE_ACCOUNT_KEY
+# Optional: the chatbot still works without this, it just can't look up
+# live store data until it's set.
+
+# ONESIGNAL_REST_API_KEY is also NOT set here - also a real secret (the
+# most sensitive one here, actually: anyone who has it can push a
+# notification to your entire user base). Set it with:
+#   npx wrangler secret put ONESIGNAL_REST_API_KEY
+# Get the value from the OneSignal dashboard: Settings > Keys & IDs >
+# "REST API Key". Until this is set, the /send-push endpoint responds
+# with "not configured yet" instead of erroring - order placing, status
+# updates, etc. all keep working fine, customers just won't get a push
+# (the in-app notification bell still works either way, since that's
+# written straight to Firestore, not through OneSignal).

@@ -1,71 +1,64 @@
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
+import '../core/constants.dart';
 
-/// Sends a push notification to one specific user via OneSignal's REST API,
-/// targeting them by the Firebase uid you passed to OneSignal.login().
+/// Asks the Cloudflare Worker backend (see /cloudflare-worker at the
+/// project root) to push a notification to one specific user via
+/// OneSignal, targeting them by the Firebase uid you passed to
+/// OneSignal.login().
 ///
-/// SECURITY NOTE: the REST API key below is a secret — anyone who has it
-/// could send pushes to your whole user base. Don't hard-code it directly
-/// in this file if you plan to ever push this project to a public GitHub
-/// repo. Instead, pass it in at build/run time:
-///
-///   flutter run --dart-define=ONESIGNAL_REST_API_KEY=your_key_here
-///   flutter build apk --dart-define=ONESIGNAL_REST_API_KEY=your_key_here
-///
-/// and it gets read here automatically via String.fromEnvironment.
-/// Add a matching entry to your IDE's run configuration if you use
-/// VS Code / Android Studio, so you don't have to type it every time.
-
-const String _oneSignalAppId = String.fromEnvironment('ONESIGNAL_APP_ID');
-const String _oneSignalRestApiKey = String.fromEnvironment(
-  'ONESIGNAL_REST_API_KEY',
-);
-
+/// The real OneSignal REST API key never lives in this app - it's a secret
+/// that would let anyone who extracted it from the APK send a push
+/// notification to your entire user base (compiling it in with
+/// --dart-define, as this file used to, still ships it inside the release
+/// APK in a recoverable form - a plain command-line flag was never the
+/// actual problem, baking a secret into the client at all was). The Worker
+/// holds that key as a Cloudflare secret and makes the real call to
+/// OneSignal server-side; this app only ever talks to the Worker, and only
+/// while the user is logged in (same pattern ChatService uses for the
+/// Claude chat endpoint - see chat_service.dart). No --dart-define is
+/// needed for this anymore, so a plain `flutter build apk --release` just
+/// works.
 Future<void> sendPushNotification({
   required String toFirebaseUid,
   required String message,
   String? orderId,
 }) async {
-  if (_oneSignalAppId.isEmpty || _oneSignalRestApiKey.isEmpty) {
-    // Fails silently in dev if you forgot --dart-define, so the app
-    // doesn't crash — but nothing gets sent. Check your run config.
-    // ignore: avoid_print
-    print(
-      'OneSignal not configured: pass --dart-define=ONESIGNAL_APP_ID=... '
-      'and --dart-define=ONESIGNAL_REST_API_KEY=...',
-    );
+  if (kChatWorkerUrl.isEmpty || kChatWorkerUrl == 'REPLACE_WITH_WORKER_URL') {
+    // Mirrors ChatService's same guard - backend URL not set up yet.
     return;
   }
 
-  final uri = Uri.parse('https://onesignal.com/api/v1/notifications');
-
-  final body = {
-    'app_id': _oneSignalAppId,
-    'include_aliases': {
-      'external_id': [toFirebaseUid],
-    },
-    'target_channel': 'push',
-    'headings': {'en': 'Almares 328'},
-    'contents': {'en': message},
-    'data': {'orderId': orderId ?? ''},
-  };
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return;
 
   try {
-    final response = await http.post(
-      uri,
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Authorization': 'Basic $_oneSignalRestApiKey',
-      },
-      body: jsonEncode(body),
-    );
+    final idToken = await user.getIdToken();
+
+    final response = await http
+        .post(
+          Uri.parse('$kChatWorkerUrl/send-push'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $idToken',
+          },
+          body: jsonEncode({
+            'toFirebaseUid': toFirebaseUid,
+            'message': message,
+            'orderId': orderId ?? '',
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
 
     if (response.statusCode != 200) {
       // ignore: avoid_print
-      print('OneSignal push failed (${response.statusCode}): ${response.body}');
+      print(
+        'Push notification failed (${response.statusCode}): ${response.body}',
+      );
     }
   } catch (e) {
     // ignore: avoid_print
-    print('OneSignal push error: $e');
+    print('Push notification error: $e');
   }
 }

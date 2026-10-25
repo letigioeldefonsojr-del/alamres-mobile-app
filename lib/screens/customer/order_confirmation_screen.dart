@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/delivery_helpers.dart';
 import '../../core/product_helpers.dart';
+import '../../widgets/fulfillment_type_toggle.dart';
 
 class OrderConfirmationScreen extends StatefulWidget {
   final Map<String, dynamic> product;
@@ -59,6 +60,28 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
   // branch each time (see delivery_helpers.dart).
   DeliveryFeeResult? _deliveryFeeResult;
   bool _isCalculatingFee = true;
+
+  // "Pick Up In Store" instead of delivery - skips the address requirement
+  // and the delivery fee entirely, and asks which branch the customer will
+  // come to instead. Defaults to Delivery, matching how every order worked
+  // before this option existed.
+  bool _isPickup = false;
+  String? _pickupBranch;
+
+  // Switches between Delivery and Pick Up In Store. Picking a branch
+  // defaults to whichever real (location-configured) branch comes first -
+  // same list delivery's own nearest-branch logic uses - so a customer
+  // never lands on an unconfigured placeholder branch.
+  void _setFulfillmentType({required bool isPickup}) {
+    setState(() {
+      _isPickup = isPickup;
+      if (isPickup) {
+        _pickupBranch ??= kStoreBranches
+            .firstWhere((b) => b.hasLocation, orElse: () => kStoreBranches.first)
+            .name;
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -122,11 +145,51 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
     });
   }
 
-  // Falls back to 0 while the fee hasn't resolved yet (still calculating,
-  // or the address couldn't be geocoded) - the order can still be placed;
-  // it's just flagged (see _confirmOrder) for the branch to confirm the
-  // fee manually in that case.
-  double get _deliveryFee => _deliveryFeeResult?.fee ?? 0;
+  // Always free for store pickup. Otherwise falls back to 0 while the fee
+  // hasn't resolved yet (still calculating, or the address couldn't be
+  // geocoded) - the order can still be placed; it's just flagged (see
+  // _confirmOrder) for the branch to confirm the fee manually in that case.
+  double get _deliveryFee => _isPickup ? 0 : (_deliveryFeeResult?.fee ?? 0);
+
+  // Shared by both order-write branches below (product-backed and one-off)
+  // so the pickup-vs-delivery fields never drift apart between them.
+  Map<String, dynamic> get _fulfillmentFields => _isPickup
+      ? {'pickupBranch': _pickupBranch}
+      : (_deliveryFeeResult != null
+            ? {
+                'deliveryDistanceKm': _deliveryFeeResult!.distanceKm,
+                'deliveryBranch': _deliveryFeeResult!.branchName,
+              }
+            // Address couldn't be geocoded (too vague, a typo, or
+            // Nominatim briefly unreachable) - the order still goes
+            // through rather than blocking the customer, just flagged so
+            // the branch knows to confirm the real fee by hand.
+            : {'deliveryFeeUnresolved': true});
+
+  // Never written for a pickup order - there's no delivery destination to
+  // pin on the admin map.
+  Map<String, dynamic> get _deliveryPinFields =>
+      (!_isPickup &&
+          _resolvedDeliveryLat != null &&
+          _resolvedDeliveryLng != null)
+      ? {
+          'deliveryLat': _resolvedDeliveryLat,
+          'deliveryLng': _resolvedDeliveryLng,
+          'deliveryMapUrl': mapUrlFor(
+            _resolvedDeliveryLat!,
+            _resolvedDeliveryLng!,
+          ),
+        }
+      : <String, dynamic>{};
+
+  // Lets the admin side's existing notification feed tell a store-pickup
+  // order apart from a delivery one at a glance - no admin-side code
+  // change needed, since it's just plain text in a field it already shows.
+  String _notificationMessage(double total) => _isPickup
+      ? 'New PICKUP order from $_customerName'
+            '${_pickupBranch != null ? " ($_pickupBranch)" : ""}'
+            ' — ₱${total.toStringAsFixed(2)}'
+      : 'New order from $_customerName — ₱${total.toStringAsFixed(2)}';
 
   String _formatDate(DateTime date) {
     const months = [
@@ -153,7 +216,9 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    if (_customerAddress.trim().isEmpty) {
+    // Pickup doesn't need a delivery address at all - only check it for
+    // an actual delivery order.
+    if (!_isPickup && _customerAddress.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
@@ -233,34 +298,20 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
             'itemCount': 1,
             'itemsSubtotal': total,
             'deliveryFee': _deliveryFee,
-            ...(_deliveryFeeResult != null
-                ? {
-                    'deliveryDistanceKm': _deliveryFeeResult!.distanceKm,
-                    'deliveryBranch': _deliveryFeeResult!.branchName,
-                  }
-                : {'deliveryFeeUnresolved': true}),
+            'fulfillmentType': _isPickup ? 'pickup' : 'delivery',
+            ..._fulfillmentFields,
             // Written independently of whether the fee itself resolved -
             // an exact pin (or even the fee calc's own approximate geocode)
             // can be known even when, say, the fee lookup failed for an
             // unrelated reason, and the admin map should still get it.
-            ...(_resolvedDeliveryLat != null && _resolvedDeliveryLng != null
-                ? {
-                    'deliveryLat': _resolvedDeliveryLat,
-                    'deliveryLng': _resolvedDeliveryLng,
-                    'deliveryMapUrl': mapUrlFor(
-                      _resolvedDeliveryLat!,
-                      _resolvedDeliveryLng!,
-                    ),
-                  }
-                : <String, dynamic>{}),
+            ..._deliveryPinFields,
             'total': total + _deliveryFee,
             'status': 'pending',
             'estimatedDelivery': Timestamp.fromDate(_estimatedDelivery),
             'createdAt': FieldValue.serverTimestamp(),
           });
           txn.set(notificationRef, {
-            'message':
-                'New order from $_customerName — ₱${total.toStringAsFixed(2)}',
+            'message': _notificationMessage(total),
             'orderId': orderRef.id,
             'createdAt': FieldValue.serverTimestamp(),
           });
@@ -293,30 +344,16 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
           'itemCount': 1,
           'itemsSubtotal': total,
           'deliveryFee': _deliveryFee,
-          ...(_deliveryFeeResult != null
-              ? {
-                  'deliveryDistanceKm': _deliveryFeeResult!.distanceKm,
-                  'deliveryBranch': _deliveryFeeResult!.branchName,
-                }
-              : {'deliveryFeeUnresolved': true}),
-          ...(_resolvedDeliveryLat != null && _resolvedDeliveryLng != null
-              ? {
-                  'deliveryLat': _resolvedDeliveryLat,
-                  'deliveryLng': _resolvedDeliveryLng,
-                  'deliveryMapUrl': mapUrlFor(
-                    _resolvedDeliveryLat!,
-                    _resolvedDeliveryLng!,
-                  ),
-                }
-              : <String, dynamic>{}),
+          'fulfillmentType': _isPickup ? 'pickup' : 'delivery',
+          ..._fulfillmentFields,
+          ..._deliveryPinFields,
           'total': total + _deliveryFee,
           'status': 'pending',
           'estimatedDelivery': Timestamp.fromDate(_estimatedDelivery),
           'createdAt': FieldValue.serverTimestamp(),
         });
         batch.set(notificationRef, {
-          'message':
-              'New order from $_customerName — ₱${total.toStringAsFixed(2)}',
+          'message': _notificationMessage(total),
           'orderId': orderRef.id,
           'createdAt': FieldValue.serverTimestamp(),
         });
@@ -452,49 +489,75 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                     ),
                     const SizedBox(height: 24),
 
+                    FulfillmentTypeToggle(
+                      isPickup: _isPickup,
+                      onChanged: (pickup) =>
+                          _setFulfillmentType(isPickup: pickup),
+                    ),
+                    if (_isPickup) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'PICK UP FROM',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black54,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      PickupBranchDropdown(
+                        value: _pickupBranch,
+                        onChanged: (branch) =>
+                            setState(() => _pickupBranch = branch),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+
                     _detailRow('Customer Name', _customerName),
-                    GestureDetector(
-                      onTap: () async {
-                        final picked = await pickDeliveryAddress(
-                          context,
-                          _customerAddress,
-                        );
-                        if (picked != null) {
-                          setState(() {
-                            _customerAddress = picked.address;
-                            _customerAddressLat = picked.lat;
-                            _customerAddressLng = picked.lng;
-                          });
-                          _recalculateDeliveryFee();
-                        }
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: _detailRow(
-                                'Customer Address',
-                                _customerAddress,
-                                noPadding: true,
+                    if (!_isPickup)
+                      GestureDetector(
+                        onTap: () async {
+                          final picked = await pickDeliveryAddress(
+                            context,
+                            _customerAddress,
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              _customerAddress = picked.address;
+                              _customerAddressLat = picked.lat;
+                              _customerAddressLng = picked.lng;
+                            });
+                            _recalculateDeliveryFee();
+                          }
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: _detailRow(
+                                  'Customer Address',
+                                  _customerAddress,
+                                  noPadding: true,
+                                ),
                               ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 7,
-                              ),
-                              decoration: BoxDecoration(
-                                color: primaryGreen.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.edit_outlined,
-                                    size: 14,
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 7,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: primaryGreen.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.edit_outlined,
+                                      size: 14,
                                     color: primaryGreen,
                                   ),
                                   SizedBox(width: 4),
@@ -533,7 +596,16 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                                   color: Colors.black54,
                                 ),
                               ),
-                              if (_isCalculatingFee)
+                              if (_isPickup)
+                                Text(
+                                  'FREE (Store Pickup)',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: primaryGreen,
+                                  ),
+                                )
+                              else if (_isCalculatingFee)
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -605,7 +677,11 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                     ),
                     const SizedBox(height: 16),
                     _detailRow(
-                      'Estimated Delivery',
+                      // Backend field/timing is unchanged either way (see
+                      // _estimatedDelivery in initState) - only the label
+                      // reads differently so it doesn't say "delivery" for
+                      // an order the customer is coming to pick up.
+                      _isPickup ? 'Estimated Ready For Pickup' : 'Estimated Delivery',
                       _formatDate(_estimatedDelivery),
                     ),
                     _detailRow(
@@ -619,7 +695,13 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: (_isConfirming || _isCalculatingFee)
+                        onPressed:
+                            (_isConfirming ||
+                                // No fee to wait on for pickup, but a
+                                // branch must actually be selected instead.
+                                (_isPickup
+                                    ? _pickupBranch == null
+                                    : _isCalculatingFee))
                             ? null
                             : _confirmOrder,
                         style: ElevatedButton.styleFrom(

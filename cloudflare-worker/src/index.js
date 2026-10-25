@@ -1,13 +1,20 @@
-// Almares 328 chat proxy.
+// Almares 328 chat proxy (and push-notification sender).
 //
-// This Worker is the ONLY place the real Anthropic (Claude) API key ever
-// lives. The Flutter app never sees it - it just calls this Worker's URL,
-// and this Worker calls Claude on the app's behalf.
+// This Worker is the ONLY place the real Anthropic (Claude) API key and the
+// OneSignal REST API key ever live. The Flutter app never sees either one -
+// it just calls this Worker's URL, and this Worker calls Claude/OneSignal on
+// the app's behalf.
 //
-// Why this exists at all: an Anthropic API key is a real secret. Anyone who
-// extracted it from the app (easy to do by decompiling an APK) could run up
-// charges on the store's account. Routing every request through here keeps
-// the key on a server you control instead of inside the app bundle.
+// Why this exists at all: both of those are real secrets. An Anthropic key
+// could run up charges on the store's account; a OneSignal REST API key is
+// even more sensitive - anyone who has it can push a notification to EVERY
+// user of the app, not just rack up a bill. Baking either one into the app
+// with --dart-define (as this project used to do for OneSignal) still ships
+// it inside the compiled APK in a recoverable form - anyone who downloads
+// the app can pull it back out with little effort. Routing every request
+// through here keeps both keys on a server you control instead of inside
+// the app bundle, and also means `flutter build apk --release` no longer
+// needs any --dart-define flags at all.
 //
 // Two things gate every request before it reaches Claude:
 //   1. The caller must send a valid Firebase ID token for THIS app's
@@ -218,6 +225,92 @@ function summarizeProduct(p) {
 // after that, it's realistically a tomorrow delivery. The Worker runs on
 // UTC, so this converts to PHT (UTC+8, no DST) explicitly rather than
 // relying on the runtime's own clock/timezone.
+// Sends one push notification via OneSignal's REST API, targeting a
+// customer by the Firebase uid they were logged in with when OneSignal
+// registered them (OneSignal.login(uid) on the Flutter side). The real
+// request to OneSignal happens here, server-side, using the
+// ONESIGNAL_REST_API_KEY secret - never inside the app.
+//
+// NOTE on trust: this only requires the caller to be SOME logged-in
+// Almares 328 user (same bar as the chat endpoint), not specifically the
+// target user or an admin - there's no admin-role check here because the
+// companion admin website isn't part of this codebase, so this Worker has
+// no way to verify an "admin" claim it doesn't know the shape of. If admin
+// actions (e.g. marking an order "on the way") ever call this endpoint
+// directly, it's worth tightening this later - e.g. checking a custom
+// claim on the Firebase token, or moving the trigger into a Firestore
+// Cloud Function instead of calling this Worker from the browser.
+async function handleSendPush(request, env, corsHeaders) {
+  const hasAppId =
+    typeof env.ONESIGNAL_APP_ID === 'string' && env.ONESIGNAL_APP_ID.length > 0;
+  const hasRestKey =
+    typeof env.ONESIGNAL_REST_API_KEY === 'string' && env.ONESIGNAL_REST_API_KEY.length > 0;
+
+  if (!hasAppId || !hasRestKey) {
+    // Not configured yet - fail quietly rather than erroring, same spirit
+    // as the chat endpoint's "not set up yet" response, so the rest of the
+    // app (order placing, status updates, etc.) keeps working fine even
+    // before OneSignal's backend secret is set.
+    return jsonResponse(
+      { ok: false, error: 'Push notifications are not configured on the backend yet.' },
+      200,
+      corsHeaders,
+    );
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ ok: false, error: 'Invalid JSON body.' }, 400, corsHeaders);
+  }
+
+  const toFirebaseUid = typeof body?.toFirebaseUid === 'string' ? body.toFirebaseUid.trim() : '';
+  const message = typeof body?.message === 'string' ? body.message.trim() : '';
+  const orderId = typeof body?.orderId === 'string' ? body.orderId : '';
+
+  if (!toFirebaseUid || !message) {
+    return jsonResponse(
+      { ok: false, error: 'toFirebaseUid and message are required.' },
+      400,
+      corsHeaders,
+    );
+  }
+
+  try {
+    const oneSignalRes = await fetch('https://onesignal.com/api/v1/notifications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Authorization': `Basic ${env.ONESIGNAL_REST_API_KEY}`,
+      },
+      body: JSON.stringify({
+        app_id: env.ONESIGNAL_APP_ID,
+        include_aliases: { external_id: [toFirebaseUid] },
+        target_channel: 'push',
+        headings: { en: 'Almares 328' },
+        contents: { en: message },
+        data: { orderId },
+      }),
+    });
+
+    if (!oneSignalRes.ok) {
+      const errText = await oneSignalRes.text();
+      console.error(`OneSignal push failed (${oneSignalRes.status}):`, errText);
+      return jsonResponse({ ok: false, error: 'Push notification failed to send.' }, 502, corsHeaders);
+    }
+
+    return jsonResponse({ ok: true }, 200, corsHeaders);
+  } catch (err) {
+    console.error('Push send error:', err);
+    return jsonResponse(
+      { ok: false, error: 'Something went wrong sending the push notification.' },
+      500,
+      corsHeaders,
+    );
+  }
+}
+
 function isBeforeDeliveryCutoffPHT(now = new Date()) {
   const phtHour = (now.getUTCHours() + 8) % 24;
   return phtHour < 20;
@@ -370,6 +463,13 @@ export default {
         401,
         corsHeaders,
       );
+    }
+
+    // --- 1b. Push notifications are a separate job from chat - route by
+    // path. Everything below this point (steps 2+) is chat-only. ---
+    const url = new URL(request.url);
+    if (url.pathname === '/send-push') {
+      return handleSendPush(request, env, corsHeaders);
     }
 
     // --- 2. Not configured yet? Answer nicely instead of failing. ---

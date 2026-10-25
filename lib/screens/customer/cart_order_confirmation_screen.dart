@@ -6,6 +6,7 @@ import '../../core/cart_helpers.dart';
 import '../../core/constants.dart';
 import '../../core/delivery_helpers.dart';
 import '../../core/product_helpers.dart';
+import '../../widgets/fulfillment_type_toggle.dart';
 import '../../widgets/order_item_card.dart';
 
 class CartOrderConfirmationScreen extends StatefulWidget {
@@ -82,6 +83,13 @@ class _CartOrderConfirmationScreenState
   // branch each time (see delivery_helpers.dart).
   DeliveryFeeResult? _deliveryFeeResult;
   bool _isCalculatingFee = true;
+
+  // "Pick Up In Store" instead of delivery - skips the address requirement
+  // and the delivery fee entirely, and asks which branch the customer will
+  // come to instead. Defaults to Delivery, matching how every order worked
+  // before this option existed.
+  bool _isPickup = false;
+  String? _pickupBranch;
 
   @override
   void initState() {
@@ -248,11 +256,11 @@ class _CartOrderConfirmationScreenState
     return total;
   }
 
-  // Falls back to 0 while the fee hasn't resolved yet (still calculating,
-  // or the address couldn't be geocoded) - the order can still be placed;
-  // it's just flagged (see _confirmOrder) for the branch to confirm the
-  // fee manually in that case.
-  double get _deliveryFee => _deliveryFeeResult?.fee ?? 0;
+  // Always free for store pickup. Otherwise falls back to 0 while the fee
+  // hasn't resolved yet (still calculating, or the address couldn't be
+  // geocoded) - the order can still be placed; it's just flagged (see
+  // _confirmOrder) for the branch to confirm the fee manually in that case.
+  double get _deliveryFee => _isPickup ? 0 : (_deliveryFeeResult?.fee ?? 0);
 
   double get _grandTotal => _total + _deliveryFee;
 
@@ -277,6 +285,21 @@ class _CartOrderConfirmationScreenState
     return '${months[date.month - 1]} ${date.day}, ${date.year}, $hour:$minute $period';
   }
 
+  // Switches between Delivery and Pick Up In Store. Picking a branch
+  // defaults to whichever real (location-configured) branch comes first -
+  // same list delivery's own nearest-branch logic uses - so a customer
+  // never lands on an unconfigured placeholder branch.
+  void _setFulfillmentType({required bool isPickup}) {
+    setState(() {
+      _isPickup = isPickup;
+      if (isPickup) {
+        _pickupBranch ??= kStoreBranches
+            .firstWhere((b) => b.hasLocation, orElse: () => kStoreBranches.first)
+            .name;
+      }
+    });
+  }
+
   Future<void> _changeAddress() async {
     final picked = await pickDeliveryAddress(context, _customerAddress);
     if (picked != null) {
@@ -293,7 +316,9 @@ class _CartOrderConfirmationScreenState
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || _items.isEmpty) return;
 
-    if (_customerAddress.trim().isEmpty) {
+    // Pickup doesn't need a delivery address at all - only check it for
+    // an actual delivery order.
+    if (!_isPickup && _customerAddress.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
@@ -319,6 +344,15 @@ class _CartOrderConfirmationScreenState
         'products',
       );
       final orderRef = ordersCollection.doc();
+      // Written alongside the order (see the txn.set below) so the admin
+      // panel's new-order notification can never be created without the
+      // order itself (or vice versa) - mirrors the "Buy Now" checkout path
+      // in order_confirmation_screen.dart, which already did this; a cart
+      // checkout previously placed the order with no staff notification
+      // at all.
+      final notificationRef = FirebaseFirestore.instance
+          .collection('employeeNotifications')
+          .doc();
 
       await FirebaseFirestore.instance.runTransaction((txn) async {
         final Map<String, Map<String, dynamic>> stockUpdates = {};
@@ -394,21 +428,32 @@ class _CartOrderConfirmationScreenState
           'itemCount': orderItems.length,
           'itemsSubtotal': orderTotal,
           'deliveryFee': _deliveryFee,
-          ...(_deliveryFeeResult != null
-              ? {
-                  'deliveryDistanceKm': _deliveryFeeResult!.distanceKm,
-                  'deliveryBranch': _deliveryFeeResult!.branchName,
-                }
-              // Address couldn't be geocoded (too vague, a typo, or
-              // Nominatim briefly unreachable) - the order still goes
-              // through rather than blocking the customer, just flagged
-              // so the branch knows to confirm the real fee by hand.
-              : {'deliveryFeeUnresolved': true}),
+          // Lets the admin side tell a store-pickup order apart from a
+          // delivery one at a glance, instead of having to infer it from
+          // deliveryFee being 0. 'pickupBranch' only appears for pickup -
+          // the delivery-specific fields below only appear for delivery.
+          'fulfillmentType': _isPickup ? 'pickup' : 'delivery',
+          ...(_isPickup
+              ? {'pickupBranch': _pickupBranch}
+              : (_deliveryFeeResult != null
+                    ? {
+                        'deliveryDistanceKm': _deliveryFeeResult!.distanceKm,
+                        'deliveryBranch': _deliveryFeeResult!.branchName,
+                      }
+                    // Address couldn't be geocoded (too vague, a typo, or
+                    // Nominatim briefly unreachable) - the order still
+                    // goes through rather than blocking the customer,
+                    // just flagged so the branch knows to confirm the
+                    // real fee by hand.
+                    : {'deliveryFeeUnresolved': true})),
           // Written independently of whether the fee itself resolved -
           // an exact pin (or the fee calc's own approximate geocode) can
           // be known even when the fee lookup failed for an unrelated
-          // reason, and the admin map should still get it.
-          ...(_resolvedDeliveryLat != null && _resolvedDeliveryLng != null
+          // reason, and the admin map should still get it. Never written
+          // for a pickup order - there's no delivery destination to pin.
+          ...(!_isPickup &&
+                  _resolvedDeliveryLat != null &&
+                  _resolvedDeliveryLng != null
               ? {
                   'deliveryLat': _resolvedDeliveryLat,
                   'deliveryLng': _resolvedDeliveryLng,
@@ -421,6 +466,16 @@ class _CartOrderConfirmationScreenState
           'total': orderTotal + _deliveryFee,
           'status': 'pending',
           'estimatedDelivery': Timestamp.fromDate(_estimatedDelivery),
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        txn.set(notificationRef, {
+          'message': _isPickup
+              ? 'New PICKUP order from $_customerName'
+                    '${_pickupBranch != null ? " ($_pickupBranch)" : ""}'
+                    ' — ₱${(orderTotal + _deliveryFee).toStringAsFixed(2)}'
+              : 'New order from $_customerName — '
+                    '₱${(orderTotal + _deliveryFee).toStringAsFixed(2)}',
+          'orderId': orderRef.id,
           'createdAt': FieldValue.serverTimestamp(),
         });
       });
@@ -501,6 +556,30 @@ class _CartOrderConfirmationScreenState
                       : null,
                 );
               }),
+              const SizedBox(height: 4),
+              FulfillmentTypeToggle(
+                isPickup: _isPickup,
+                onChanged: (pickup) => _setFulfillmentType(isPickup: pickup),
+              ),
+              if (_isPickup) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'PICK UP FROM',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                PickupBranchDropdown(
+                  value: _pickupBranch,
+                  onChanged: (branch) =>
+                      setState(() => _pickupBranch = branch),
+                ),
+              ],
+              const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                 child: Column(
@@ -540,7 +619,16 @@ class _CartOrderConfirmationScreenState
                             color: Colors.grey.shade700,
                           ),
                         ),
-                        if (_isCalculatingFee)
+                        if (_isPickup)
+                          Text(
+                            'FREE (Store Pickup)',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: primaryGreen,
+                            ),
+                          )
+                        else if (_isCalculatingFee)
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -631,76 +719,82 @@ class _CartOrderConfirmationScreenState
               ),
               const SizedBox(height: 16),
 
-              GestureDetector(
-                onTap: _changeAddress,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'DELIVERY ADDRESS',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey.shade600,
-                              letterSpacing: 0.5,
+              if (!_isPickup) ...[
+                GestureDetector(
+                  onTap: _changeAddress,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'DELIVERY ADDRESS',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade600,
+                                letterSpacing: 0.5,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _customerAddress.trim().isEmpty
-                                ? 'Tap to add an address'
-                                : _customerAddress,
-                            style: TextStyle(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w600,
-                              color: _customerAddress.trim().isEmpty
-                                  ? Colors.redAccent
-                                  : Colors.black,
+                            const SizedBox(height: 4),
+                            Text(
+                              _customerAddress.trim().isEmpty
+                                  ? 'Tap to add an address'
+                                  : _customerAddress,
+                              style: TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w600,
+                                color: _customerAddress.trim().isEmpty
+                                    ? Colors.redAccent
+                                    : Colors.black,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: primaryGreen.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.edit_outlined,
-                            size: 14,
-                            color: primaryGreen,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'Edit',
-                            style: TextStyle(
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: primaryGreen.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.edit_outlined,
+                              size: 14,
                               color: primaryGreen,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
                             ),
-                          ),
-                        ],
+                            SizedBox(width: 4),
+                            Text(
+                              'Edit',
+                              style: TextStyle(
+                                color: primaryGreen,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
+              ],
 
               Text(
-                'ESTIMATED DELIVERY',
+                // Backend field/timing is unchanged either way (see
+                // _estimatedDelivery in initState) - only the label reads
+                // differently so it doesn't say "delivery" for an order
+                // the customer is coming to pick up themselves.
+                _isPickup ? 'ESTIMATED READY FOR PICKUP' : 'ESTIMATED DELIVERY',
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.bold,
@@ -723,7 +817,13 @@ class _CartOrderConfirmationScreenState
                 height: 52,
                 child: ElevatedButton(
                   onPressed:
-                      (_isConfirming || _items.isEmpty || _isCalculatingFee)
+                      (_isConfirming ||
+                          _items.isEmpty ||
+                          // No fee to wait on for pickup, but a branch must
+                          // actually be selected instead.
+                          (_isPickup
+                              ? _pickupBranch == null
+                              : _isCalculatingFee))
                       ? null
                       : _confirmOrder,
                   style: ElevatedButton.styleFrom(
