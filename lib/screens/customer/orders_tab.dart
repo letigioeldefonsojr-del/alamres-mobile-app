@@ -52,6 +52,7 @@ class _OrdersListViewState extends State<OrdersListView> {
   static const List<Map<String, String>> _statusOptions = [
     {'value': 'pending', 'label': 'Pending'},
     {'value': 'approved', 'label': 'Approved'},
+    {'value': 'ready_for_pickup', 'label': 'Ready for Pickup'},
     {'value': 'on_the_way', 'label': 'On Its Way'},
     {'value': 'delivered', 'label': 'Delivered'},
     {'value': 'cancelled', 'label': 'Cancelled'},
@@ -568,7 +569,12 @@ class _OrdersListViewState extends State<OrdersListView> {
                                                     BorderRadius.circular(20),
                                               ),
                                               child: Text(
-                                                orderStatusLabel(status),
+                                                orderStatusLabel(
+                                                  status,
+                                                  fulfillmentType:
+                                                      data['fulfillmentType']
+                                                          as String?,
+                                                ),
                                                 style: TextStyle(
                                                   color: _statusColor(status),
                                                   fontSize: 11,

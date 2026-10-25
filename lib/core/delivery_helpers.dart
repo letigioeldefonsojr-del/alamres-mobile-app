@@ -5,29 +5,56 @@ import 'package:http/http.dart' as http;
 
 /// One of the store's physical branches. `lat`/`lng` are null for a branch
 /// whose location isn't on file yet - such a branch is simply skipped when
-/// picking the nearest one (see [nearestBranch] below), so adding Branch 2
-/// and 3 later is just filling in their coordinates here; nothing else in
-/// the delivery-fee logic needs to change.
+/// picking the nearest one (see [nearestBranch] below), so filling in a
+/// branch's coordinates later is the only code change needed to have it
+/// start counting there too.
+///
+/// EVERY branch with a known location is always available for "Pick Up In
+/// Store" (see PickupBranchDropdown, which just filters on [hasLocation]) -
+/// that part is unconditional. [availableForDelivery] only controls the
+/// separate delivery-fee distance calc: set it false for a branch that's
+/// pickup-only and should never be picked as the delivery origin in
+/// [nearestBranch] below.
 class StoreBranch {
   final String name;
   final double? lat;
   final double? lng;
+  final bool availableForDelivery;
 
-  const StoreBranch({required this.name, this.lat, this.lng});
+  const StoreBranch({
+    required this.name,
+    this.lat,
+    this.lng,
+    this.availableForDelivery = true,
+  });
 
   bool get hasLocation => lat != null && lng != null;
 }
 
 const List<StoreBranch> kStoreBranches = [
+  // The main branch - available for both pickup and delivery.
   StoreBranch(
-    name: 'Main Branch',
+    name: 'Balete Relocation Site, Batangas City',
     lat: 13.81429633377636,
     lng: 121.06634036922742,
   ),
-  // Locations not yet on file - will automatically start counting once a
-  // lat/lng is added here.
-  StoreBranch(name: 'Branch 2'),
-  StoreBranch(name: 'Branch 3'),
+  // Pickup-only branches - barangay-centroid coordinates (from
+  // PSGC/PhilAtlas) as a placeholder until an exact store pin is on file.
+  // availableForDelivery: false keeps these out of the delivery-fee
+  // distance calc (see nearestBranch below) while still listing them in
+  // the pickup dropdown, same as every other branch here.
+  StoreBranch(
+    name: 'Banaba East, Batangas City',
+    lat: 13.8126,
+    lng: 121.0670,
+    availableForDelivery: false,
+  ),
+  StoreBranch(
+    name: 'Balagtas, Batangas City',
+    lat: 13.7975,
+    lng: 121.0709,
+    availableForDelivery: false,
+  ),
 ];
 
 class NearestBranchResult {
@@ -40,14 +67,17 @@ class NearestBranchResult {
   });
 }
 
-/// Finds whichever branch (among those with a known location) is closest
-/// to the given coordinates, straight-line ("as the crow flies") - no
-/// routing API needed, and `geolocator` (already a dependency) computes
-/// this for free on-device.
+/// Finds whichever DELIVERY-capable branch (among those with a known
+/// location AND [StoreBranch.availableForDelivery]) is closest to the
+/// given coordinates, straight-line ("as the crow flies") - no routing API
+/// needed, and `geolocator` (already a dependency) computes this for free
+/// on-device. This is only ever used for the delivery fee - the pickup
+/// branch dropdown lists every branch with a location directly from
+/// kStoreBranches instead, pickup-only ones included.
 NearestBranchResult? nearestBranch(double customerLat, double customerLng) {
   NearestBranchResult? best;
   for (final branch in kStoreBranches) {
-    if (!branch.hasLocation) continue;
+    if (!branch.hasLocation || !branch.availableForDelivery) continue;
     final double distance = Geolocator.distanceBetween(
       branch.lat!,
       branch.lng!,

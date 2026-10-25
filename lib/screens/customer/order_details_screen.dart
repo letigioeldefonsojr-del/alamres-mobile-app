@@ -488,6 +488,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         );
     final String customerName = data['customerName'] as String? ?? '';
     final String customerAddress = data['customerAddress'] as String? ?? '';
+    final String? fulfillmentType = data['fulfillmentType'] as String?;
+    final bool isPickup = fulfillmentType == 'pickup';
+    final String? pickupBranch = data['pickupBranch'] as String?;
 
     final createdAt = data['createdAt'];
     String createdLabel = '—';
@@ -515,7 +518,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         status == 'undelivered';
     final String? deliveryIssueReason = data['deliveryIssueReason'] as String?;
     final String? cancelReason = data['cancelReason'] as String?;
-    const stageOrder = ['pending', 'approved', 'on_the_way', 'delivered'];
+    // Pickup orders follow their own admin-side lifecycle (ready_for_pickup
+    // instead of on_the_way) - never both in the same order, so this picks
+    // whichever 4-stage list actually matches how this particular order
+    // will progress.
+    final List<String> stageOrder = isPickup
+        ? ['pending', 'approved', 'ready_for_pickup', 'delivered']
+        : ['pending', 'approved', 'on_the_way', 'delivered'];
     final int currentStageIndex = stageOrder.indexOf(status);
 
     // Delivery is confirmed the moment the admin side marks the order
@@ -554,12 +563,12 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                     isLast: false,
                   ),
                   _TrackingStep(
-                    label: 'On the Way',
+                    label: isPickup ? 'Ready for Pickup' : 'On the Way',
                     reached: currentStageIndex >= 2,
                     isLast: false,
                   ),
                   _TrackingStep(
-                    label: 'Delivered',
+                    label: isPickup ? 'Picked Up' : 'Delivered',
                     reached: currentStageIndex >= 3,
                     isLast: true,
                   ),
@@ -616,6 +625,41 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               ),
               const SizedBox(height: 20),
             ],
+            if (status == 'ready_for_pickup') ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: primaryGreen.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: primaryGreen.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.storefront,
+                      color: primaryGreen,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        (pickupBranch != null && pickupBranch.isNotEmpty)
+                            ? 'Your order is ready! Pick it up at $pickupBranch.'
+                            : 'Your order is ready! Pick it up in store.',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: primaryGreen,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
             if (status == 'delivered' && (data['isPaid'] as bool?) == true) ...[
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -626,14 +670,14 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                   color: primaryGreen.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.check_circle, color: primaryGreen, size: 16),
-                    SizedBox(width: 6),
+                    const Icon(Icons.check_circle, color: primaryGreen, size: 16),
+                    const SizedBox(width: 6),
                     Text(
-                      'Paid and Delivered',
-                      style: TextStyle(
+                      isPickup ? 'Paid and Picked Up' : 'Paid and Delivered',
+                      style: const TextStyle(
                         color: primaryGreen,
                         fontWeight: FontWeight.bold,
                         fontSize: 12.5,
@@ -776,7 +820,28 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               const SizedBox(height: 16),
             ],
 
-            if (customerAddress.isNotEmpty) ...[
+            if (isPickup) ...[
+              if (pickupBranch != null && pickupBranch.isNotEmpty) ...[
+                Text(
+                  'PICKUP BRANCH',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  pickupBranch,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ] else if (customerAddress.isNotEmpty) ...[
               Text(
                 'DELIVERY ADDRESS',
                 style: TextStyle(
@@ -798,7 +863,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
             ],
 
             Text(
-              'ESTIMATED DELIVERY',
+              isPickup ? 'ESTIMATED READY FOR PICKUP' : 'ESTIMATED DELIVERY',
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.bold,
@@ -838,7 +903,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    orderStatusLabel(status),
+                    orderStatusLabel(status, fulfillmentType: fulfillmentType),
                     style: TextStyle(
                       color: orderStatusColor(status),
                       fontSize: 12.5,
