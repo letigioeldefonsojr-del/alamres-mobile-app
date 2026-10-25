@@ -585,67 +585,85 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                         children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.center,
+                            // start, not center - once the fee's value wraps
+                            // to a second line (the "Xkm from <branch name>"
+                            // detail can get long), this keeps the label
+                            // pinned to the first line instead of drifting
+                            // down to the middle of the whole value block.
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'DELIVERY FEE',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5,
-                                  color: Colors.black54,
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  'DELIVERY FEE',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                    color: Colors.black54,
+                                  ),
                                 ),
                               ),
-                              if (_isPickup)
-                                Text(
-                                  'FREE (Store Pickup)',
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: primaryGreen,
-                                  ),
-                                )
-                              else if (_isCalculatingFee)
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const SizedBox(
-                                      width: 12,
-                                      height: 12,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
+                              const SizedBox(width: 12),
+                              // Expanded + textAlign.right (rather than the
+                              // unconstrained Text this used to be) so the
+                              // branch-name detail wraps onto a second line
+                              // within its own column instead of overflowing
+                              // past the right edge of the screen.
+                              Expanded(
+                                child: _isPickup
+                                    ? Text(
+                                        'FREE (Store Pickup)',
+                                        textAlign: TextAlign.right,
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: primaryGreen,
+                                        ),
+                                      )
+                                    : _isCalculatingFee
+                                    ? Row(
+                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const SizedBox(
+                                            width: 12,
+                                            height: 12,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Calculating...',
+                                            style: TextStyle(
+                                              fontSize: 12.5,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : _deliveryFeeResult != null
+                                    ? Text(
+                                        '₱${_deliveryFeeResult!.fee.toStringAsFixed(2)} '
+                                        '(${_deliveryFeeResult!.distanceKm.toStringAsFixed(1)}km from '
+                                        '${_deliveryFeeResult!.branchName})',
+                                        textAlign: TextAlign.right,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                        ),
+                                      )
+                                    : Text(
+                                        'To be confirmed',
+                                        textAlign: TextAlign.right,
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          color: Colors.orange.shade800,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Calculating...',
-                                      style: TextStyle(
-                                        fontSize: 12.5,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              else if (_deliveryFeeResult != null)
-                                Text(
-                                  '₱${_deliveryFeeResult!.fee.toStringAsFixed(2)} '
-                                  '(${_deliveryFeeResult!.distanceKm.toStringAsFixed(1)}km from '
-                                  '${_deliveryFeeResult!.branchName})',
-                                  textAlign: TextAlign.right,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                  ),
-                                )
-                              else
-                                Text(
-                                  'To be confirmed',
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    color: Colors.orange.shade800,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 12),
