@@ -789,27 +789,28 @@ class _CartOrderConfirmationScreenState
                 const SizedBox(height: 16),
               ],
 
-              Text(
-                // Backend field/timing is unchanged either way (see
-                // _estimatedDelivery in initState) - only the label reads
-                // differently so it doesn't say "delivery" for an order
-                // the customer is coming to pick up themselves.
-                _isPickup ? 'ESTIMATED READY FOR PICKUP' : 'ESTIMATED DELIVERY',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey.shade600,
-                  letterSpacing: 0.5,
+              // No estimate shown for pickup orders - "ready for pickup" is
+              // a store-driven status (admin marks it), not a predictable
+              // date the way a delivery window is.
+              if (!_isPickup) ...[
+                Text(
+                  'ESTIMATED DELIVERY',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade600,
+                    letterSpacing: 0.5,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _formatDate(_estimatedDelivery),
-                style: const TextStyle(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w600,
+                const SizedBox(height: 4),
+                Text(
+                  _formatDate(_estimatedDelivery),
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
+              ],
 
               const SizedBox(height: 24),
               SizedBox(

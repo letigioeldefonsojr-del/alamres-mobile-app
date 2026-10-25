@@ -676,14 +676,14 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _detailRow(
-                      // Backend field/timing is unchanged either way (see
-                      // _estimatedDelivery in initState) - only the label
-                      // reads differently so it doesn't say "delivery" for
-                      // an order the customer is coming to pick up.
-                      _isPickup ? 'Estimated Ready For Pickup' : 'Estimated Delivery',
-                      _formatDate(_estimatedDelivery),
-                    ),
+                    // No estimate shown for pickup orders - "ready for
+                    // pickup" is a store-driven status (admin marks it),
+                    // not a predictable date the way a delivery window is.
+                    if (!_isPickup)
+                      _detailRow(
+                        'Estimated Delivery',
+                        _formatDate(_estimatedDelivery),
+                      ),
                     _detailRow(
                       'Order Number',
                       '#${_orderNumber.substring(0, 8).toUpperCase()}',

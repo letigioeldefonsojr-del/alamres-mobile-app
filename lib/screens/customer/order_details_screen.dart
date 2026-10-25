@@ -862,24 +862,29 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               const SizedBox(height: 16),
             ],
 
-            Text(
-              isPickup ? 'ESTIMATED READY FOR PICKUP' : 'ESTIMATED DELIVERY',
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade600,
-                letterSpacing: 0.5,
+            // No estimate shown for pickup orders - "ready for pickup" is
+            // a store-driven status (admin marks it), not a predictable
+            // date the way a delivery window is.
+            if (!isPickup) ...[
+              Text(
+                'ESTIMATED DELIVERY',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade600,
+                  letterSpacing: 0.5,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              deliveryLabel,
-              style: const TextStyle(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w600,
+              const SizedBox(height: 4),
+              Text(
+                deliveryLabel,
+                style: const TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
+            ],
 
             Row(
               children: [
