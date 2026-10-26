@@ -1,18 +1,34 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
-/// Shows a brief "Added to cart" confirmation pinned near the TOP of the
-/// screen - deliberately NOT a SnackBar.
+// Deliberately generous fixed estimate of the Home/Categories/Orders tabs'
+// combined bottom chrome - the tab bar, the "View Cart" bar (which is
+// showing by definition whenever this toast appears, right after adding
+// something), and the chat assistant's floating button sitting above all
+// of that. A plain SnackBar tries to measure this exactly via the
+// Scaffold and gets it wrong here (see showAddedToCartToast's own doc
+// below for why), so this toast instead just reserves comfortably more
+// than the tallest realistic combination of the three needs - a few extra
+// px of gap above the View Cart bar is a much smaller problem than
+// overlapping it. Device-specific safe-area/gesture-nav inset is added on
+// top of this separately wherever it's used, same as kFabBottomClearance.
+const double _kBottomChromeClearance = 220;
+
+/// Shows a brief "Added to cart" confirmation, floating just above the
+/// Home/Categories/Orders tabs' bottom chrome - deliberately NOT a
+/// SnackBar.
 ///
-/// On the Home/Categories/Orders tabs the bottom of the screen is already
-/// busy with the chat assistant's floating button, the "View Cart" bar,
-/// and the tab bar itself - a bottom-floating SnackBar has to squeeze into
-/// whatever body height is left above all of that, which isn't much, so
-/// it ends up overlapping whatever's at the bottom of the current scroll
-/// position (a product's own price, right after adding it) instead of
-/// floating cleanly above everything the way it's supposed to. Anchoring
-/// this to the top instead guarantees it never competes with any of that
-/// - there's nothing else fixed up there to collide with.
+/// A plain floating SnackBar anchors to the bottom of the Scaffold's own
+/// body-viewport, which Flutter computes from the Scaffold's actual
+/// bottomNavigationBar/FAB geometry - that should just work, but with the
+/// "View Cart" bar, the chat assistant's floating button, and the tab bar
+/// all stacked at the bottom here, that computed viewport bottom ends up
+/// landing mid-screen rather than near the real bottom edge, so the
+/// SnackBar overlapped whatever product content happened to be there
+/// instead of floating cleanly above everything. This toast sidesteps
+/// that entirely by positioning itself directly, using a deliberately
+/// generous fixed clearance (_kBottomChromeClearance) instead of trying
+/// to measure the Scaffold's chrome exactly.
 void showAddedToCartToast(BuildContext context, {String message = 'Added to cart'}) {
   showAddedToCartToastOnOverlay(
     Overlay.of(context, rootOverlay: true),
@@ -68,15 +84,18 @@ class _AddedToCartToastState extends State<_AddedToCartToast>
       duration: const Duration(milliseconds: 200),
     );
     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+    // Slides up from below, same direction a normal bottom SnackBar would
+    // - this is a bottom toast now, just positioned to actually clear the
+    // bottom chrome instead of guessing wrong about where it ends.
     _slide = Tween<Offset>(
-      begin: const Offset(0, -0.3),
+      begin: const Offset(0, 0.3),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
     _controller.forward();
 
     // Same visible duration as the SnackBars this replaces, minus the time
-    // reserved for the reverse (slide-up/fade-out) animation, so the total
-    // time on screen still lands right around 2 seconds.
+    // reserved for the reverse (slide-down/fade-out) animation, so the
+    // total time on screen still lands right around 2 seconds.
     _timer = Timer(const Duration(milliseconds: 1800), () async {
       if (!mounted) return;
       await _controller.reverse();
@@ -94,7 +113,7 @@ class _AddedToCartToastState extends State<_AddedToCartToast>
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      top: MediaQuery.of(context).padding.top + 12,
+      bottom: _kBottomChromeClearance + MediaQuery.of(context).padding.bottom,
       left: 16,
       right: 16,
       child: IgnorePointer(

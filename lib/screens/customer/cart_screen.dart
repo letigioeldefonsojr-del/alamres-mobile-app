@@ -64,14 +64,17 @@ class _CartScreenState extends State<CartScreen> {
   @override
   void initState() {
     super.initState();
-    // The "Added to cart" toast from the "+" quick-add or the product
-    // sheet's Add to Cart button can still be mid-animation when the
-    // customer taps straight through to this screen - without this it
-    // keeps showing here too, sitting right on top of the "Proceed to
-    // Checkout" button below (this screen has no bottomNavigationBar for
-    // Scaffold to tuck a floating snackbar above, unlike the product
-    // grids). Clearing it once this screen's first frame is up stops it
-    // from following the customer here.
+    // A "Could not add to cart" error SnackBar (the "+" quick-add and the
+    // product sheet's Add to Cart button both still use one for failures)
+    // can still be showing when the customer taps straight through to this
+    // screen - without this it keeps showing here too, sitting right on
+    // top of the "Proceed to Checkout" button below (this screen has no
+    // bottomNavigationBar for Scaffold to tuck a floating snackbar above,
+    // unlike the product grids). Clearing it once this screen's first
+    // frame is up stops it from following the customer here. Success
+    // confirmations don't need this: the "+" button shows its own
+    // checkmark inline, and the product sheet relies on its fly-to-cart
+    // animation - neither one is a SnackBar.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ScaffoldMessenger.of(context).clearSnackBars();
     });

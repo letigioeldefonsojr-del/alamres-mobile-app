@@ -1,7 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../core/cart_helpers.dart';
 import '../core/product_helpers.dart';
-import 'added_to_cart_toast.dart';
 import 'product_image.dart';
 
 class ProductCard extends StatefulWidget {
@@ -27,6 +28,16 @@ class _ProductCardState extends State<ProductCard> {
   // Firestore write from a previous tap is still in flight.
   bool _isAdding = false;
 
+  // Briefly true right after a successful add, so the "+" button itself
+  // morphs into a checkmark instead of showing any separate floating
+  // confirmation. This guarantees the confirmation never overlaps other
+  // on-screen content (product badges, stock text, bottom chrome, etc.),
+  // since it only ever draws inside the button's own 28x28 space - unlike
+  // a global toast/SnackBar, which was tried and rejected for exactly that
+  // overlap problem.
+  bool _justAdded = false;
+  Timer? _justAddedTimer;
+
   static const Color primaryGreen = ProductCard.primaryGreen;
 
   List<Map<String, dynamic>> get _flavors =>
@@ -40,6 +51,12 @@ class _ProductCardState extends State<ProductCard> {
   // more than one flavor still needs the options sheet so they can pick
   // which one, same as tapping the card itself.
   bool get _canQuickAdd => _flavors.length <= 1;
+
+  @override
+  void dispose() {
+    _justAddedTimer?.cancel();
+    super.dispose();
+  }
 
   Future<void> _handleQuickAdd() async {
     if (_isAdding) return;
@@ -78,11 +95,16 @@ class _ProductCardState extends State<ProductCard> {
         unitPrice: unitPrice,
         wholesalePrice: wholesalePrice,
       );
-      // A top-anchored toast instead of a bottom SnackBar - see
-      // added_to_cart_toast.dart for why: the bottom of these tabs is too
-      // crowded (chat FAB, View Cart bar, tab bar) for a bottom-floating
-      // confirmation to ever clear everything cleanly.
-      if (mounted) showAddedToCartToast(context);
+      // Morph the "+" into a checkmark briefly instead of showing any
+      // floating confirmation - see the _justAdded field's doc comment
+      // for why.
+      if (mounted) {
+        setState(() => _justAdded = true);
+        _justAddedTimer?.cancel();
+        _justAddedTimer = Timer(const Duration(milliseconds: 700), () {
+          if (mounted) setState(() => _justAdded = false);
+        });
+      }
     } catch (_) {
       messenger.showSnackBar(
         SnackBar(
@@ -291,20 +313,34 @@ class _ProductCardState extends State<ProductCard> {
                                 width: 28,
                                 height: 28,
                                 child: Center(
-                                  child: _isAdding
-                                      ? const SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(
+                                      milliseconds: 150,
+                                    ),
+                                    child: _isAdding
+                                        ? const SizedBox(
+                                            key: ValueKey('spinner'),
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : _justAdded
+                                        ? const Icon(
+                                            Icons.check,
+                                            key: ValueKey('check'),
                                             color: Colors.white,
-                                            strokeWidth: 2,
+                                            size: 18,
+                                          )
+                                        : const Icon(
+                                            Icons.add,
+                                            key: ValueKey('add'),
+                                            color: Colors.white,
+                                            size: 18,
                                           ),
-                                        )
-                                      : const Icon(
-                                          Icons.add,
-                                          color: Colors.white,
-                                          size: 18,
-                                        ),
+                                  ),
                                 ),
                               ),
                             ),

@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/constants.dart';
 import '../../core/product_helpers.dart';
-import '../../widgets/added_to_cart_toast.dart';
 import '../../widgets/fly_to_cart_overlay.dart';
 import '../../widgets/product_image.dart';
 
@@ -253,8 +252,17 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
       );
       navigator.pop();
       // Stay on the current screen instead of navigating to the cart - the
-      // animation plus a toast is confirmation enough, and the cart
-      // badge's own count updates on its own once the write above lands.
+      // fly-to-cart animation below is confirmation enough on its own, and
+      // the cart badge's own count updates on its own once the write above
+      // lands. Deliberately no toast/SnackBar here anymore: this sheet is
+      // opened from the same product grids whose cards can sit close to
+      // the bottom chrome, so a floating confirmation risked landing on
+      // top of product content the same way it did before (see
+      // product_card.dart's quick-add "+" button for the fix that
+      // replaced it there with feedback drawn inside the button itself -
+      // this flow has no equivalent persistent control to draw into,
+      // since the sheet is already gone by this point, so it just relies
+      // on the animation instead).
       if (imageRect != null) {
         flyToCart(
           overlay,
@@ -264,12 +272,6 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
           topPadding: topPadding,
         );
       }
-      // overlay was captured above, before this sheet popped itself off
-      // the stack - this sheet's own context (and messenger, which is
-      // only still used below for the error case) isn't reliably mounted
-      // anymore at this point, so the overlay-based toast (which needs no
-      // context of its own) is what replaces the old bottom SnackBar here.
-      showAddedToCartToastOnOverlay(overlay);
     } catch (_) {
       if (mounted) setState(() => _isProcessing = false);
       messenger.showSnackBar(
