@@ -36,6 +36,22 @@ class _CartScreenState extends State<CartScreen> {
   final Map<String, double> _livePrices = {};
   final Map<String, String> _livePriceKeys = {};
 
+  // Created once and reused across every rebuild - this is what was
+  // causing the screen to flicker. `stream:` was previously being handed
+  // a brand-new `ref.orderBy(...).snapshots()` call straight in build(),
+  // so every setState() on this screen (a live price arriving, a quantity
+  // change, the Select All postFrameCallback, etc.) created a genuinely
+  // different Stream object. StreamBuilder treats a new stream instance
+  // as a new subscription and resets to its ConnectionState.waiting
+  // branch - the loading spinner - until the first snapshot arrives
+  // again, which is the flicker: tapping the "+" quick-add writes to
+  // Firestore, that write's own snapshot triggers a rebuild here once the
+  // customer reaches the Cart screen, and each rebuild flashed the whole
+  // list back to a spinner for a frame. Caching the stream means the same
+  // Stream instance is passed every time, so StreamBuilder just keeps
+  // delivering new data without ever dropping back to "waiting".
+  Stream<QuerySnapshot<Map<String, dynamic>>>? _cartStream;
+
   void _reportLivePrice(String docId, double price) {
     final String key = price.toStringAsFixed(2);
     if (_livePriceKeys[docId] == key) return;
@@ -59,6 +75,7 @@ class _CartScreenState extends State<CartScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ScaffoldMessenger.of(context).clearSnackBars();
     });
+    _cartStream = _cartRef?.orderBy('updatedAt', descending: true).snapshots();
     _loadDefaultAddress();
   }
 
@@ -188,7 +205,7 @@ class _CartScreenState extends State<CartScreen> {
       body: ref == null
           ? const Center(child: Text('Please log in to view your cart.'))
           : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: ref.orderBy('updatedAt', descending: true).snapshots(),
+              stream: _cartStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -629,7 +646,7 @@ class _CartScreenState extends State<CartScreen> {
 // the price on screen immediately, instead of only at checkout. Falls back
 // to the cart item's own stored snapshot price for items with no
 // productId (e.g. a one-off item), or until the live doc has loaded.
-class _LiveUnitPriceText extends StatelessWidget {
+class _LiveUnitPriceText extends StatefulWidget {
   final String docId;
   final String? productId;
   final String? flavorName;
@@ -648,13 +665,50 @@ class _LiveUnitPriceText extends StatelessWidget {
     required this.onLivePrice,
   });
 
+  @override
+  State<_LiveUnitPriceText> createState() => _LiveUnitPriceTextState();
+}
+
+class _LiveUnitPriceTextState extends State<_LiveUnitPriceText> {
   static const Color primaryGreen = Color(0xFF2E6B3E);
+
+  // Cached once per productId instead of being created fresh in build() -
+  // every time the Cart screen rebuilds (a quantity change, another row's
+  // live price arriving, Select All's postFrameCallback), this widget
+  // used to call .snapshots() again, tearing down and re-subscribing to
+  // this product's Firestore doc on every single rebuild. Caching the
+  // stream keeps one subscription alive for as long as this row exists.
+  String? _streamedProductId;
+  Stream<DocumentSnapshot<Map<String, dynamic>>>? _productStream;
+
+  void _ensureStream() {
+    if (widget.productId == _streamedProductId) return;
+    _streamedProductId = widget.productId;
+    _productStream = widget.productId == null
+        ? null
+        : FirebaseFirestore.instance
+              .collection('products')
+              .doc(widget.productId)
+              .snapshots();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _ensureStream();
+  }
+
+  @override
+  void didUpdateWidget(_LiveUnitPriceText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _ensureStream();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final double fallback = knownLivePrice ?? storedUnitPrice;
+    final double fallback = widget.knownLivePrice ?? widget.storedUnitPrice;
 
-    if (productId == null) {
+    if (widget.productId == null) {
       return Text(
         '₱${fallback.toStringAsFixed(2)}',
         style: const TextStyle(
@@ -666,19 +720,16 @@ class _LiveUnitPriceText extends StatelessWidget {
     }
 
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('products')
-          .doc(productId)
-          .snapshots(),
+      stream: _productStream,
       builder: (context, snapshot) {
         final double displayPrice = liveUnitPriceFromProductDoc(
           snapshot.data?.data(),
-          flavorName,
-          amount,
+          widget.flavorName,
+          widget.amount,
           fallback,
         );
         if (snapshot.hasData) {
-          onLivePrice(docId, displayPrice);
+          widget.onLivePrice(widget.docId, displayPrice);
         }
         return Text(
           '₱${displayPrice.toStringAsFixed(2)}',
