@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/product_helpers.dart';
+import '../../widgets/cart_floating_bar.dart';
 import '../../widgets/cart_icon_button.dart';
 import '../../widgets/product_card.dart';
 
@@ -162,6 +163,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
           );
         },
       ),
+      bottomNavigationBar: const CartFloatingBar(),
     );
   }
 }

@@ -11,6 +11,7 @@ import 'profile_tab.dart';
 import 'add_mobile_number_screen.dart';
 import 'edit_profile_screen.dart';
 import 'order_details_screen.dart';
+import '../../widgets/cart_floating_bar.dart';
 import '../../widgets/chat_panel.dart';
 import '../../services/engagement_reminder_service.dart';
 import '../../services/beta_announcement_service.dart';
@@ -445,23 +446,31 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 12,
-                offset: const Offset(0, -2),
+      // The persistent "View Cart" bar (same idea as foodpanda's pink bar)
+      // sits above the tab bar here, rather than inside each tab, so it
+      // shows no matter which of the four tabs the customer is on - and
+      // takes zero space of its own whenever the cart is empty.
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CartFloatingBar(),
+          SafeArea(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 12,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(_tabLabels.length, (index) {
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: List.generate(_tabLabels.length, (index) {
                 final bool isSelected = _selectedIndex == index;
                 return GestureDetector(
                   onTap: () => setState(() => _selectedIndex = index),
@@ -492,6 +501,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ),
+      ),
+        ],
       ),
     );
   }
