@@ -128,6 +128,54 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     EngagementReminderService.instance.applyPreference(v);
                   },
                 ),
+                // The real reminders are 6+ hours apart, which is no way to
+                // confirm permissions/setup actually work - this fires one
+                // immediately through the same plugin/channel so that can
+                // be checked right away instead of waiting.
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, top: 2, bottom: 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        final bool sent = await EngagementReminderService
+                            .instance
+                            .sendTestNotification();
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              sent
+                                  ? 'Test notification sent - check your notification tray'
+                                  : 'Could not send a test notification. Make sure notifications are allowed for this app in your phone settings.',
+                            ),
+                            backgroundColor: sent
+                                ? primaryGreen
+                                : Colors.redAccent,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            margin: const EdgeInsets.all(16),
+                          ),
+                        );
+                      },
+                      icon: const Icon(
+                        Icons.notifications_active_outlined,
+                        size: 16,
+                        color: primaryGreen,
+                      ),
+                      label: const Text(
+                        'Send test notification',
+                        style: TextStyle(
+                          color: primaryGreen,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
     );
