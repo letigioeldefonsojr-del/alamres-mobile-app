@@ -127,41 +127,4 @@ class EngagementReminderService {
       // app), rather than the app breaking over it.
     }
   }
-
-  // Outside the reserved _idBase.._idBase+_scheduledBatchSize range used by
-  // the real scheduled reminders, so this can never collide with or get
-  // cancelled by applyPreference()'s own cancel loop.
-  static const int _testId = _idBase - 1;
-
-  /// Shows one notification right away, through the exact same plugin,
-  /// channel, and Android notification details as the real scheduled
-  /// reminders - used by the "Send test notification" button in
-  /// Notifications settings so a customer/tester can confirm permissions
-  /// and setup actually work immediately, instead of waiting up to
-  /// _intervalHours (6h) for the first real one to land. Works
-  /// independent of whether the Shop Reminders toggle itself is on - this
-  /// is purely a plumbing check.
-  Future<bool> sendTestNotification() async {
-    if (!_initialized) return false;
-    try {
-      await _plugin.show(
-        _testId,
-        'Almares 328',
-        'Test reminder - Shop Reminders notifications are working! 🎉',
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            _channelKey,
-            'Shop Reminders',
-            channelDescription:
-                'Occasional reminders to check out Almares 328',
-            importance: Importance.defaultImportance,
-            priority: Priority.defaultPriority,
-          ),
-        ),
-      );
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
 }
