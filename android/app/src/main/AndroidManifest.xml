@@ -4,6 +4,18 @@
          based fallback; requesting both is the standard geolocator setup. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Required on Android 13+ (API 33) for ANY notification to post at
+         all - OneSignal push and the on-device "Shop Reminders" local
+         notifications alike. OneSignal's own bundled manifest likely
+         merges this in already, but the local reminders
+         (engagement_reminder_service.dart) don't go through OneSignal, so
+         this app declares it itself rather than depending on that. The
+         runtime prompt is already triggered via
+         OneSignal.Notifications.requestPermission(true) in main.dart -
+         that one call covers this permission for every notification
+         source in the app, local or OneSignal, since POST_NOTIFICATIONS is
+         granted per-app, not per-plugin. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:label="Almares 328"
         android:name="${applicationName}"
