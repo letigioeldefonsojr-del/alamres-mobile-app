@@ -299,7 +299,7 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
                               20,
                               0,
                               20,
-                              20 + MediaQuery.of(context).padding.bottom,
+                              20 + kFabBottomClearance + MediaQuery.of(context).padding.bottom,
                             ),
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
@@ -327,7 +327,7 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
                           20,
                           0,
                           20,
-                          20 + MediaQuery.of(context).padding.bottom,
+                          20 + kFabBottomClearance + MediaQuery.of(context).padding.bottom,
                         ),
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/constants.dart';
 import '../../core/order_helpers.dart';
 import '../../widgets/product_image.dart';
 import 'order_details_screen.dart';
@@ -418,7 +419,9 @@ class _OrdersListViewState extends State<OrdersListView> {
                           20,
                           12,
                           20,
-                          20 + MediaQuery.of(context).padding.bottom,
+                          20 +
+                              kFabBottomClearance +
+                              MediaQuery.of(context).padding.bottom,
                         ),
                         itemCount: filteredDocs.length,
                         separatorBuilder: (context, index) =>

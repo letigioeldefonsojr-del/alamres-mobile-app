@@ -84,3 +84,14 @@ const String kChatWorkerUrl =
 // charged that product's wholesalePrice instead of its regular price -
 // see effectivePriceForQuantity() in product_helpers.dart.
 const int kWholesaleMinimumQuantity = 6;
+
+// Extra bottom clearance every bottom-nav tab's scrollable content should
+// add (on top of its own safe-area padding) so the last row/card never
+// sits behind the chat assistant's floating action button - HomeScreen's
+// FAB is a standard 56dp button with Scaffold's default 16dp margin above
+// the bottom nav bar, so its footprint reaches about 72dp above that bar;
+// this rounds up with a little breathing room. Scaffold positions the FAB
+// correctly relative to the bottom nav bar on its own - this constant is
+// only for keeping a tab's own scrolling content from scrolling underneath
+// where the FAB visually sits.
+const double kFabBottomClearance = 88;

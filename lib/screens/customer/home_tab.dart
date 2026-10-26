@@ -441,7 +441,15 @@ class HomeTab extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: 24),
+          // Extra clearance (not just the usual 24) so the last row of
+          // content never sits behind the chat assistant's floating
+          // button - see kFabBottomClearance.
+          SizedBox(
+            height:
+                24 +
+                kFabBottomClearance +
+                MediaQuery.of(context).padding.bottom,
+          ),
         ],
       ),
     );

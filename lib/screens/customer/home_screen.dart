@@ -448,12 +448,15 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       // The persistent "View Cart" bar (same idea as foodpanda's pink bar)
       // sits above the tab bar here, rather than inside each tab, so it
-      // shows no matter which of the four tabs the customer is on - and
-      // takes zero space of its own whenever the cart is empty.
+      // shows no matter which browsing/ordering tab the customer is on -
+      // and takes zero space of its own whenever the cart is empty. Hidden
+      // specifically on Profile (index 3) - that tab is about the
+      // account, not shopping, so a shopping prompt there felt out of
+      // place.
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CartFloatingBar(),
+          if (_selectedIndex != 3) const CartFloatingBar(),
           SafeArea(
             child: Container(
               decoration: BoxDecoration(

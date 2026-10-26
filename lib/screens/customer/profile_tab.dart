@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../core/constants.dart';
 import '../../core/dialog_helpers.dart';
 import '../../core/routing.dart';
 import '../../services/onesignal_service.dart';
@@ -711,6 +712,14 @@ class _ProfileTabState extends State<ProfileTab> {
                         child: CircularProgressIndicator(strokeWidth: 2.5),
                       ),
                     ),
+                  // Extra clearance so the last row of content never sits
+                  // behind the chat assistant's floating button - see
+                  // kFabBottomClearance.
+                  SizedBox(
+                    height:
+                        kFabBottomClearance +
+                        MediaQuery.of(context).padding.bottom,
+                  ),
                 ],
               ),
             ),
