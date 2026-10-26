@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/constants.dart';
 import '../../core/product_helpers.dart';
+import '../../widgets/added_to_cart_toast.dart';
 import '../../widgets/fly_to_cart_overlay.dart';
 import '../../widgets/product_image.dart';
 
@@ -252,7 +253,7 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
       );
       navigator.pop();
       // Stay on the current screen instead of navigating to the cart - the
-      // animation plus a snackbar is confirmation enough, and the cart
+      // animation plus a toast is confirmation enough, and the cart
       // badge's own count updates on its own once the write above lands.
       if (imageRect != null) {
         flyToCart(
@@ -263,18 +264,12 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
           topPadding: topPadding,
         );
       }
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Added to cart'),
-          backgroundColor: primaryGreen,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          margin: const EdgeInsets.all(16),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      // overlay was captured above, before this sheet popped itself off
+      // the stack - this sheet's own context (and messenger, which is
+      // only still used below for the error case) isn't reliably mounted
+      // anymore at this point, so the overlay-based toast (which needs no
+      // context of its own) is what replaces the old bottom SnackBar here.
+      showAddedToCartToastOnOverlay(overlay);
     } catch (_) {
       if (mounted) setState(() => _isProcessing = false);
       messenger.showSnackBar(

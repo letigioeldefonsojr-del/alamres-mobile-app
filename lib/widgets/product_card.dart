@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/cart_helpers.dart';
 import '../core/product_helpers.dart';
+import 'added_to_cart_toast.dart';
 import 'product_image.dart';
 
 class ProductCard extends StatefulWidget {
@@ -77,18 +78,11 @@ class _ProductCardState extends State<ProductCard> {
         unitPrice: unitPrice,
         wholesalePrice: wholesalePrice,
       );
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Added to cart'),
-          backgroundColor: primaryGreen,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          margin: const EdgeInsets.all(16),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      // A top-anchored toast instead of a bottom SnackBar - see
+      // added_to_cart_toast.dart for why: the bottom of these tabs is too
+      // crowded (chat FAB, View Cart bar, tab bar) for a bottom-floating
+      // confirmation to ever clear everything cleanly.
+      if (mounted) showAddedToCartToast(context);
     } catch (_) {
       messenger.showSnackBar(
         SnackBar(
