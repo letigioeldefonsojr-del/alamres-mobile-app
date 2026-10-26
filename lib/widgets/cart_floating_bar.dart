@@ -34,14 +34,17 @@ class CartFloatingBar extends StatelessWidget {
         final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) return const SizedBox.shrink();
 
-        int itemCount = 0;
+        // Distinct cart entries (product/flavor combos), not total pieces -
+        // matches what the cart icon's badge (cart_badge.dart) and the Cart
+        // screen's own "Total (N items)" line already count, so this bar's
+        // number and the badge's number never disagree with each other.
+        final int itemCount = docs.length;
         double total = 0;
         for (final doc in docs) {
           final data = doc.data();
           final int amount = (data['amount'] as num?)?.toInt() ?? 0;
           final double unitPrice =
               (data['unitPrice'] as num?)?.toDouble() ?? 0;
-          itemCount += amount;
           total += unitPrice * amount;
         }
 
