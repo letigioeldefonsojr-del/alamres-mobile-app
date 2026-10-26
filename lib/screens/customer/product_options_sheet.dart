@@ -6,7 +6,6 @@ import '../../core/constants.dart';
 import '../../core/product_helpers.dart';
 import '../../widgets/fly_to_cart_overlay.dart';
 import '../../widgets/product_image.dart';
-import 'order_confirmation_screen.dart';
 
 class ProductOptionsSheet extends StatefulWidget {
   final Map<String, dynamic> product;
@@ -213,24 +212,6 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
       ),
     );
     return false;
-  }
-
-  void _handleOrderNow() {
-    if (_isProcessing) return;
-    if (!_checkAvailable()) return;
-
-    Navigator.pop(context);
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => OrderConfirmationScreen(
-          product: _liveProduct,
-          flavor: _selectedFlavor,
-          amount: _amount,
-          unitPrice: _unitPrice,
-        ),
-      ),
-    );
   }
 
   Future<void> _handleAddToCart() async {
@@ -765,12 +746,19 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
                 ),
                 const SizedBox(height: 22),
 
+                // The only action here now is Add to Cart - matching the
+                // foodpanda-style flow the capstone adviser asked for,
+                // where a product's detail sheet always adds to the cart
+                // rather than offering a separate "skip the cart, order
+                // this one thing now" shortcut. The order-now path
+                // (order_confirmation_screen.dart) is still in the
+                // codebase but no longer reachable from here.
                 SizedBox(
                   width: double.infinity,
                   height: 50,
-                  child: ElevatedButton(
+                  child: ElevatedButton.icon(
                     onPressed: (_isAvailable && !_isProcessing)
-                        ? _handleOrderNow
+                        ? _handleAddToCart
                         : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryGreen,
@@ -779,42 +767,18 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
                       ),
                       elevation: 2,
                     ),
-                    child: const Text(
-                      'Proceed to Order',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: OutlinedButton.icon(
-                    onPressed: (_isAvailable && !_isProcessing)
-                        ? _handleAddToCart
-                        : null,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: primaryGreen, width: 1.5),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                    ),
                     icon: _isProcessing
                         ? const SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
-                              color: primaryGreen,
+                              color: Colors.white,
                               strokeWidth: 2.5,
                             ),
                           )
                         : const Icon(
                             Icons.shopping_cart_outlined,
-                            color: primaryGreen,
+                            color: Colors.white,
                             size: 18,
                           ),
                     label: const Text(
@@ -822,7 +786,7 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: primaryGreen,
+                        color: Colors.white,
                       ),
                     ),
                   ),

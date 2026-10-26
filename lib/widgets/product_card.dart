@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import '../core/cart_helpers.dart';
 import '../core/product_helpers.dart';
 import 'product_image.dart';
 
-class ProductCard extends StatelessWidget {
+class ProductCard extends StatefulWidget {
   final Map<String, dynamic> product;
   final VoidCallback onImageTap;
   final bool isBestSelling;
@@ -17,7 +18,98 @@ class ProductCard extends StatelessWidget {
   static const Color primaryGreen = Color(0xFF2E6B3E);
 
   @override
+  State<ProductCard> createState() => _ProductCardState();
+}
+
+class _ProductCardState extends State<ProductCard> {
+  // Guards against double-tapping the quick-add "+" button while the
+  // Firestore write from a previous tap is still in flight.
+  bool _isAdding = false;
+
+  static const Color primaryGreen = ProductCard.primaryGreen;
+
+  List<Map<String, dynamic>> get _flavors =>
+      (widget.product['flavors'] as List?)
+          ?.map((f) => Map<String, dynamic>.from(f as Map))
+          .toList() ??
+      const <Map<String, dynamic>>[];
+
+  // The "+" only skips straight to the cart when there's nothing left for
+  // the customer to decide - no flavors, or just the one. Anything with
+  // more than one flavor still needs the options sheet so they can pick
+  // which one, same as tapping the card itself.
+  bool get _canQuickAdd => _flavors.length <= 1;
+
+  Future<void> _handleQuickAdd() async {
+    if (_isAdding) return;
+    if (!_canQuickAdd) {
+      widget.onImageTap();
+      return;
+    }
+
+    final product = widget.product;
+    final bool isOutOfStock = extractTotalStock(product) <= 0;
+    if (isOutOfStock) return;
+
+    final Map<String, dynamic>? flavor = _flavors.isNotEmpty
+        ? _flavors.first
+        : null;
+    final String regularPriceString =
+        (flavor?['price'] as String?) ?? (product['price'] as String? ?? '₱0');
+    final double unitPrice =
+        parsePesoAmount(
+          effectivePriceForQuantity(product, regularPriceString, 1, variant: flavor),
+        ) ??
+        0;
+    final String? flavorWholesale = flavor?['wholesalePrice'] as String?;
+    final String? wholesalePrice =
+        (flavorWholesale != null && flavorWholesale.isNotEmpty)
+        ? flavorWholesale
+        : (product['wholesalePrice'] as String?);
+
+    setState(() => _isAdding = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await addProductToCart(
+        product: product,
+        flavor: flavor,
+        amount: 1,
+        unitPrice: unitPrice,
+        wholesalePrice: wholesalePrice,
+      );
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('Added to cart'),
+          backgroundColor: primaryGreen,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (_) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('Could not add to cart. Please try again.'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isAdding = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final product = widget.product;
+    final VoidCallback onImageTap = widget.onImageTap;
     final String name = product['name'] as String? ?? '';
     final String stock = productStockLabel(product);
     final String? wholesaleLabel = productWholesalePriceLabel(product);
@@ -28,7 +120,7 @@ class ProductCard extends StatelessWidget {
     // client-computed order-count badge - only one ever shows, so the two
     // signals never visually stack on top of each other.
     final bool adminBestSeller = isBestSeller(product);
-    final bool showBestSellerBadge = adminBestSeller || isBestSelling;
+    final bool showBestSellerBadge = adminBestSeller || widget.isBestSelling;
     final String bestSellerLabel = adminBestSeller
         ? 'Best Seller'
         : 'BEST-SELLING';
@@ -180,6 +272,48 @@ class ProductCard extends StatelessWidget {
                                   ),
                                 ),
                             ],
+                          ),
+                        ),
+                      // Quick-add "+" - the foodpanda-style one-tap add
+                      // from the grid, without opening the full product
+                      // sheet first. Bottom-right of the image so it never
+                      // competes with the best-seller/discount badges
+                      // stacked in the top-left corner above. Hidden
+                      // entirely (rather than just disabled) once the
+                      // product is out of stock, same as how the rest of
+                      // the card already dims in that case.
+                      if (!isOutOfStock)
+                        Positioned(
+                          right: 8,
+                          bottom: 8,
+                          child: Material(
+                            color: primaryGreen,
+                            shape: const CircleBorder(),
+                            elevation: 2,
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: _handleQuickAdd,
+                              child: SizedBox(
+                                width: 28,
+                                height: 28,
+                                child: Center(
+                                  child: _isAdding
+                                      ? const SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.add,
+                                          color: Colors.white,
+                                          size: 18,
+                                        ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                     ],
