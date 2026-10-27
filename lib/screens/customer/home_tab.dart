@@ -209,58 +209,7 @@ class HomeTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          SizedBox(
-            height: 94,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: kProductCategories.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 14),
-              itemBuilder: (context, index) {
-                final category = kProductCategories[index];
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CategoryProductsScreen(
-                          category: category['label'] as String,
-                        ),
-                      ),
-                    );
-                  },
-                  child: SizedBox(
-                    width: 68,
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: category['color'] as Color,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Icon(
-                            category['icon'] as IconData,
-                            color: primaryGreen,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          category['label'] as String,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
+          const _LiveCategoryRow(),
 
           const SizedBox(height: 24),
 
@@ -452,6 +401,111 @@ class HomeTab extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// HomeTab above is a StatelessWidget, but the category row needs to
+// listen live and cache its own derived category list between rebuilds
+// (see the doc comment on _recomputeIfNeeded below) - pulling it out into
+// its own small StatefulWidget keeps that state properly scoped instead
+// of forcing the whole HomeTab to become stateful just for this one row.
+class _LiveCategoryRow extends StatefulWidget {
+  const _LiveCategoryRow();
+
+  @override
+  State<_LiveCategoryRow> createState() => _LiveCategoryRowState();
+}
+
+class _LiveCategoryRowState extends State<_LiveCategoryRow> {
+  static const Color primaryGreen = Color(0xFF2E6B3E);
+
+  // Categories aren't a separate collection on the admin side - they're
+  // whatever distinct `category` values currently exist across products
+  // (see deriveLiveCategories() in product_helpers.dart), which can
+  // appear/disappear/get renamed at any time via a bulk CSV import.
+  // Deriving that list means scanning every product, so it's only worth
+  // doing once per actual Firestore snapshot - this cache keys off the
+  // snapshot's own QuerySnapshot identity so an unrelated rebuild (e.g.
+  // HomeTab's parent rebuilding for any other reason) just reuses the
+  // last result instead of rescanning everything again.
+  QuerySnapshot<Map<String, dynamic>>? _lastSnapshot;
+  List<LiveCategory> _lastCategories = const [];
+
+  void _recomputeIfNeeded(QuerySnapshot<Map<String, dynamic>>? data) {
+    if (identical(data, _lastSnapshot)) return;
+    _lastSnapshot = data;
+    final products = (data?.docs ?? [])
+        .map((doc) => {...doc.data(), 'id': doc.id})
+        .toList();
+    _lastCategories = deriveLiveCategories(products);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('products').snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(height: 94);
+        }
+        _recomputeIfNeeded(snapshot.data);
+        final categories = _lastCategories;
+        if (categories.isEmpty) return const SizedBox.shrink();
+
+        return SizedBox(
+          height: 94,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: categories.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 14),
+            itemBuilder: (context, index) {
+              final category = categories[index];
+              final style = categoryStyleFor(category.label);
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          CategoryProductsScreen(category: category.label),
+                    ),
+                  );
+                },
+                child: SizedBox(
+                  width: 68,
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: style['color'] as Color,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Icon(
+                          style['icon'] as IconData,
+                          color: primaryGreen,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        category.label,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }

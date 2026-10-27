@@ -1,72 +1,84 @@
 import 'package:flutter/material.dart';
 
-const List<Map<String, dynamic>> kProductCategories = [
-  {
-    'label': 'Canned Goods',
+// Which categories actually exist is no longer decided here - the admin
+// side doesn't keep a separate "categories" collection, categories are
+// just whatever distinct `category` values currently show up on products
+// (see deriveLiveCategories() in product_helpers.dart), and with bulk CSV
+// imports those can appear, disappear, or get renamed at any time. This
+// map is purely cosmetic now: a known look (icon + background color) for
+// the categories the business has used so far, keyed by normalized
+// (trimmed, lowercased) label so CSV casing differences don't matter. A
+// category not listed here - a brand-new one from a future import - still
+// shows up live everywhere categories are listed, just styled from
+// kFallbackCategoryStyles below instead of one of these specific looks.
+const Map<String, Map<String, dynamic>> kCategoryStyles = {
+  'canned goods': {
     'icon': Icons.inventory_2_outlined,
     'color': Color(0xFFFCE4D6),
   },
-  {
-    'label': 'Beverages',
+  'beverages': {
     'icon': Icons.local_drink_outlined,
     'color': Color(0xFFD9E6F5),
   },
-  {
-    'label': 'Snacks',
-    'icon': Icons.cookie_outlined,
-    'color': Color(0xFFFAD9E0),
-  },
-  {
-    'label': 'Rice',
-    'icon': Icons.rice_bowl_outlined,
-    'color': Color(0xFFF3E3F9),
-  },
-  {
-    'label': 'Frozen Products',
+  'snacks': {'icon': Icons.cookie_outlined, 'color': Color(0xFFFAD9E0)},
+  'rice': {'icon': Icons.rice_bowl_outlined, 'color': Color(0xFFF3E3F9)},
+  'frozen products': {
     'icon': Icons.ac_unit_outlined,
     'color': Color(0xFFDDEFFA),
   },
-  {
-    'label': 'Instant Meals',
+  'instant meals': {
     'icon': Icons.ramen_dining_outlined,
     'color': Color(0xFFFFE8D6),
   },
-  {
-    'label': 'Bread and Dairy',
+  'bread and dairy': {
     'icon': Icons.bakery_dining_outlined,
     'color': Color(0xFFFFF3D6),
   },
-  {
-    'label': 'Staples',
-    'icon': Icons.grain_outlined,
-    'color': Color(0xFFEDE3D0),
-  },
-  {
-    'label': 'Cooking Supplies and Essentials',
+  'staples': {'icon': Icons.grain_outlined, 'color': Color(0xFFEDE3D0)},
+  'cooking supplies and essentials': {
     'icon': Icons.soup_kitchen_outlined,
     'color': Color(0xFFF9E0EC),
   },
-  {
-    'label': 'Hair and Skin Care',
+  'hair and skin care': {
     'icon': Icons.spa_outlined,
     'color': Color(0xFFE0F5EC),
   },
-  {
-    'label': 'Dental and Health Care',
+  'dental and health care': {
     'icon': Icons.medical_services_outlined,
     'color': Color(0xFFDCF0F7),
   },
-  {
-    'label': 'Household and Cleaning Supplies',
+  'household and cleaning supplies': {
     'icon': Icons.cleaning_services_outlined,
     'color': Color(0xFFE3E9FC),
   },
-  {
-    'label': 'Others',
-    'icon': Icons.category_outlined,
-    'color': Color(0xFFECECEC),
-  },
+  'others': {'icon': Icons.category_outlined, 'color': Color(0xFFECECEC)},
+};
+
+// Rotated through for any category not in kCategoryStyles above, keyed by
+// a simple hash of the normalized label so the same unknown category
+// always lands on the same look (rather than reshuffling on every
+// rebuild), without needing a code change every time the admin adds a
+// new one.
+const List<Map<String, dynamic>> kFallbackCategoryStyles = [
+  {'icon': Icons.category_outlined, 'color': Color(0xFFECECEC)},
+  {'icon': Icons.local_offer_outlined, 'color': Color(0xFFD9E6F5)},
+  {'icon': Icons.shopping_basket_outlined, 'color': Color(0xFFFCE4D6)},
+  {'icon': Icons.widgets_outlined, 'color': Color(0xFFF3E3F9)},
+  {'icon': Icons.storefront_outlined, 'color': Color(0xFFE0F5EC)},
 ];
+
+/// The icon/color to render for a category [label] - a known look from
+/// [kCategoryStyles] when this exact (normalized) category has one,
+/// otherwise a stable fallback from [kFallbackCategoryStyles] so a
+/// brand-new category from a CSV import still renders something sensible
+/// instead of crashing on a missing map entry.
+Map<String, dynamic> categoryStyleFor(String label) {
+  final String key = label.trim().toLowerCase();
+  final Map<String, dynamic>? known = kCategoryStyles[key];
+  if (known != null) return known;
+  final int hash = key.codeUnits.fold<int>(0, (sum, c) => sum + c);
+  return kFallbackCategoryStyles[hash % kFallbackCategoryStyles.length];
+}
 
 const String kCloudinaryCloudName = 'h5291fss';
 const String kCloudinaryUploadPreset = 'almares_products';

@@ -374,12 +374,19 @@ class _CartOrderConfirmationScreenState
           final int amount = (data['amount'] as num?)?.toInt() ?? 0;
           final productRef = productsCollection.doc(productId);
 
-          stockUpdates[productId] = await readStockDeduction(
+          // null means this product/flavor's stock isn't tracked by the
+          // admin side (e.g. a bulk CSV import that left it unset) - the
+          // purchase still goes through, there's just nothing to deduct
+          // or write back for it.
+          final Map<String, dynamic>? deduction = await readStockDeduction(
             txn,
             productRef,
             flavorName,
             amount,
           );
+          if (deduction != null) {
+            stockUpdates[productId] = deduction;
+          }
           liveUnitPrices[i] = await resolveLiveUnitPrice(
             txn,
             productRef,

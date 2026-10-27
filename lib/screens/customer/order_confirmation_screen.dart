@@ -261,6 +261,8 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
             : widget.product['imageUrl'] as String?;
 
         await FirebaseFirestore.instance.runTransaction((txn) async {
+          // null means this product/flavor's stock isn't tracked (see
+          // readStockDeduction's doc comment) - nothing to write for it.
           final stockUpdate = await readStockDeduction(
             txn,
             productRef,
@@ -279,7 +281,9 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
             widget.unitPrice,
           );
           final double total = unitPrice * widget.amount;
-          txn.update(productRef, stockUpdate);
+          if (stockUpdate != null) {
+            txn.update(productRef, stockUpdate);
+          }
           txn.set(orderRef, {
             'userId': user.uid,
             'customerName': _customerName,

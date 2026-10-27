@@ -50,7 +50,21 @@ Future<void> seedProductCatalog() async {
   });
 }
 
-Future<Map<String, dynamic>> readStockDeduction(
+/// Reads the current stock for the item being bought and returns the
+/// Firestore update that deducts [amount] from it - or null when there's
+/// nothing to deduct (see below), so the caller knows to skip writing
+/// anything for this product rather than clobbering it with an empty map.
+///
+/// A missing/non-numeric stock value (`stock` on the flavor, or
+/// `stockCount` on a simple product) means the admin side isn't tracking
+/// a count for this item at all - a 4,500+-row CSV import, in particular,
+/// may leave it unset entirely. That's different from an explicit `0`,
+/// which means "tracked, and currently empty": only the explicit-zero
+/// case blocks the purchase or gets decremented. An untracked item is
+/// always purchasable and is left untouched (still untracked) afterwards
+/// - it must never be silently treated as "0 in stock" and block
+/// checkout, which is what happened before this.
+Future<Map<String, dynamic>?> readStockDeduction(
   Transaction txn,
   DocumentReference<Map<String, dynamic>> productRef,
   String? flavorName,
@@ -73,7 +87,9 @@ Future<Map<String, dynamic>> readStockDeduction(
     if (index == -1) {
       throw Exception('$flavorName is no longer available.');
     }
-    final int currentStock = (flavors[index]['stock'] as num?)?.toInt() ?? 0;
+    final dynamic rawStock = flavors[index]['stock'];
+    if (rawStock is! num) return null;
+    final int currentStock = rawStock.toInt();
     if (currentStock < amount) {
       throw Exception('Only $currentStock pcs of $flavorName left.');
     }
@@ -87,7 +103,9 @@ Future<Map<String, dynamic>> readStockDeduction(
     return {'flavors': updatedFlavors};
   }
 
-  final int currentStock = (data['stockCount'] as num?)?.toInt() ?? 0;
+  final dynamic rawStock = data['stockCount'];
+  if (rawStock is! num) return null;
+  final int currentStock = rawStock.toInt();
   if (currentStock < amount) {
     throw Exception('Only $currentStock pcs of ${data['name']} left.');
   }

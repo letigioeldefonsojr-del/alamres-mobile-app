@@ -26,6 +26,28 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
   String _query = '';
   ProductSortOption _sortOption = ProductSortOption.nameAsc;
 
+  // Categories aren't a separate collection on the admin side - they're
+  // whatever distinct `category` values currently exist across products,
+  // which can appear/disappear/get renamed at any time via a bulk CSV
+  // import. Deriving that list (deriveLiveCategories()) means scanning
+  // every product, so it's only worth doing once per actual Firestore
+  // snapshot rather than on every rebuild this screen goes through for
+  // unrelated reasons (typing in the search box, picking a sort option) -
+  // this cache keys off the snapshot's own QuerySnapshot identity so an
+  // unrelated rebuild just reuses the last result.
+  QuerySnapshot<Map<String, dynamic>>? _lastSnapshot;
+  List<Map<String, dynamic>> _lastAllProducts = const [];
+  List<LiveCategory> _lastCategories = const [];
+
+  void _recomputeIfNeeded(QuerySnapshot<Map<String, dynamic>>? data) {
+    if (identical(data, _lastSnapshot)) return;
+    _lastSnapshot = data;
+    _lastAllProducts = (data?.docs ?? [])
+        .map((doc) => {...doc.data(), 'id': doc.id})
+        .toList();
+    _lastCategories = deriveLiveCategories(_lastAllProducts);
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -249,138 +271,182 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
                   ),
                 ),
               Expanded(
-                child: isSearching
-                    ? StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                        stream: FirebaseFirestore.instance
-                            .collection('products')
-                            .snapshots(),
-                        builder: (context, snapshot) {
-                          final allDocs = snapshot.data?.docs ?? [];
-                          final matches = allDocs
-                              .map((doc) => {...doc.data(), 'id': doc.id})
-                              .where(
-                                (p) => fuzzyMatches(
-                                  _query,
-                                  p['name'] as String? ?? '',
-                                ),
-                              )
-                              .toList();
-                          final sorted = sortProducts(matches, _sortOption);
+                child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: FirebaseFirestore.instance
+                      .collection('products')
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    _recomputeIfNeeded(snapshot.data);
 
-                          if (sorted.isEmpty) {
-                            return Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(32),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.search_off,
-                                      color: Colors.grey.shade400,
-                                      size: 40,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      'No products found for "$_query"',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: Colors.grey.shade600,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }
-
-                          return GridView.builder(
-                            padding: EdgeInsets.fromLTRB(
-                              20,
-                              0,
-                              20,
-                              20 + kFabBottomClearance + MediaQuery.of(context).padding.bottom,
+                    if (isSearching) {
+                      final matches = _lastAllProducts
+                          .where(
+                            (p) => fuzzyMatches(
+                              _query,
+                              p['name'] as String? ?? '',
                             ),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  mainAxisSpacing: 14,
-                                  crossAxisSpacing: 14,
-                                  childAspectRatio: 0.62,
+                          )
+                          .toList();
+                      final sorted = sortProducts(matches, _sortOption);
+
+                      if (sorted.isEmpty) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.search_off,
+                                  color: Colors.grey.shade400,
+                                  size: 40,
                                 ),
-                            itemCount: sorted.length,
-                            itemBuilder: (context, index) {
-                              final product = sorted[index];
-                              return ProductCard(
-                                product: product,
-                                onImageTap: () => showProductOptions(
-                                  context,
-                                  product: product,
+                                const SizedBox(height: 12),
+                                Text(
+                                  'No products found for "$_query"',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 13,
+                                  ),
                                 ),
-                              );
-                            },
-                          );
-                        },
-                      )
-                    : GridView.builder(
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      return GridView.builder(
                         padding: EdgeInsets.fromLTRB(
                           20,
                           0,
                           20,
-                          20 + kFabBottomClearance + MediaQuery.of(context).padding.bottom,
+                          20 +
+                              kFabBottomClearance +
+                              MediaQuery.of(context).padding.bottom,
                         ),
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
                               mainAxisSpacing: 14,
                               crossAxisSpacing: 14,
-                              childAspectRatio: 1.3,
+                              childAspectRatio: 0.62,
                             ),
-                        itemCount: kProductCategories.length,
+                        itemCount: sorted.length,
                         itemBuilder: (context, index) {
-                          final category = kProductCategories[index];
-                          return Material(
-                            color: category['color'] as Color,
-                            borderRadius: BorderRadius.circular(18),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(18),
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        CategoryProductsScreen(
-                                          category: category['label'] as String,
-                                        ),
-                                  ),
-                                );
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      category['icon'] as IconData,
-                                      color: primaryGreen,
-                                      size: 28,
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Text(
-                                      category['label'] as String,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                          final product = sorted[index];
+                          return ProductCard(
+                            product: product,
+                            onImageTap: () => showProductOptions(
+                              context,
+                              product: product,
                             ),
                           );
                         },
+                      );
+                    }
+
+                    // Categories aren't a fixed list anymore - this is
+                    // whatever deriveLiveCategories() found across the
+                    // current product snapshot (cached above), so a
+                    // category with zero products left just isn't in
+                    // here, and a brand-new one from a CSV import shows
+                    // up the moment this stream re-emits.
+                    final categories = _lastCategories;
+
+                    if (categories.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.category_outlined,
+                                color: Colors.grey.shade400,
+                                size: 40,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'No categories available yet',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    return GridView.builder(
+                      padding: EdgeInsets.fromLTRB(
+                        20,
+                        0,
+                        20,
+                        20 +
+                            kFabBottomClearance +
+                            MediaQuery.of(context).padding.bottom,
                       ),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 14,
+                            crossAxisSpacing: 14,
+                            childAspectRatio: 1.3,
+                          ),
+                      itemCount: categories.length,
+                      itemBuilder: (context, index) {
+                        final category = categories[index];
+                        final style = categoryStyleFor(category.label);
+                        return Material(
+                          color: style['color'] as Color,
+                          borderRadius: BorderRadius.circular(18),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(18),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => CategoryProductsScreen(
+                                    category: category.label,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    style['icon'] as IconData,
+                                    color: primaryGreen,
+                                    size: 28,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    category.label,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ],
           ),

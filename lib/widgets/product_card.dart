@@ -66,8 +66,12 @@ class _ProductCardState extends State<ProductCard> {
     }
 
     final product = widget.product;
-    final bool isOutOfStock = extractTotalStock(product) <= 0;
-    if (isOutOfStock) return;
+    // isOutOfStock() (not a plain extractTotalStock() <= 0 check) is what
+    // correctly treats a missing/untracked stock count as in-stock rather
+    // than as 0 - see its doc comment. Named productOutOfStock here
+    // rather than isOutOfStock to avoid shadowing that imported function.
+    final bool productOutOfStock = isOutOfStock(product);
+    if (productOutOfStock) return;
 
     final Map<String, dynamic>? flavor = _flavors.isNotEmpty
         ? _flavors.first
@@ -129,7 +133,11 @@ class _ProductCardState extends State<ProductCard> {
     final String name = product['name'] as String? ?? '';
     final String stock = productStockLabel(product);
     final String? wholesaleLabel = productWholesalePriceLabel(product);
-    final bool isOutOfStock = extractTotalStock(product) <= 0;
+    // See the doc comment in _handleQuickAdd() above for why this uses
+    // isOutOfStock() rather than extractTotalStock(product) <= 0 - a
+    // product/flavor with no tracked stock count (e.g. after a bulk CSV
+    // import that left it unset) must not render as out of stock.
+    final bool productOutOfStock = isOutOfStock(product);
     final bool onSale = productHasVisibleDiscount(product);
     final String price = effectivePriceLabel(product);
     // The admin-curated bestSeller field takes priority over the older
@@ -146,13 +154,13 @@ class _ProductCardState extends State<ProductCard> {
     final String? discountPercent = onSale ? discountPercentLabel(product) : null;
 
     return Opacity(
-      opacity: isOutOfStock ? 0.5 : 1.0,
+      opacity: productOutOfStock ? 0.5 : 1.0,
       child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: isOutOfStock ? null : onImageTap,
+          onTap: productOutOfStock ? null : onImageTap,
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -175,7 +183,7 @@ class _ProductCardState extends State<ProductCard> {
                     fit: StackFit.expand,
                     children: [
                       ColorFiltered(
-                        colorFilter: isOutOfStock
+                        colorFilter: productOutOfStock
                             ? const ColorFilter.matrix([
                                 0.2126,
                                 0.7152,
@@ -219,7 +227,7 @@ class _ProductCardState extends State<ProductCard> {
                       // than the card itself, so two independently
                       // positioned corner badges can visually collide.
                       // Stacking removes any horizontal competition.
-                      if ((showBestSellerBadge || onSale) && !isOutOfStock)
+                      if ((showBestSellerBadge || onSale) && !productOutOfStock)
                         Positioned(
                           top: 8,
                           left: 8,
@@ -298,7 +306,7 @@ class _ProductCardState extends State<ProductCard> {
                       // entirely (rather than just disabled) once the
                       // product is out of stock, same as how the rest of
                       // the card already dims in that case.
-                      if (!isOutOfStock)
+                      if (!productOutOfStock)
                         Positioned(
                           right: 8,
                           bottom: 8,
@@ -368,17 +376,15 @@ class _ProductCardState extends State<ProductCard> {
                           ),
                         ),
                         Text(
-                          extractTotalStock(product) <= 0
-                              ? 'Out of Stock'
-                              : stock,
+                          productOutOfStock ? 'Out of Stock' : stock,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 10.5,
-                            fontWeight: extractTotalStock(product) <= 0
+                            fontWeight: productOutOfStock
                                 ? FontWeight.bold
                                 : FontWeight.normal,
-                            color: extractTotalStock(product) <= 0
+                            color: productOutOfStock
                                 ? Colors.redAccent
                                 : Colors.grey,
                           ),

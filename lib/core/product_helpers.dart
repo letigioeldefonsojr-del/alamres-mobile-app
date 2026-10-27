@@ -329,17 +329,96 @@ bool isOutOfStock(Map<String, dynamic> product) {
       const <Map<String, dynamic>>[];
   if (flavors.isNotEmpty) {
     if (productUnavailable) return true;
-    return flavors.every((f) {
-      final bool flavorUnavailable = f['available'] == false;
-      final stock = f['stock'];
-      final bool flavorEmpty = stock is num && stock == 0;
-      return flavorUnavailable || flavorEmpty;
-    });
+    return flavors.every((f) => !isVariantAvailable(f));
   }
 
   if (productUnavailable) return true;
   final stockCount = product['stockCount'];
   return stockCount is num && stockCount == 0;
+}
+
+/// Trims and lowercases a category string so "Canned Goods", "canned
+/// goods ", and "CANNED GOODS" all compare equal - categories aren't a
+/// separate collection on the admin side, they're just whatever distinct
+/// `category` string values currently exist on products, and a 4,500+
+/// row CSV import is exactly the kind of thing that introduces
+/// inconsistent casing/spacing for what's meant to be the same category.
+/// Every category comparison in the app should go through this (or
+/// [productMatchesCategoryKey]) instead of comparing raw strings.
+String normalizeCategoryKey(String category) => category.trim().toLowerCase();
+
+/// Whether [product]'s `category` field matches [categoryKey] - where
+/// [categoryKey] is already a normalizeCategoryKey() result (e.g. from a
+/// [LiveCategory]). A product with no category, or a blank one, never
+/// matches any key.
+bool productMatchesCategoryKey(
+  Map<String, dynamic> product,
+  String categoryKey,
+) {
+  final String raw = (product['category'] as String? ?? '').trim();
+  if (raw.isEmpty) return false;
+  return normalizeCategoryKey(raw) == categoryKey;
+}
+
+/// One category as actually derived from the product catalog right now -
+/// [key] is the normalized form used for matching/comparison/navigation,
+/// [label] is the first-seen original spelling/casing, kept for display
+/// so the UI doesn't force its own casing choice onto whatever the admin
+/// typed.
+class LiveCategory {
+  final String key;
+  final String label;
+  const LiveCategory({required this.key, required this.label});
+
+  @override
+  bool operator ==(Object other) =>
+      other is LiveCategory && other.key == key && other.label == label;
+
+  @override
+  int get hashCode => Object.hash(key, label);
+}
+
+/// Builds the live, deduped list of categories actually present across
+/// [products] right now. There is no separate "categories" collection on
+/// the admin side - a category exists only because at least one product
+/// currently has that `category` value - so this (run against whatever
+/// the product grids' own live Firestore listener last emitted) is the
+/// only source of truth for "what categories exist". A category with zero
+/// remaining products (e.g. after a bulk CSV delete) simply isn't in the
+/// result anymore; a brand-new one from a fresh import appears the next
+/// time [products] is rebuilt from a snapshot. Comparison is
+/// case/whitespace-insensitive (see [normalizeCategoryKey]) so "Canned
+/// Goods" and "canned goods" collapse into one entry - whichever spelling
+/// was encountered first in [products] is the one kept for display.
+/// Returns entries sorted alphabetically by display label.
+List<LiveCategory> deriveLiveCategories(List<Map<String, dynamic>> products) {
+  final Map<String, String> firstSeenLabelByKey = {};
+  for (final product in products) {
+    final String raw = (product['category'] as String? ?? '').trim();
+    if (raw.isEmpty) continue;
+    firstSeenLabelByKey.putIfAbsent(normalizeCategoryKey(raw), () => raw);
+  }
+  final List<LiveCategory> categories = firstSeenLabelByKey.entries
+      .map((e) => LiveCategory(key: e.key, label: e.value))
+      .toList()
+    ..sort(
+      (a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()),
+    );
+  return categories;
+}
+
+/// Whether a single flavor/variant can currently be bought - shared by
+/// [isOutOfStock] (collective, across every flavor) and anywhere a single
+/// selected flavor's own availability needs checking (the options sheet).
+/// Only an explicit `available: false` or an explicit `stock: 0` make a
+/// variant unavailable; a missing/non-numeric `stock` (not tracked by the
+/// admin side - e.g. a bulk CSV import that didn't set it) is treated as
+/// in stock with an unknown quantity, never as 0/out-of-stock, and never
+/// crashes on the null.
+bool isVariantAvailable(Map<String, dynamic> variant) {
+  if (variant['available'] == false) return false;
+  final stock = variant['stock'];
+  return !(stock is num && stock == 0);
 }
 
 /// Whether this product should show the "Best Seller" badge. Driven
@@ -563,19 +642,29 @@ Color stockLevelColor(StockLevel level) {
   }
 }
 
+/// "$N pcs available", or just "In stock" when nothing here has a tracked
+/// count to show (e.g. a bulk CSV import that left stock unset) - never
+/// "0 pcs available" for an untracked item, which would read as out of
+/// stock when it isn't (see isOutOfStock()/isVariantAvailable() for the
+/// same not-tracked-isn't-zero distinction applied to availability).
 String productStockLabel(Map<String, dynamic> product) {
   final flavors =
       (product['flavors'] as List?)
           ?.map((f) => Map<String, dynamic>.from(f as Map))
           .toList() ??
       const <Map<String, dynamic>>[];
-  final int total = flavors.isNotEmpty
-      ? flavors.fold<int>(
-          0,
-          (sum, f) => sum + ((f['stock'] as num?)?.toInt() ?? 0),
-        )
-      : (product['stockCount'] as num?)?.toInt() ?? 0;
-  return '$total pcs available';
+  if (flavors.isNotEmpty) {
+    final List<num> tracked = flavors
+        .map((f) => f['stock'])
+        .whereType<num>()
+        .toList();
+    if (tracked.isEmpty) return 'In stock';
+    final int total = tracked.fold<int>(0, (sum, s) => sum + s.toInt());
+    return '$total pcs available';
+  }
+  final dynamic rawStock = product['stockCount'];
+  if (rawStock is! num) return 'In stock';
+  return '${rawStock.toInt()} pcs available';
 }
 
 Future<String?> uploadImageToCloudinary(XFile imageFile) async {

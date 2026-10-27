@@ -91,22 +91,42 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
       _flavors.isNotEmpty ? _flavors[_selectedFlavorIndex] : null;
 
   bool get _isAvailable {
+    if (_liveProduct['available'] == false) return false;
     if (_flavors.isNotEmpty) {
-      return (_selectedFlavor?['available'] as bool?) ?? false;
+      return _selectedFlavor != null && isVariantAvailable(_selectedFlavor!);
     }
-    return (_liveProduct['available'] as bool?) ?? true;
+    // Mirrors isVariantAvailable()'s logic for the product's own
+    // stockCount: only an explicit 0 counts against it - a
+    // missing/non-numeric stockCount (not tracked by the admin side,
+    // e.g. after a bulk CSV import that left it unset) never does.
+    final stockCount = _liveProduct['stockCount'];
+    return !(stockCount is num && stockCount == 0);
   }
 
-  // Stock for whichever flavor is currently selected (or the product's own
-  // stockCount when it has no flavors) - shown to the customer next to the
-  // amount stepper, and also what caps how high that stepper can go, so
-  // there's no way to order more than what's actually in stock.
-  int get _currentStock {
-    if (_flavors.isNotEmpty) {
-      return (_selectedFlavor?['stock'] as num?)?.toInt() ?? 0;
-    }
-    return (_liveProduct['stockCount'] as num?)?.toInt() ?? 0;
+  // The tracked stock for whichever flavor is currently selected (or the
+  // product's own stockCount when it has no flavors) - null when the
+  // admin side isn't tracking a count for it at all, as opposed to an
+  // explicit 0. Shown next to the amount stepper, and (via _currentStock
+  // below) what caps how high that stepper can go.
+  int? get _trackedStock {
+    // The parens around the null-aware index below aren't optional - as
+    // the "then" branch of this ternary, a bare `_selectedFlavor?['stock']`
+    // is ambiguous (Dart's parser reads the `?` as starting a *nested*
+    // ternary instead of a null-aware index, then never finds this outer
+    // ternary's own `:`), which is a compile error, not a style nit.
+    final dynamic raw = _flavors.isNotEmpty
+        ? (_selectedFlavor?['stock'])
+        : _liveProduct['stockCount'];
+    return raw is num ? raw.toInt() : null;
   }
+
+  // _trackedStock as a plain int for the stepper's arithmetic (its max,
+  // and the clamping below) - an untracked stock is treated as
+  // effectively unlimited here rather than as 0, so a product/flavor
+  // with no stock count set still lets the customer pick more than 1
+  // instead of getting stuck at the old null-as-0 fallback.
+  static const int _kUntrackedStockCeiling = 999999;
+  int get _currentStock => _trackedStock ?? _kUntrackedStockCeiling;
 
   String get _regularPriceString {
     final flavorPrice = _selectedFlavor?['price'] as String?;
@@ -523,8 +543,7 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
                     children: List.generate(_flavors.length, (index) {
                       final flavor = _flavors[index];
                       final bool selected = index == _selectedFlavorIndex;
-                      final bool available =
-                          (flavor['available'] as bool?) ?? false;
+                      final bool available = isVariantAvailable(flavor);
                       final String flavorRegularRaw =
                           flavor['price'] as String? ?? '';
                       final bool flavorOnSale =
@@ -559,11 +578,18 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
                                     // The amount picked for the previous
                                     // flavor might not fit this one's
                                     // stock - bring it down to whatever
-                                    // this flavor actually has.
-                                    final int newStock =
-                                        (flavor['stock'] as num?)?.toInt() ??
-                                        0;
-                                    if (newStock <= 0) {
+                                    // this flavor actually has. An
+                                    // untracked stock (null, not 0) is
+                                    // left alone rather than forced back
+                                    // to 1 - see _trackedStock's doc.
+                                    final dynamic rawNewStock =
+                                        flavor['stock'];
+                                    final int? newStock = rawNewStock is num
+                                        ? rawNewStock.toInt()
+                                        : null;
+                                    if (newStock == null) {
+                                      // untracked - leave _amount as-is
+                                    } else if (newStock <= 0) {
                                       _amount = 1;
                                     } else if (_amount > newStock) {
                                       _amount = newStock;
@@ -639,8 +665,10 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
                                         ),
                                       Text(
                                         available
-                                            ? '$flavorPriceLabel '
-                                                  '• ${flavor['stock']} pcs'
+                                            ? (flavor['stock'] is num
+                                                  ? '$flavorPriceLabel '
+                                                        '• ${flavor['stock']} pcs'
+                                                  : flavorPriceLabel)
                                             : 'Out of stock',
                                         style: TextStyle(
                                           fontSize: 11.5,
@@ -697,13 +725,15 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
                     // and it's the stock for whichever flavor is currently
                     // selected, not just the product's total.
                     Text(
-                      _currentStock > 0
-                          ? '$_currentStock pcs available'
-                          : 'Out of stock',
+                      _trackedStock == null
+                          ? 'Available'
+                          : (_trackedStock! > 0
+                                ? '$_trackedStock pcs available'
+                                : 'Out of stock'),
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
-                        color: _currentStock > 0
+                        color: (_trackedStock == null || _trackedStock! > 0)
                             ? Colors.grey.shade600
                             : Colors.redAccent,
                       ),
