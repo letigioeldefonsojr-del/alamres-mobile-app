@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/product_helpers.dart';
+import '../../core/product_view_preference.dart';
 import '../../widgets/cart_floating_bar.dart';
 import '../../widgets/cart_icon_button.dart';
 import '../../widgets/product_card.dart';
+import '../../widgets/product_list_tile.dart';
+import '../../widgets/product_view_mode_button.dart';
 
 class CategoryProductsScreen extends StatefulWidget {
   // The display label as derived live elsewhere (categories_tab.dart,
@@ -157,6 +160,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                 icon: const Icon(Icons.sort),
                 tooltip: 'Sort',
               ),
+              const ProductViewModeButton(color: Colors.white),
               const CartIconButton(),
             ],
           ),
@@ -213,29 +217,66 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                           ),
                         ),
                       )
-                    : GridView.builder(
-                        padding: EdgeInsets.fromLTRB(
-                          20,
-                          20,
-                          20,
-                          20 + MediaQuery.of(context).padding.bottom,
-                        ),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              mainAxisSpacing: 14,
-                              crossAxisSpacing: 14,
-                              childAspectRatio: 0.62,
+                    : ValueListenableBuilder<ProductViewMode>(
+                        valueListenable: ProductViewPreference.notifier,
+                        builder: (context, viewMode, _) {
+                          final bottomPad =
+                              20 + MediaQuery.of(context).padding.bottom;
+
+                          if (viewMode == ProductViewMode.list) {
+                            return ListView.separated(
+                              padding: EdgeInsets.fromLTRB(
+                                20,
+                                20,
+                                20,
+                                bottomPad,
+                              ),
+                              itemCount: sorted.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (context, index) {
+                                final product = sorted[index];
+                                return ProductListTile(
+                                  product: product,
+                                  onTap: () => showProductOptions(
+                                    context,
+                                    product: product,
+                                  ),
+                                );
+                              },
+                            );
+                          }
+
+                          final int crossAxisCount =
+                              viewMode == ProductViewMode.grid3 ? 3 : 2;
+                          final double childAspectRatio =
+                              viewMode == ProductViewMode.grid3 ? 0.68 : 0.62;
+
+                          return GridView.builder(
+                            padding: EdgeInsets.fromLTRB(
+                              20,
+                              20,
+                              20,
+                              bottomPad,
                             ),
-                        itemCount: sorted.length,
-                        itemBuilder: (context, index) {
-                          final product = sorted[index];
-                          return ProductCard(
-                            product: product,
-                            onImageTap: () => showProductOptions(
-                              context,
-                              product: product,
-                            ),
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: crossAxisCount,
+                                  mainAxisSpacing: 14,
+                                  crossAxisSpacing: 14,
+                                  childAspectRatio: childAspectRatio,
+                                ),
+                            itemCount: sorted.length,
+                            itemBuilder: (context, index) {
+                              final product = sorted[index];
+                              return ProductCard(
+                                product: product,
+                                onImageTap: () => showProductOptions(
+                                  context,
+                                  product: product,
+                                ),
+                              );
+                            },
                           );
                         },
                       ),

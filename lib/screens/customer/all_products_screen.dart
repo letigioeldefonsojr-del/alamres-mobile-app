@@ -4,9 +4,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/product_helpers.dart';
 import '../../core/search_helpers.dart';
+import '../../core/product_view_preference.dart';
 import '../../widgets/cart_floating_bar.dart';
 import '../../widgets/cart_icon_button.dart';
 import '../../widgets/product_card.dart';
+import '../../widgets/product_list_tile.dart';
+import '../../widgets/product_view_mode_button.dart';
 
 class AllProductsScreen extends StatefulWidget {
   const AllProductsScreen({super.key});
@@ -90,6 +93,7 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
             icon: const Icon(Icons.sort),
             tooltip: 'Sort',
           ),
+          const ProductViewModeButton(color: Colors.white),
           const CartIconButton(),
         ],
       ),
@@ -188,30 +192,72 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
                   future: fetchBestSellingProductIds(),
                   builder: (context, bestSellingSnapshot) {
                     final bestSellingIds = bestSellingSnapshot.data ?? {};
-                    return GridView.builder(
-                      padding: EdgeInsets.fromLTRB(
-                        20,
-                        0,
-                        20,
-                        20 + MediaQuery.of(context).padding.bottom,
-                      ),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 14,
-                            crossAxisSpacing: 14,
-                            childAspectRatio: 0.62,
+                    return ValueListenableBuilder<ProductViewMode>(
+                      valueListenable: ProductViewPreference.notifier,
+                      builder: (context, viewMode, _) {
+                        final bottomPad =
+                            20 + MediaQuery.of(context).padding.bottom;
+
+                        if (viewMode == ProductViewMode.list) {
+                          return ListView.separated(
+                            padding: EdgeInsets.fromLTRB(
+                              20,
+                              0,
+                              20,
+                              bottomPad,
+                            ),
+                            itemCount: sorted.length,
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (context, index) {
+                              final product = sorted[index];
+                              return ProductListTile(
+                                product: product,
+                                isBestSelling: bestSellingIds.contains(
+                                  product['id'],
+                                ),
+                                onTap: () => showProductOptions(
+                                  context,
+                                  product: product,
+                                ),
+                              );
+                            },
+                          );
+                        }
+
+                        final int crossAxisCount =
+                            viewMode == ProductViewMode.grid3 ? 3 : 2;
+                        final double childAspectRatio =
+                            viewMode == ProductViewMode.grid3 ? 0.68 : 0.62;
+
+                        return GridView.builder(
+                          padding: EdgeInsets.fromLTRB(
+                            20,
+                            0,
+                            20,
+                            bottomPad,
                           ),
-                      itemCount: sorted.length,
-                      itemBuilder: (context, index) {
-                        final product = sorted[index];
-                        return ProductCard(
-                          product: product,
-                          isBestSelling: bestSellingIds.contains(product['id']),
-                          onImageTap: () => showProductOptions(
-                            context,
-                            product: product,
-                          ),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: crossAxisCount,
+                                mainAxisSpacing: 14,
+                                crossAxisSpacing: 14,
+                                childAspectRatio: childAspectRatio,
+                              ),
+                          itemCount: sorted.length,
+                          itemBuilder: (context, index) {
+                            final product = sorted[index];
+                            return ProductCard(
+                              product: product,
+                              isBestSelling: bestSellingIds.contains(
+                                product['id'],
+                              ),
+                              onImageTap: () => showProductOptions(
+                                context,
+                                product: product,
+                              ),
+                            );
+                          },
                         );
                       },
                     );

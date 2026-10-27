@@ -10,6 +10,7 @@ import 'services/onesignal_service.dart';
 import 'services/engagement_reminder_service.dart';
 import 'services/suspension_watcher.dart';
 import 'screens/splash_screen.dart';
+import 'core/product_view_preference.dart';
 
 // Lets SuspensionWatcher force navigation back to the login screen from
 // anywhere in the app - not just from whatever screen happens to be
@@ -28,6 +29,11 @@ void main() async {
   );
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Loads the customer's saved list/grid view choice before the first
+  // frame, so every product grid screen already reflects it instead of
+  // flashing the grid2 default first - see product_view_preference.dart.
+  await ProductViewPreference.ensureLoaded();
 
   if (!kIsWeb) {
     await OneSignalService.instance.init(
