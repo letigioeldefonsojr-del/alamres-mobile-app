@@ -36,6 +36,14 @@ class _CartScreenState extends State<CartScreen> {
   final Map<String, double> _livePrices = {};
   final Map<String, String> _livePriceKeys = {};
 
+  // Cart docs whose matching product has been deleted from the catalog and
+  // are already being auto-removed - tracked so _handleProductGone doesn't
+  // fire _removeItem (and the SnackBar) more than once per doc while that
+  // delete is still in flight (its own Firestore write triggers a rebuild,
+  // and _LiveUnitPriceText's stream re-reports "gone" on every one of those
+  // rebuilds until the cart doc is actually gone).
+  final Set<String> _removingGoneIds = {};
+
   // Created once and reused across every rebuild - this is what was
   // causing the screen to flicker. `stream:` was previously being handed
   // a brand-new `ref.orderBy(...).snapshots()` call straight in build(),
@@ -155,6 +163,38 @@ class _CartScreenState extends State<CartScreen> {
 
   Future<void> _removeItem(String docId) async {
     await _cartRef?.doc(docId).delete();
+  }
+
+  // Called when a cart row's live product stream reports that its product
+  // doc no longer exists (deleted on the admin side) - previously the cart
+  // kept showing that item indefinitely, still priced and still
+  // checkout-able, since the cart doc itself is a standalone copy of the
+  // product's name/price/image and nothing was watching for the source
+  // product disappearing. This removes it here too, in real time, the same
+  // way it already vanishes in real time from the product grids (which
+  // listen to the products collection directly).
+  void _handleProductGone(String docId, String productName) {
+    if (_removingGoneIds.contains(docId)) return;
+    _removingGoneIds.add(docId);
+    _removeItem(docId);
+    if (mounted) {
+      setState(() => _selectedIds.remove(docId));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            productName.trim().isEmpty
+                ? 'An item in your cart is no longer available and was removed.'
+                : '"$productName" is no longer available and was removed from your cart.',
+          ),
+          backgroundColor: Colors.grey.shade800,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    }
   }
 
   // The actual delete always goes through here now - whether it's triggered
@@ -405,11 +445,13 @@ class _CartScreenState extends State<CartScreen> {
                                       _LiveUnitPriceText(
                                         docId: doc.id,
                                         productId: productId,
+                                        productName: productName,
                                         flavorName: flavor,
                                         amount: amount,
                                         storedUnitPrice: storedUnitPrice,
                                         knownLivePrice: _livePrices[doc.id],
                                         onLivePrice: _reportLivePrice,
+                                        onProductGone: _handleProductGone,
                                       ),
                                     ],
                                   ),
@@ -652,20 +694,24 @@ class _CartScreenState extends State<CartScreen> {
 class _LiveUnitPriceText extends StatefulWidget {
   final String docId;
   final String? productId;
+  final String productName;
   final String? flavorName;
   final int amount;
   final double storedUnitPrice;
   final double? knownLivePrice;
   final void Function(String docId, double price) onLivePrice;
+  final void Function(String docId, String productName) onProductGone;
 
   const _LiveUnitPriceText({
     required this.docId,
     required this.productId,
+    required this.productName,
     required this.flavorName,
     required this.amount,
     required this.storedUnitPrice,
     required this.knownLivePrice,
     required this.onLivePrice,
+    required this.onProductGone,
   });
 
   @override
@@ -725,6 +771,26 @@ class _LiveUnitPriceTextState extends State<_LiveUnitPriceText> {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: _productStream,
       builder: (context, snapshot) {
+        // hasData is true the instant Firestore confirms there's no such
+        // doc, same as when it confirms there is one - exists is what
+        // tells the two apart. That's the admin having deleted this
+        // product after it was added to this cart, so this item needs to
+        // go too; the delete itself happens back up in cart_screen.dart's
+        // _handleProductGone (it owns the cart doc, not this row).
+        if (snapshot.hasData && snapshot.data?.exists == false) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            widget.onProductGone(widget.docId, widget.productName);
+          });
+          return Text(
+            'No longer available',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade500,
+            ),
+          );
+        }
+
         final double displayPrice = liveUnitPriceFromProductDoc(
           snapshot.data?.data(),
           widget.flavorName,
