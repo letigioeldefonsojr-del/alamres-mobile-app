@@ -361,7 +361,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                             child: TextField(
                               controller: otherController,
-                              autofocus: true,
+                              // Was autofocus: true - popped the keyboard
+                              // open the instant "Other" was picked, before
+                              // the customer had tapped this field at all.
+                              // Now it only opens once they actually tap in.
                               maxLines: 2,
                               decoration: InputDecoration(
                                 hintText: 'Please specify',
