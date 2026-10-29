@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/constants.dart';
 import '../../core/product_helpers.dart';
 import '../../core/product_view_preference.dart';
 import '../../core/search_helpers.dart';
+import '../../services/product_repository.dart';
 import '../../widgets/cart_icon_button.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/product_list_tile.dart';
@@ -33,26 +33,33 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
   // whatever distinct `category` values currently exist across products,
   // which can appear/disappear/get renamed at any time via a bulk CSV
   // import. Deriving that list (deriveLiveCategories()) means scanning
-  // every product, so it's only worth doing once per actual Firestore
-  // snapshot rather than on every rebuild this screen goes through for
+  // every product, so it's only worth doing once per actual catalog
+  // update rather than on every rebuild this screen goes through for
   // unrelated reasons (typing in the search box, picking a sort option) -
-  // this cache keys off the snapshot's own QuerySnapshot identity so an
-  // unrelated rebuild just reuses the last result.
-  QuerySnapshot<Map<String, dynamic>>? _lastSnapshot;
+  // this cache keys off the product list's own identity so an unrelated
+  // rebuild just reuses the last result.
+  List<Map<String, dynamic>>? _lastProducts;
   List<Map<String, dynamic>> _lastAllProducts = const [];
   List<LiveCategory> _lastCategories = const [];
 
-  void _recomputeIfNeeded(QuerySnapshot<Map<String, dynamic>>? data) {
-    if (identical(data, _lastSnapshot)) return;
-    _lastSnapshot = data;
-    _lastAllProducts = (data?.docs ?? [])
-        .map((doc) => {...doc.data(), 'id': doc.id})
-        .toList();
+  void _recomputeIfNeeded(List<Map<String, dynamic>> data) {
+    if (identical(data, _lastProducts)) return;
+    _lastProducts = data;
+    _lastAllProducts = data;
     _lastCategories = deriveLiveCategories(_lastAllProducts);
   }
 
   @override
+  void initState() {
+    super.initState();
+    // Keeps the shared catalog's ~3-minute background refresh running while
+    // this tab is on screen - see product_repository.dart.
+    ProductRepository.instance.registerVisible();
+  }
+
+  @override
   void dispose() {
+    ProductRepository.instance.unregisterVisible();
     _searchController.dispose();
     super.dispose();
   }
@@ -280,15 +287,14 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
                   ),
                 ),
               Expanded(
-                child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                  stream: FirebaseFirestore.instance
-                      .collection('products')
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
+                child: ValueListenableBuilder<List<Map<String, dynamic>>>(
+                  valueListenable: ProductRepository.instance.productsNotifier,
+                  builder: (context, products, _) {
+                    if (!ProductRepository.instance.hasRefreshedOnce &&
+                        products.isEmpty) {
                       return const Center(child: CircularProgressIndicator());
                     }
-                    _recomputeIfNeeded(snapshot.data);
+                    _recomputeIfNeeded(products);
 
                     if (isSearching) {
                       final matches = _lastAllProducts

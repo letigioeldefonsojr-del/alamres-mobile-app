@@ -107,3 +107,43 @@ const int kWholesaleMinimumQuantity = 6;
 // only for keeping a tab's own scrolling content from scrolling underneath
 // where the FAB visually sits.
 const double kFabBottomClearance = 88;
+
+// --- Supabase product catalog migration -----------------------------------
+//
+// Firestore's free (Spark) plan has a 50k-reads/day quota, shared by the
+// admin website and this app - with products added/deleted in 4,500+-row
+// CSV batches and read on every product grid, that quota was getting hit.
+// The admin website already moved its product-facing pages (Cashier,
+// Inventory, Stock Monitoring, Dashboard) to Supabase (which has no
+// per-read billing on its free plan); this flag does the same for this
+// app's customer-facing product catalog. Everything else - Firebase Auth,
+// users/customers, cart, orders, notifications, OneSignal, feedback,
+// driver data - stays on Firestore exactly as before; only `products`
+// reads/writes move. Flip this back to false to instantly revert to the
+// old direct-Firestore product path (kept intact behind this flag, not
+// deleted) if anything about the Supabase side needs rolling back.
+const bool kUseSupabaseProducts = true;
+
+const String kSupabaseUrl = 'https://jytrozeqqdyhzrafvfat.supabase.co';
+// Public/publishable key - safe to ship in the app. Every request also
+// carries the signed-in customer's Firebase ID token (see
+// supabase_products.dart), which is what the Edge Function actually uses
+// to decide whether to answer a request at all.
+const String kSupabasePublishableKey =
+    'sb_publishable_cl2ddz-5ZPYxjuqhls6AGQ_2eIuqpcK';
+const String kSupabaseStoreApiUrl =
+    '$kSupabaseUrl/functions/v1/store-api';
+
+// --- Supabase staff notifications migration --------------------------------
+//
+// Same backend/reasoning as kUseSupabaseProducts above (one Supabase Edge
+// Function, no per-write billing on the free plan), applied to the
+// `employeeNotifications` document this app creates whenever a customer
+// places an order - that's what lights up the admin site's notification
+// bell. Only that write moves; everything else about placing an order (the
+// order document itself, cart cleanup) stays on Firestore exactly as
+// before, and so does every other kind of notification - customer-facing
+// users/{uid}/notifications, push notifications, OneSignal. Flip this back
+// to false to instantly revert to the old direct-Firestore
+// employeeNotifications write (kept intact behind this flag, not deleted).
+const bool kUseSupabaseStaffNotifications = true;

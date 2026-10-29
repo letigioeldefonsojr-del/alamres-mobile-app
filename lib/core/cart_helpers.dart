@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../screens/customer/product_options_sheet.dart';
 import '../screens/customer/address_picker_screen.dart';
+import '../services/supabase_products.dart';
+import 'product_helpers.dart';
 
 Future<Set<String>> fetchBestSellingProductIds({int topN = 5}) async {
   final ordersSnapshot = await FirebaseFirestore.instance
@@ -111,6 +113,142 @@ Future<Map<String, dynamic>?> readStockDeduction(
   }
   final int newStock = currentStock - amount;
   return {'stockCount': newStock, 'available': newStock > 0};
+}
+
+/// Best-effort read of the product/variant the backend flagged as short on
+/// stock, for the "Only N pcs left" message below. The migration spec only
+/// pins the error code down to 'insufficient_stock' "with product/variant
+/// info" - not an exact field layout - so this tries a few plausible
+/// shapes rather than assuming one, and falls back to a generic message
+/// instead of throwing if none of them match (this already runs inside a
+/// catch block, so a second failure here must never replace a clear error
+/// with a crash).
+String _insufficientStockMessage(
+  Map<String, dynamic>? details,
+  Map<String, Map<String, dynamic>> freshProductsById,
+) {
+  try {
+    dynamic info = details?['item'] ?? details?['product'];
+    if (info == null && details?['items'] is List) {
+      final items = details!['items'] as List;
+      if (items.isNotEmpty) info = items.first;
+    }
+    if (info is Map) {
+      final String? id = info['id'] as String?;
+      final String? name =
+          (info['name'] as String?) ??
+          (id != null ? (freshProductsById[id]?['name'] as String?) : null);
+      final dynamic left = info['available'] ?? info['stock'] ?? info['stockLeft'];
+      if (name != null && left is num) {
+        return 'Only ${left.toInt()} pcs of $name left.';
+      }
+      if (name != null) return '$name no longer has enough stock.';
+    }
+  } catch (_) {
+    // Falls through to the generic message below.
+  }
+  return 'One or more items in your order no longer have enough stock.';
+}
+
+/// Supabase-backed counterpart to [readStockDeduction] +
+/// [resolveLiveUnitPrice] above, used for checkout when
+/// kUseSupabaseProducts is on (see cart_order_confirmation_screen.dart's
+/// _confirmOrder, which branches on that flag). Each entry in [items] is
+/// one cart/order line: {productId, flavor, amount, unitPrice} - unitPrice
+/// is only the fallback used if a fresh price can't be resolved (e.g. the
+/// product or flavor was removed since the cart snapshot was taken).
+///
+/// Does both of app_get_products/app_apply_sale's jobs in one call: a
+/// fresh read re-validates price (including the wholesale tier, since
+/// amount is known here) exactly the way resolveLiveUnitPrice() used to
+/// inside a Firestore transaction, then app_apply_sale deducts stock,
+/// keyed on [orderRef] so a retried call (e.g. after a timeout where the
+/// first attempt actually went through) never double-deducts. Returns the
+/// resolved unit prices in the same order as [items]. Throws a plain
+/// Exception with a customer-facing message on insufficient stock, same
+/// style as [readStockDeduction], so the checkout screen's existing
+/// catch-and-show-SnackBar code doesn't need to know which backend this
+/// came from.
+Future<List<double>> deductStockAndResolvePricesSupabase({
+  required List<Map<String, dynamic>> items,
+  required String orderRef,
+}) async {
+  final List<String> ids = items
+      .map((item) => item['productId'] as String?)
+      .whereType<String>()
+      .toSet()
+      .toList();
+
+  final List<Map<String, dynamic>> fresh = await SupabaseProductsApi.instance
+      .getProducts(ids);
+  final Map<String, Map<String, dynamic>> freshById = {
+    for (final product in fresh) (product['id'] as String): product,
+  };
+
+  final List<double> liveUnitPrices = [];
+  final List<CheckoutItem> checkoutItems = [];
+
+  for (final item in items) {
+    final String? productId = item['productId'] as String?;
+    final String? flavorName = item['flavor'] as String?;
+    final int amount = (item['amount'] as num?)?.toInt() ?? 0;
+    final double fallback = (item['unitPrice'] as num?)?.toDouble() ?? 0;
+
+    liveUnitPrices.add(
+      liveUnitPriceFromProductDoc(
+        productId != null ? freshById[productId] : null,
+        flavorName,
+        amount,
+        fallback,
+      ),
+    );
+    if (productId != null && amount > 0) {
+      checkoutItems.add(
+        CheckoutItem(id: productId, variant: flavorName, qty: amount),
+      );
+    }
+  }
+
+  if (checkoutItems.isNotEmpty) {
+    try {
+      await SupabaseProductsApi.instance.applySale(
+        items: checkoutItems,
+        ref: orderRef,
+      );
+    } on SupabaseApiException catch (e) {
+      if (e.code == 'insufficient_stock') {
+        throw Exception(_insufficientStockMessage(e.details, freshById));
+      }
+      throw Exception('Could not place order. Please try again.');
+    }
+  }
+
+  return liveUnitPrices;
+}
+
+/// Compensates a successful [deductStockAndResolvePricesSupabase] call when
+/// something downstream (the Firestore order write) failed afterwards -
+/// see SupabaseProductsApi.restock()'s doc comment for why this is
+/// best-effort/never throws.
+Future<void> compensateRestockSupabase({
+  required List<Map<String, dynamic>> items,
+  required String orderRef,
+}) async {
+  final List<CheckoutItem> checkoutItems = items
+      .where((item) => item['productId'] != null)
+      .map(
+        (item) => CheckoutItem(
+          id: item['productId'] as String,
+          variant: item['flavor'] as String?,
+          qty: (item['amount'] as num?)?.toInt() ?? 0,
+        ),
+      )
+      .toList();
+  if (checkoutItems.isEmpty) return;
+  await SupabaseProductsApi.instance.restock(
+    items: checkoutItems,
+    ref: orderRef,
+  );
 }
 
 String cartItemId(String productName, String? flavorName) {

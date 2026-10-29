@@ -5,6 +5,7 @@ import '../../core/cart_fly_anchor.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/constants.dart';
 import '../../core/product_helpers.dart';
+import '../../services/product_repository.dart';
 import '../../widgets/cart_badge.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/promo_banner_carousel.dart';
@@ -216,21 +217,15 @@ class HomeTab extends StatelessWidget {
           // Admin-curated best sellers (the bestSeller field) - a
           // separate list from the order-count badge used elsewhere on
           // this screen. Hidden entirely when nothing qualifies.
-          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: FirebaseFirestore.instance
-                .collection('products')
-                .where('bestSeller', isEqualTo: true)
-                .snapshots(),
-            builder: (context, snapshot) {
-              final docs = snapshot.data?.docs ?? [];
-
-              // Filtered live, after the stream emits, from whatever the
-              // admin flagged as bestSeller - a restock (or a stock-out)
-              // just shows up here on its own next snapshot, with no
-              // Firestore write of our own.
-              final bestSellers = docs
-                  .map((doc) => {...doc.data(), 'id': doc.id})
-                  .where((product) => !isOutOfStock(product))
+          ValueListenableBuilder<List<Map<String, dynamic>>>(
+            valueListenable: ProductRepository.instance.productsNotifier,
+            builder: (context, allProducts, _) {
+              // Filtered live off whatever ProductRepository last loaded,
+              // from whatever the admin flagged as bestSeller - a restock
+              // (or a stock-out) shows up here the next time the catalog
+              // refreshes, with no write of our own.
+              final bestSellers = allProducts
+                  .where((product) => isBestSeller(product) && !isOutOfStock(product))
                   .toList()
                 ..sort(
                   (a, b) => (a['name'] as String? ?? '')
@@ -289,21 +284,15 @@ class HomeTab extends StatelessWidget {
           // dates sorted last). Sorted client-side rather than via
           // .orderBy() so this doesn't depend on a composite index.
           // Entirely hidden when nothing is featured.
-          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: FirebaseFirestore.instance
-                .collection('products')
-                .where('featured', isEqualTo: true)
-                .snapshots(),
-            builder: (context, snapshot) {
-              final docs = snapshot.data?.docs ?? [];
-
-              // Filtered live, after the stream emits, from whatever the
-              // admin flagged as featured - a restock (or a stock-out)
-              // just shows up here on its own next snapshot, with no
-              // Firestore write of our own.
-              final featuredProducts = docs
-                  .map((doc) => {...doc.data(), 'id': doc.id})
-                  .where((product) => !isOutOfStock(product))
+          ValueListenableBuilder<List<Map<String, dynamic>>>(
+            valueListenable: ProductRepository.instance.productsNotifier,
+            builder: (context, allProducts, _) {
+              // Filtered live off whatever ProductRepository last loaded,
+              // from whatever the admin flagged as featured - a restock
+              // (or a stock-out) shows up here the next time the catalog
+              // refreshes, with no write of our own.
+              final featuredProducts = allProducts
+                  .where((product) => product['featured'] == true && !isOutOfStock(product))
                   .toList()
                 ..sort((a, b) {
                   final Timestamp? aTime = a['featuredAt'] as Timestamp?;
@@ -425,31 +414,46 @@ class _LiveCategoryRowState extends State<_LiveCategoryRow> {
   // (see deriveLiveCategories() in product_helpers.dart), which can
   // appear/disappear/get renamed at any time via a bulk CSV import.
   // Deriving that list means scanning every product, so it's only worth
-  // doing once per actual Firestore snapshot - this cache keys off the
-  // snapshot's own QuerySnapshot identity so an unrelated rebuild (e.g.
-  // HomeTab's parent rebuilding for any other reason) just reuses the
-  // last result instead of rescanning everything again.
-  QuerySnapshot<Map<String, dynamic>>? _lastSnapshot;
+  // doing once per actual catalog change - this cache keys off the
+  // product list's own identity (a fresh List instance only when
+  // ProductRepository's data actually changed) so an unrelated rebuild
+  // (e.g. HomeTab's parent rebuilding for any other reason) just reuses
+  // the last result instead of rescanning everything again.
+  List<Map<String, dynamic>>? _lastProducts;
   List<LiveCategory> _lastCategories = const [];
 
-  void _recomputeIfNeeded(QuerySnapshot<Map<String, dynamic>>? data) {
-    if (identical(data, _lastSnapshot)) return;
-    _lastSnapshot = data;
-    final products = (data?.docs ?? [])
-        .map((doc) => {...doc.data(), 'id': doc.id})
-        .toList();
+  void _recomputeIfNeeded(List<Map<String, dynamic>> products) {
+    if (identical(products, _lastProducts)) return;
+    _lastProducts = products;
     _lastCategories = deriveLiveCategories(products);
   }
 
   @override
+  void initState() {
+    super.initState();
+    // Registers this corner of Home as a "a product screen is visible" for
+    // ProductRepository's periodic background refresh (see
+    // product_repository.dart) - Best Sellers and Featured Products above
+    // read the same catalog and benefit from the same refresh, so one
+    // registration here covers all of Home's product-derived content.
+    ProductRepository.instance.registerVisible();
+  }
+
+  @override
+  void dispose() {
+    ProductRepository.instance.unregisterVisible();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.collection('products').snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+    return ValueListenableBuilder<List<Map<String, dynamic>>>(
+      valueListenable: ProductRepository.instance.productsNotifier,
+      builder: (context, allProducts, _) {
+        if (!ProductRepository.instance.hasRefreshedOnce && allProducts.isEmpty) {
           return const SizedBox(height: 94);
         }
-        _recomputeIfNeeded(snapshot.data);
+        _recomputeIfNeeded(allProducts);
         final categories = _lastCategories;
         if (categories.isEmpty) return const SizedBox.shrink();
 

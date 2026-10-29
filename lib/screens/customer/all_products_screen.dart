@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/product_helpers.dart';
 import '../../core/search_helpers.dart';
 import '../../core/product_view_preference.dart';
+import '../../services/product_repository.dart';
 import '../../widgets/cart_floating_bar.dart';
 import '../../widgets/cart_icon_button.dart';
 import '../../widgets/product_card.dart';
@@ -26,7 +26,16 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
   ProductSortOption _sortOption = ProductSortOption.nameAsc;
 
   @override
+  void initState() {
+    super.initState();
+    // Keeps the shared catalog's ~3-minute background refresh running while
+    // this screen is on screen - see product_repository.dart.
+    ProductRepository.instance.registerVisible();
+  }
+
+  @override
   void dispose() {
+    ProductRepository.instance.unregisterVisible();
     _searchController.dispose();
     super.dispose();
   }
@@ -130,19 +139,13 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
             ),
           ),
           Expanded(
-            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: FirebaseFirestore.instance
-                  .collection('products')
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+            child: ValueListenableBuilder<List<Map<String, dynamic>>>(
+              valueListenable: ProductRepository.instance.productsNotifier,
+              builder: (context, products, _) {
+                if (!ProductRepository.instance.hasRefreshedOnce &&
+                    products.isEmpty) {
                   return const Center(child: CircularProgressIndicator());
                 }
-
-                final allDocs = snapshot.data?.docs ?? [];
-                final products = allDocs
-                    .map((doc) => {...doc.data(), 'id': doc.id})
-                    .toList();
 
                 final filtered = _query.trim().isEmpty
                     ? products

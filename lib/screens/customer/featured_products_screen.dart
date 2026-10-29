@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/product_view_preference.dart';
+import '../../services/product_repository.dart';
 import '../../widgets/cart_floating_bar.dart';
 import '../../widgets/cart_icon_button.dart';
 import '../../widgets/product_card.dart';
@@ -9,10 +10,32 @@ import '../../widgets/product_list_tile.dart';
 import '../../widgets/product_view_mode_button.dart';
 import 'all_products_screen.dart';
 
-class FeaturedProductsScreen extends StatelessWidget {
+class FeaturedProductsScreen extends StatefulWidget {
   const FeaturedProductsScreen({super.key});
 
   static const Color primaryGreen = Color(0xFF2E6B3E);
+
+  @override
+  State<FeaturedProductsScreen> createState() =>
+      _FeaturedProductsScreenState();
+}
+
+class _FeaturedProductsScreenState extends State<FeaturedProductsScreen> {
+  static const Color primaryGreen = FeaturedProductsScreen.primaryGreen;
+
+  @override
+  void initState() {
+    super.initState();
+    // Keeps the shared catalog's ~3-minute background refresh running while
+    // this screen is on screen - see product_repository.dart.
+    ProductRepository.instance.registerVisible();
+  }
+
+  @override
+  void dispose() {
+    ProductRepository.instance.unregisterVisible();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,13 +73,12 @@ class FeaturedProductsScreen extends StatelessWidget {
           const CartIconButton(),
         ],
       ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance
-            .collection('products')
-            .where('featured', isEqualTo: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          final docs = snapshot.data?.docs ?? [];
+      body: ValueListenableBuilder<List<Map<String, dynamic>>>(
+        valueListenable: ProductRepository.instance.productsNotifier,
+        builder: (context, allProducts, _) {
+          final docs = allProducts
+              .where((p) => p['featured'] == true)
+              .toList();
 
           if (docs.isEmpty) {
             return Center(
@@ -128,9 +150,7 @@ class FeaturedProductsScreen extends StatelessWidget {
           // Same ordering as the Home screen's Featured Products section -
           // most recently featured first, missing featuredAt sorted last.
           // Sorted client-side so this doesn't depend on a composite index.
-          final products = docs
-              .map((doc) => {...doc.data(), 'id': doc.id})
-              .toList()
+          final products = List<Map<String, dynamic>>.from(docs)
             ..sort((a, b) {
               final Timestamp? aTime = a['featuredAt'] as Timestamp?;
               final Timestamp? bTime = b['featuredAt'] as Timestamp?;

@@ -1,0 +1,17 @@
+{
+  // The "Unsupported class file major version 70" error you keep seeing is
+  // NOT coming from Flutter actually building the app - it's VS Code's Java
+  // extension automatically trying to import the android/ folder as a plain
+  // Gradle/Java project in the background (for Java IntelliSense), using its
+  // own JDK connection that ignores the org.gradle.java.home we pinned in
+  // android/gradle.properties. That pin only affects Gradle when Flutter
+  // itself runs the build (flutter run / flutter build apk) - it doesn't
+  // control VS Code's separate background import.
+  //
+  // Since you have no Android Studio and aren't hand-editing Java/Kotlin
+  // files, you don't need Java IntelliSense for the android/ folder at all -
+  // the Flutter/Dart extension handles everything needed to build and run
+  // the app. Turning off this background Gradle import stops VS Code from
+  // ever running that failing sync again.
+  "java.import.gradle.enabled": false
+}

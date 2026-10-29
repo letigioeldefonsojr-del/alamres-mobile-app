@@ -6,6 +6,8 @@ import '../../core/cart_helpers.dart';
 import '../../core/constants.dart';
 import '../../core/delivery_helpers.dart';
 import '../../core/product_helpers.dart';
+import '../../services/product_repository.dart';
+import '../../services/supabase_products.dart';
 import '../../widgets/fulfillment_type_toggle.dart';
 import '../../widgets/order_item_card.dart';
 
@@ -71,12 +73,6 @@ class _CartOrderConfirmationScreenState
   late List<double> _originalUnitPrices;
   List<DocumentReference<Map<String, dynamic>>>? _cartRefs;
 
-  // One live listener per item with a real product behind it (mirrors the
-  // Cart screen's own live-price listener) - purely a display nicety, since
-  // _confirmOrder's transaction always re-checks the real price regardless.
-  final List<StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>>
-  _productSubs = [];
-
   // Distance-based delivery fee - recalculated whenever the delivery
   // address changes. The app only stores addresses as text, so this
   // re-geocodes the current address and measures it against the nearest
@@ -109,42 +105,46 @@ class _CartOrderConfirmationScreenState
     _cartRefs = widget.cartRefs == null ? null : List.of(widget.cartRefs!);
     _recalculateDeliveryFee();
 
-    for (int i = 0; i < _items.length; i++) {
-      final String? productId = _items[i]['productId'] as String?;
-      if (productId == null || productId.isEmpty) continue;
-      _productSubs.add(
-        FirebaseFirestore.instance
-            .collection('products')
-            .doc(productId)
-            .snapshots()
-            .listen((snapshot) => _onLiveProductUpdate(i, snapshot)),
-      );
-    }
+    // Replaces what used to be one Firestore .snapshots() listener per
+    // item - ProductRepository is the single shared source of product data
+    // now (Supabase or Firestore underneath, depending on
+    // kUseSupabaseProducts; see product_repository.dart), so this just
+    // listens for it to change and re-derives every item's live price off
+    // whatever it last loaded. Purely a display nicety either way, since
+    // _confirmOrder's own re-validation at checkout time is the real
+    // source of truth regardless of what's shown here while browsing.
+    ProductRepository.instance.productsNotifier.addListener(_onCatalogChanged);
+    _onCatalogChanged();
   }
 
   @override
   void dispose() {
-    for (final sub in _productSubs) {
-      sub.cancel();
-    }
+    ProductRepository.instance.productsNotifier.removeListener(
+      _onCatalogChanged,
+    );
     super.dispose();
   }
 
+  void _onCatalogChanged() {
+    for (int i = 0; i < _items.length; i++) {
+      final String? productId = _items[i]['productId'] as String?;
+      if (productId == null || productId.isEmpty) continue;
+      _onLiveProductUpdate(i, ProductRepository.instance.byId(productId));
+    }
+  }
+
   // Re-derives item [index]'s regular/discounted unit price from the
-  // product doc's current data and, if it actually changed, refreshes that
+  // product's current data and, if it actually changed, refreshes that
   // item on screen through the same path a manual quantity edit takes -
   // so wholesale-vs-retail selection and the subtotal/total stay correct
   // no matter whether the price moved because of a quantity change or a
   // live discount change.
-  void _onLiveProductUpdate(
-    int index,
-    DocumentSnapshot<Map<String, dynamic>> snapshot,
-  ) {
+  void _onLiveProductUpdate(int index, Map<String, dynamic>? data) {
     if (!mounted) return;
-    final data = snapshot.data();
-    // Product deleted/unpublished mid-view - keep the last known price
-    // rather than blanking it; _confirmOrder's transaction is the real
-    // source of truth at checkout time regardless.
+    // Product deleted/unpublished mid-view (or just not loaded into the
+    // repository yet) - keep the last known price rather than blanking
+    // it; _confirmOrder's own re-validation is the real source of truth
+    // at checkout time regardless.
     if (data == null) return;
 
     final String? flavorName = _items[index]['flavor'] as String?;
@@ -338,67 +338,99 @@ class _CartOrderConfirmationScreenState
     setState(() => _isConfirming = true);
     final messenger = ScaffoldMessenger.of(context);
 
+    final orderRef = FirebaseFirestore.instance.collection('orders').doc();
+    // Only created/written when kUseSupabaseStaffNotifications is off - the
+    // old path writes this alongside the order (see the txn.set below) so
+    // the admin panel's new-order notification can never be created
+    // without the order itself. When the flag is on, the staff
+    // notification goes to Supabase instead (see below, after the
+    // transaction), and this Firestore doc is never created at all.
+    final notificationRef = kUseSupabaseStaffNotifications
+        ? null
+        : FirebaseFirestore.instance.collection('employeeNotifications').doc();
+
+    // Only set once deductStockAndResolvePricesSupabase() has actually
+    // succeeded - tells the catch block below whether there's a Supabase
+    // stock deduction to compensate for if something after it (the
+    // Firestore order write) fails.
+    bool supabaseStockDeducted = false;
+    // Built inside the transaction below (it needs orderTotal, which is
+    // only known there) and sent to Supabase after the transaction commits
+    // - see kUseSupabaseStaffNotifications' doc comment in constants.dart
+    // for why this is a separate, best-effort call rather than part of the
+    // transaction itself.
+    String? staffNotificationMessage;
+
     try {
-      final ordersCollection = FirebaseFirestore.instance.collection('orders');
-      final productsCollection = FirebaseFirestore.instance.collection(
-        'products',
+      // Starts from each item's cart-snapshot unitPrice, then gets
+      // overwritten below with a live re-check - so if a scheduled
+      // discount started or ended (or, on the Supabase path, stock ran
+      // out) while this sat in the cart, the order is billed today's
+      // price or blocked outright instead of going through stale.
+      List<double> liveUnitPrices = List<double>.generate(
+        _items.length,
+        (i) => (_items[i]['unitPrice'] as num?)?.toDouble() ?? 0,
       );
-      final orderRef = ordersCollection.doc();
-      // Written alongside the order (see the txn.set below) so the admin
-      // panel's new-order notification can never be created without the
-      // order itself (or vice versa) - mirrors the "Buy Now" checkout path
-      // in order_confirmation_screen.dart, which already did this; a cart
-      // checkout previously placed the order with no staff notification
-      // at all.
-      final notificationRef = FirebaseFirestore.instance
-          .collection('employeeNotifications')
-          .doc();
+
+      // Product reads/writes move to Supabase when kUseSupabaseProducts is
+      // on (see constants.dart) - this re-validates price and deducts
+      // stock there, up front, keyed on the new order's own id so a
+      // retried call never double-deducts. Everything below this (the
+      // order document itself, the cart cleanup) stays on Firestore
+      // either way - only `products` moved.
+      if (kUseSupabaseProducts) {
+        liveUnitPrices = await deductStockAndResolvePricesSupabase(
+          items: _items,
+          orderRef: orderRef.id,
+        );
+        supabaseStockDeducted = true;
+      }
 
       await FirebaseFirestore.instance.runTransaction((txn) async {
-        final Map<String, Map<String, dynamic>> stockUpdates = {};
-        // Starts from each item's cart-snapshot unitPrice, then gets
-        // overwritten below with a live re-check against the product doc -
-        // so if a scheduled discount started or ended while this sat in
-        // the cart, the order is billed today's price.
-        final List<double> liveUnitPrices = List<double>.generate(
-          _items.length,
-          (i) => (_items[i]['unitPrice'] as num?)?.toDouble() ?? 0,
-        );
-
-        for (int i = 0; i < _items.length; i++) {
-          final data = _items[i];
-          final String? productId = data['productId'] as String?;
-          if (productId == null) continue;
-
-          final String? flavorName = data['flavor'] as String?;
-          final int amount = (data['amount'] as num?)?.toInt() ?? 0;
-          final productRef = productsCollection.doc(productId);
-
-          // null means this product/flavor's stock isn't tracked by the
-          // admin side (e.g. a bulk CSV import that left it unset) - the
-          // purchase still goes through, there's just nothing to deduct
-          // or write back for it.
-          final Map<String, dynamic>? deduction = await readStockDeduction(
-            txn,
-            productRef,
-            flavorName,
-            amount,
+        if (!kUseSupabaseProducts) {
+          // Old Firestore-only path, unchanged: stock is read and deducted
+          // inside this same transaction, straight against the `products`
+          // collection.
+          final productsCollection = FirebaseFirestore.instance.collection(
+            'products',
           );
-          if (deduction != null) {
-            stockUpdates[productId] = deduction;
+          final Map<String, Map<String, dynamic>> stockUpdates = {};
+
+          for (int i = 0; i < _items.length; i++) {
+            final data = _items[i];
+            final String? productId = data['productId'] as String?;
+            if (productId == null) continue;
+
+            final String? flavorName = data['flavor'] as String?;
+            final int amount = (data['amount'] as num?)?.toInt() ?? 0;
+            final productRef = productsCollection.doc(productId);
+
+            // null means this product/flavor's stock isn't tracked by the
+            // admin side (e.g. a bulk CSV import that left it unset) - the
+            // purchase still goes through, there's just nothing to deduct
+            // or write back for it.
+            final Map<String, dynamic>? deduction = await readStockDeduction(
+              txn,
+              productRef,
+              flavorName,
+              amount,
+            );
+            if (deduction != null) {
+              stockUpdates[productId] = deduction;
+            }
+            liveUnitPrices[i] = await resolveLiveUnitPrice(
+              txn,
+              productRef,
+              flavorName,
+              amount,
+              liveUnitPrices[i],
+            );
           }
-          liveUnitPrices[i] = await resolveLiveUnitPrice(
-            txn,
-            productRef,
-            flavorName,
-            amount,
-            liveUnitPrices[i],
-          );
-        }
 
-        stockUpdates.forEach((productId, update) {
-          txn.update(productsCollection.doc(productId), update);
-        });
+          stockUpdates.forEach((productId, update) {
+            txn.update(productsCollection.doc(productId), update);
+          });
+        }
 
         final List<Map<String, dynamic>> orderItems = [];
         double orderTotal = 0;
@@ -475,17 +507,33 @@ class _CartOrderConfirmationScreenState
           'estimatedDelivery': Timestamp.fromDate(_estimatedDelivery),
           'createdAt': FieldValue.serverTimestamp(),
         });
-        txn.set(notificationRef, {
-          'message': _isPickup
-              ? 'New PICKUP order from $_customerName'
-                    '${_pickupBranch != null ? " ($_pickupBranch)" : ""}'
-                    ' — ₱${(orderTotal + _deliveryFee).toStringAsFixed(2)}'
-              : 'New order from $_customerName — '
-                    '₱${(orderTotal + _deliveryFee).toStringAsFixed(2)}',
-          'orderId': orderRef.id,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+        staffNotificationMessage = _isPickup
+            ? 'New PICKUP order from $_customerName'
+                  '${_pickupBranch != null ? " ($_pickupBranch)" : ""}'
+                  ' — ₱${(orderTotal + _deliveryFee).toStringAsFixed(2)}'
+            : 'New order from $_customerName — '
+                  '₱${(orderTotal + _deliveryFee).toStringAsFixed(2)}';
+        if (!kUseSupabaseStaffNotifications) {
+          txn.set(notificationRef!, {
+            'message': staffNotificationMessage,
+            'orderId': orderRef.id,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
       });
+
+      // Sent after the order is confirmed saved above - never awaited (and
+      // never throws - see notifyStaff's doc comment), so a Supabase hiccup
+      // here can never block the success message/navigation below or fail
+      // an order that already went through.
+      if (kUseSupabaseStaffNotifications && staffNotificationMessage != null) {
+        unawaited(
+          SupabaseProductsApi.instance.notifyStaff(
+            message: staffNotificationMessage!,
+            orderId: orderRef.id,
+          ),
+        );
+      }
 
       if (!mounted) return;
       messenger.showSnackBar(
@@ -502,6 +550,13 @@ class _CartOrderConfirmationScreenState
       Navigator.pop(context);
       Navigator.pop(context);
     } catch (e) {
+      // The Supabase deduction itself succeeded but something after it
+      // (the Firestore order write, most likely) failed - put the stock
+      // back rather than leaving it under-counted for an order that was
+      // never actually created.
+      if (supabaseStockDeducted) {
+        await compensateRestockSupabase(items: _items, orderRef: orderRef.id);
+      }
       if (!mounted) return;
       setState(() => _isConfirming = false);
       messenger.showSnackBar(

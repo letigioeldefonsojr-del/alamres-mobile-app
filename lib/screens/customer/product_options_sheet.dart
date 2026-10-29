@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/constants.dart';
 import '../../core/product_helpers.dart';
+import '../../services/product_repository.dart';
 import '../../widgets/fly_to_cart_overlay.dart';
 import '../../widgets/product_image.dart';
 
@@ -34,39 +35,47 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
   // open updates on screen immediately instead of only the next time it's
   // opened.
   late Map<String, dynamic> _liveProduct;
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _productSub;
 
   @override
   void initState() {
     super.initState();
     _liveProduct = widget.product;
-    final String? id = widget.product['id'] as String?;
-    if (id != null && id.isNotEmpty) {
-      _productSub = FirebaseFirestore.instance
-          .collection('products')
-          .doc(id)
-          .snapshots()
-          .listen(_onLiveProductUpdate);
-    }
+    // ProductRepository is the single shared source of product data now
+    // (Supabase or Firestore underneath, depending on kUseSupabaseProducts;
+    // see product_repository.dart) - replaces what used to be a Firestore
+    // .snapshots() listener on this one product's doc. Checked once right
+    // away too, in case the repository already has newer data than what
+    // this sheet was opened with (a .snapshots() listener would have
+    // delivered its first snapshot immediately the same way).
+    ProductRepository.instance.productsNotifier.addListener(
+      _onCatalogChanged,
+    );
+    _onCatalogChanged();
   }
 
   @override
   void dispose() {
-    _productSub?.cancel();
+    ProductRepository.instance.productsNotifier.removeListener(
+      _onCatalogChanged,
+    );
     super.dispose();
   }
 
-  void _onLiveProductUpdate(
-    DocumentSnapshot<Map<String, dynamic>> snapshot,
-  ) {
+  void _onCatalogChanged() {
+    final String? id = widget.product['id'] as String?;
+    if (id == null || id.isEmpty) return;
+    _onLiveProductUpdate(ProductRepository.instance.byId(id));
+  }
+
+  void _onLiveProductUpdate(Map<String, dynamic>? data) {
     if (!mounted) return;
-    final data = snapshot.data();
-    // Product was deleted/unpublished mid-view - keep showing the last
-    // known data rather than blanking the sheet out from under the
-    // customer; _checkAvailable() still guards the actual add/order action.
+    // Product deleted/unpublished mid-view (or just not loaded into the
+    // repository yet) - keep showing the last known data rather than
+    // blanking the sheet out from under the customer; _checkAvailable()
+    // still guards the actual add/order action.
     if (data == null) return;
     setState(() {
-      _liveProduct = {...data, 'id': snapshot.id};
+      _liveProduct = {...data};
       // Keep the selected flavor valid if the flavor list shrank, and clamp
       // the chosen amount down if stock dropped below it - mirrors the
       // clamping already done when switching flavors by hand.
@@ -832,21 +841,20 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
     if (category == null || category.trim().isEmpty) {
       return const SizedBox.shrink();
     }
+    // normalizeCategoryKey()/productMatchesCategoryKey() rather than a
+    // plain == match - same case/whitespace-insensitive comparison every
+    // other category match in the app already uses, so "Snacks" and
+    // "snacks " are treated as the same category here too.
+    final String categoryKey = normalizeCategoryKey(category);
 
-    return FutureBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      future: FirebaseFirestore.instance
-          .collection('products')
-          .where('category', isEqualTo: category)
-          .limit(12)
-          .get(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox.shrink();
-
+    return ValueListenableBuilder<List<Map<String, dynamic>>>(
+      valueListenable: ProductRepository.instance.productsNotifier,
+      builder: (context, allProducts, _) {
         final String? currentId = _liveProduct['id'] as String?;
         final String currentName = _liveProduct['name'] as String? ?? '';
 
-        final related = snapshot.data!.docs
-            .map((doc) => {...doc.data(), 'id': doc.id})
+        final related = allProducts
+            .where((p) => productMatchesCategoryKey(p, categoryKey))
             .where(
               (p) => currentId != null
                   ? p['id'] != currentId

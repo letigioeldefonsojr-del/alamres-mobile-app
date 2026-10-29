@@ -11,6 +11,7 @@ import 'services/engagement_reminder_service.dart';
 import 'services/suspension_watcher.dart';
 import 'screens/splash_screen.dart';
 import 'core/product_view_preference.dart';
+import 'services/product_repository.dart';
 
 // Lets SuspensionWatcher force navigation back to the login screen from
 // anywhere in the app - not just from whatever screen happens to be
@@ -34,6 +35,13 @@ void main() async {
   // frame, so every product grid screen already reflects it instead of
   // flashing the grid2 default first - see product_view_preference.dart.
   await ProductViewPreference.ensureLoaded();
+
+  // Loads whatever product catalog is cached on disk (near-instant) and
+  // kicks off a real refresh in the background - see product_repository.dart
+  // for why the catalog needs its own shared owner now that Supabase (the
+  // product backend, when kUseSupabaseProducts is on) has no realtime
+  // listener the way Firestore did.
+  unawaited(ProductRepository.instance.ensureStarted());
 
   if (!kIsWeb) {
     await OneSignalService.instance.init(
@@ -63,8 +71,37 @@ void main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+// StatefulWidget (rather than the StatelessWidget this used to be) purely
+// so WidgetsBindingObserver has somewhere to live - its only job is
+// telling ProductRepository when the app comes back to the foreground, so
+// a catalog that went stale while the app was backgrounded refreshes right
+// away instead of waiting for the next periodic tick.
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ProductRepository.instance.onAppResumed();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

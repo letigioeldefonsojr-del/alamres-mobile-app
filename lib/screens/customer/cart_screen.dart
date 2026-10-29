@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/product_helpers.dart';
+import '../../services/product_repository.dart';
 import '../../widgets/product_image.dart';
 import 'cart_order_confirmation_screen.dart';
 
@@ -721,38 +722,6 @@ class _LiveUnitPriceText extends StatefulWidget {
 class _LiveUnitPriceTextState extends State<_LiveUnitPriceText> {
   static const Color primaryGreen = Color(0xFF2E6B3E);
 
-  // Cached once per productId instead of being created fresh in build() -
-  // every time the Cart screen rebuilds (a quantity change, another row's
-  // live price arriving, Select All's postFrameCallback), this widget
-  // used to call .snapshots() again, tearing down and re-subscribing to
-  // this product's Firestore doc on every single rebuild. Caching the
-  // stream keeps one subscription alive for as long as this row exists.
-  String? _streamedProductId;
-  Stream<DocumentSnapshot<Map<String, dynamic>>>? _productStream;
-
-  void _ensureStream() {
-    if (widget.productId == _streamedProductId) return;
-    _streamedProductId = widget.productId;
-    _productStream = widget.productId == null
-        ? null
-        : FirebaseFirestore.instance
-              .collection('products')
-              .doc(widget.productId)
-              .snapshots();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _ensureStream();
-  }
-
-  @override
-  void didUpdateWidget(_LiveUnitPriceText oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _ensureStream();
-  }
-
   @override
   Widget build(BuildContext context) {
     final double fallback = widget.knownLivePrice ?? widget.storedUnitPrice;
@@ -768,16 +737,21 @@ class _LiveUnitPriceTextState extends State<_LiveUnitPriceText> {
       );
     }
 
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: _productStream,
-      builder: (context, snapshot) {
-        // hasData is true the instant Firestore confirms there's no such
-        // doc, same as when it confirms there is one - exists is what
-        // tells the two apart. That's the admin having deleted this
-        // product after it was added to this cart, so this item needs to
-        // go too; the delete itself happens back up in cart_screen.dart's
-        // _handleProductGone (it owns the cart doc, not this row).
-        if (snapshot.hasData && snapshot.data?.exists == false) {
+    // ProductRepository is the single shared source of product data now
+    // (Supabase or Firestore underneath, depending on kUseSupabaseProducts;
+    // see product_repository.dart) - this replaces what used to be a
+    // per-row Firestore .snapshots() listener on this product's own doc.
+    return ValueListenableBuilder<List<Map<String, dynamic>>>(
+      valueListenable: ProductRepository.instance.productsNotifier,
+      builder: (context, products, _) {
+        final data = ProductRepository.instance.byId(widget.productId!);
+
+        // Only treated as "the admin deleted this product" once the
+        // repository has actually confirmed at least one real load -
+        // never off of an empty/not-yet-loaded list, which would
+        // otherwise look identical to "not found" and wrongly clear out
+        // every item in the cart on a cold start.
+        if (data == null && ProductRepository.instance.hasRefreshedOnce) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             widget.onProductGone(widget.docId, widget.productName);
           });
@@ -792,12 +766,12 @@ class _LiveUnitPriceTextState extends State<_LiveUnitPriceText> {
         }
 
         final double displayPrice = liveUnitPriceFromProductDoc(
-          snapshot.data?.data(),
+          data,
           widget.flavorName,
           widget.amount,
           fallback,
         );
-        if (snapshot.hasData) {
+        if (data != null) {
           widget.onLivePrice(widget.docId, displayPrice);
         }
         return Text(
