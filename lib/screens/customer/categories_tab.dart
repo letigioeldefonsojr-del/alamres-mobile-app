@@ -65,6 +65,13 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
   }
 
   Future<void> _pickSort() async {
+    // Without this, if the search field still technically has focus (e.g.
+    // the customer tapped it, then tapped Sort without typing anything),
+    // Flutter's FocusScope remembers that and restores it - silently
+    // reopening the keyboard - the moment this bottom sheet is dismissed.
+    // Same reasoning everywhere else in this file that pushes a route or
+    // opens a sheet/dialog while the search field is on screen.
+    FocusScope.of(context).unfocus();
     final selected = await showModalBottomSheet<ProductSortOption>(
       context: context,
       isScrollControlled: true,
@@ -227,6 +234,10 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16),
                       onTap: () {
+                        // See _pickSort's comment above - same fix, same
+                        // reason: otherwise the search field's keyboard can
+                        // reopen by itself when the customer comes back.
+                        FocusScope.of(context).unfocus();
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -357,10 +368,15 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
                                 final product = sorted[index];
                                 return ProductListTile(
                                   product: product,
-                                  onTap: () => showProductOptions(
-                                    context,
-                                    product: product,
-                                  ),
+                                  onTap: () {
+                                    // See _pickSort's comment above - same
+                                    // fix, same reason.
+                                    FocusScope.of(context).unfocus();
+                                    showProductOptions(
+                                      context,
+                                      product: product,
+                                    );
+                                  },
                                 );
                               },
                             );
@@ -390,10 +406,15 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
                               final product = sorted[index];
                               return ProductCard(
                                 product: product,
-                                onImageTap: () => showProductOptions(
-                                  context,
-                                  product: product,
-                                ),
+                                onImageTap: () {
+                                  // See _pickSort's comment above - same
+                                  // fix, same reason.
+                                  FocusScope.of(context).unfocus();
+                                  showProductOptions(
+                                    context,
+                                    product: product,
+                                  );
+                                },
                               );
                             },
                           );
@@ -462,6 +483,13 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
                           child: InkWell(
                             borderRadius: BorderRadius.circular(18),
                             onTap: () {
+                              // See _pickSort's comment above - this is the
+                              // exact "enter a category, exit, keyboard pops
+                              // up" case: the search field above can still
+                              // have focus even though it's empty and the
+                              // category grid (not search results) is what's
+                              // showing.
+                              FocusScope.of(context).unfocus();
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(

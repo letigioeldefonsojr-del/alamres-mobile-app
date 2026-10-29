@@ -26,16 +26,26 @@
 //      friendly "not set up yet" message instead of erroring, so the app's
 //      chat screen is fully testable before an Anthropic account exists.
 //
-// On top of plain Q&A, Claude can also call two read-only tools (see
-// firestore.js) to look up the real, live product catalog and the signed-in
-// customer's own orders - that's what lets it answer "is X in stock?" or
-// "where's my order?" instead of just guessing. Those tools only turn on
-// once FIREBASE_SERVICE_ACCOUNT_KEY is configured (also in
-// SETUP_CHATBOT.md); without it the chatbot still works, it just says so
-// instead of making up stock numbers or order statuses.
+// On top of plain Q&A, Claude can also call two read-only tools to look up
+// the real, live product catalog and the signed-in customer's own orders -
+// that's what lets it answer "is X in stock?" or "where's my order?"
+// instead of just guessing. Products are looked up from Supabase (see
+// supabase.js and USE_SUPABASE_PRODUCTS in wrangler.toml - that tool turns
+// on once SUPABASE_URL/SUPABASE_PUBLISHABLE_KEY are set, which they are by
+// default); orders are still looked up from Firestore (see firestore.js),
+// which only turns on once FIREBASE_SERVICE_ACCOUNT_KEY is configured (see
+// SETUP_CHATBOT.md). Either tool missing its own requirement just quietly
+// turns that one tool off rather than erroring - the chatbot still works
+// either way, it just says so instead of making up stock numbers or order
+// statuses.
 
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { listProducts, getOrderById, listRecentOrdersForUser } from './firestore.js';
+import {
+  listProducts as listProductsFirestore,
+  getOrderById,
+  listRecentOrdersForUser,
+} from './firestore.js';
+import { listProducts as listProductsSupabase } from './supabase.js';
 
 // Firebase ID tokens are signed with Google's securetoken key set - this is
 // the same public JWKS endpoint Firebase Admin SDKs use to verify them.
@@ -124,8 +134,10 @@ const TOOLS = [
 // Mirrors isDiscountActive() in lib/core/product_helpers.dart - a
 // discount only counts as live right now if discountPercent is positive
 // AND (there's no discountStart or it's already passed) AND (there's no
-// discountEnd or it hasn't passed yet). Dates come through from Firestore
-// as ISO 8601 strings (see fromFirestoreValue's timestampValue case).
+// discountEnd or it hasn't passed yet). Dates come through as ISO 8601
+// strings either way - from Firestore via fromFirestoreValue's
+// timestampValue case, or from Supabase's `extra` jsonb (see
+// supabase.js's productFromRow) - so Date.parse() works on either source.
 function isDiscountActive(p) {
   const percent = p.discountPercent;
   if (typeof percent !== 'number' || percent <= 0) return false;
@@ -347,10 +359,16 @@ function summarizeOrder(o) {
   };
 }
 
-async function runTool(name, input, env, uid) {
+async function runTool(name, input, env, uid, firebaseToken) {
   try {
     if (name === 'list_products') {
-      const products = await listProducts(env);
+      // USE_SUPABASE_PRODUCTS defaults to "true" (see wrangler.toml) -
+      // only an explicit "false" falls back to the old direct-Firestore
+      // path, kept intact in firestore.js for easy rollback.
+      const products =
+        env.USE_SUPABASE_PRODUCTS === 'false'
+          ? await listProductsFirestore(env)
+          : await listProductsSupabase(env, firebaseToken);
       const search = String(input?.search || '').trim().toLowerCase();
       const category = String(input?.category || '').trim().toLowerCase();
       const bestOnly = input?.best_sellers_only === true;
@@ -387,7 +405,7 @@ async function runTool(name, input, env, uid) {
   }
 }
 
-function buildSystemPrompt(hasFirestore) {
+function buildSystemPrompt({ hasProductLookup, hasOrderLookup }) {
   const base =
     'You are the customer support assistant for Almares 328, a wholesale ' +
     'grocery and sari-sari store in the Philippines. Be friendly, concise, ' +
@@ -403,16 +421,34 @@ function buildSystemPrompt(hasFirestore) {
     'rarely, Rejected / Cancelled / Unable to Deliver) - customers can check ' +
     'status anytime under Profile > My Orders.';
 
-  const toolGuidance = hasFirestore
-    ? '\n\nYou have tools to look up the real, current product catalog ' +
+  let toolGuidance;
+  if (hasProductLookup && hasOrderLookup) {
+    toolGuidance =
+      '\n\nYou have tools to look up the real, current product catalog ' +
       "(prices, stock, best sellers, discounts) and this customer's own " +
       'orders. Always call a tool instead of guessing when asked about a ' +
       'specific product, stock, or an order - never invent a price, stock ' +
       'count, or order status. If a tool returns no results or an error, ' +
-      'say so plainly instead of making something up.'
-    : "\n\nYou do not currently have live access to this store's product " +
+      'say so plainly instead of making something up.';
+  } else if (hasProductLookup) {
+    toolGuidance =
+      '\n\nYou have a tool to look up the real, current product catalog ' +
+      '(prices, stock, best sellers, discounts) - always call it instead ' +
+      'of guessing when asked about a specific product or stock. You do ' +
+      "not currently have access to this customer's order data, so say so " +
+      'if asked about an order instead of guessing.';
+  } else if (hasOrderLookup) {
+    toolGuidance =
+      "\n\nYou have a tool to look up this customer's own orders - always " +
+      'call it instead of guessing when asked about an order. You do not ' +
+      'currently have live access to the product catalog or stock levels, ' +
+      'so say so if asked for either instead of guessing.';
+  } else {
+    toolGuidance =
+      "\n\nYou do not currently have live access to this store's product " +
       'catalog, stock levels, or order data, so say so if asked for any of ' +
       'that instead of guessing.';
+  }
 
   const formattingGuidance =
     '\n\nYour replies are shown in a simple chat bubble that renders basic ' +
@@ -492,9 +528,21 @@ export default {
       );
     }
 
-    const hasFirestore =
+    // Order lookups always need the Firestore service account (orders
+    // stayed on Firestore). Product lookups need Supabase's vars when
+    // USE_SUPABASE_PRODUCTS is on (the default - see wrangler.toml; those
+    // vars are non-secret and always set), or fall back to needing that
+    // same service account when it's explicitly turned off.
+    const hasOrderLookup =
       typeof env.FIREBASE_SERVICE_ACCOUNT_KEY === 'string' &&
       env.FIREBASE_SERVICE_ACCOUNT_KEY.trim().length > 0;
+    const hasProductLookup =
+      env.USE_SUPABASE_PRODUCTS === 'false'
+        ? hasOrderLookup
+        : typeof env.SUPABASE_URL === 'string' &&
+          env.SUPABASE_URL.length > 0 &&
+          typeof env.SUPABASE_PUBLISHABLE_KEY === 'string' &&
+          env.SUPABASE_PUBLISHABLE_KEY.length > 0;
 
     // --- 3. Parse the conversation sent by the app. ---
     let body;
@@ -511,7 +559,15 @@ export default {
 
     // --- 4. Call Claude, letting it call tools (if configured) before it
     // gives its final answer. ---
-    const system = buildSystemPrompt(hasFirestore);
+    const system = buildSystemPrompt({ hasProductLookup, hasOrderLookup });
+    // Only offer the tools Claude can actually use right now - never a
+    // tool whose own requirement (above) isn't met, so it can't be called
+    // only to fail.
+    const availableTools = TOOLS.filter(
+      (t) =>
+        (t.name === 'list_products' && hasProductLookup) ||
+        (t.name === 'get_order_status' && hasOrderLookup),
+    );
     const messages = [...incomingMessages];
     const MAX_TOOL_ROUNDS = 4;
     // Tallied across every round below (a single customer message can mean
@@ -534,7 +590,7 @@ export default {
             max_tokens: 1500,
             system,
             messages,
-            ...(hasFirestore ? { tools: TOOLS } : {}),
+            ...(availableTools.length > 0 ? { tools: availableTools } : {}),
           }),
         });
 
@@ -564,7 +620,7 @@ export default {
         if (data.stop_reason === 'tool_use' && toolUses.length > 0 && round < MAX_TOOL_ROUNDS) {
           const toolResults = [];
           for (const toolUse of toolUses) {
-            const result = await runTool(toolUse.name, toolUse.input, env, uid);
+            const result = await runTool(toolUse.name, toolUse.input, env, uid, token);
             toolResults.push({
               type: 'tool_result',
               tool_use_id: toolUse.id,

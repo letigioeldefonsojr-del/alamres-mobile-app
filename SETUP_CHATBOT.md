@@ -5,6 +5,11 @@ Anthropic's Claude. The app code is already in place and will run right
 now — until you finish the steps below, it just shows a friendly
 "not connected yet" message instead of a real AI reply.
 
+Steps 1–8 get you a working general-purpose assistant. Step 9 is optional
+but recommended — it's what lets the assistant actually look up real
+products, stock, and order status instead of just answering generically
+("I don't have access to live data").
+
 ## Why there's an extra "cloudflare-worker" folder
 
 Claude's API needs a secret API key to work. That key must **never** be
@@ -134,12 +139,61 @@ still missing (model not set, key not set), you'll see the friendly
 "not connected yet" message instead of a crash — so you can tell at a
 glance what's left.
 
-## If you ever want to change the model or rotate the key later
+## Step 9 — Connect it to your store's real data (optional, recommended)
+
+The product catalog (prices, stock, best sellers, discounts) is already
+connected out of the box — it reads from the same Supabase backend the
+app itself uses for products (see `USE_SUPABASE_PRODUCTS` in
+`wrangler.toml`), with no extra setup needed. This step is what's still
+missing: without it, a customer asking "where's my order?" gets told the
+assistant doesn't have access to order data — because it genuinely
+doesn't yet. This step gives it a read-only connection to your Firestore
+database (orders stayed on Firestore) so it can look up the signed-in
+customer's own orders.
+
+It works through a **Firebase service account** — a special key that lets
+the Worker read your Firestore data directly, the same way the Firebase
+Admin SDK would, without going through the app's normal sign-in rules.
+
+1. Open the [Firebase console](https://console.firebase.google.com),
+   select this project, then go to the gear icon → **Project settings** →
+   **Service accounts** tab.
+2. Click **Generate new private key**. It downloads a `.json` file —
+   treat it like a password; anyone with it can read your whole database.
+   Don't commit it, don't email it, don't paste its contents anywhere
+   except the command below.
+3. Store its entire contents as a secret. From the `cloudflare-worker`
+   folder, the safest way (avoids any issue with the key's embedded line
+   breaks) is to pipe the file straight in instead of pasting it by hand:
+
+   **Windows (PowerShell):**
+   ```
+   Get-Content "C:\path\to\the-downloaded-file.json" -Raw | npx wrangler secret put FIREBASE_SERVICE_ACCOUNT_KEY
+   ```
+
+   **macOS/Linux:**
+   ```
+   cat /path/to/the-downloaded-file.json | npx wrangler secret put FIREBASE_SERVICE_ACCOUNT_KEY
+   ```
+4. Deploy again:
+   ```
+   npx wrangler deploy
+   ```
+5. Delete the downloaded `.json` file from your computer once it's
+   stored — Cloudflare now holds the only copy you need.
+
+That's it — no app changes or rebuild needed. Try asking the chat
+assistant something like "what's in stock under Beverages?" or "what's
+the status of my last order?" to confirm it's working.
+
+## If you ever want to change the model or rotate a key later
 
 - New model: edit `CLAUDE_MODEL` in `wrangler.toml`, then run
   `npx wrangler deploy` again.
-- New/rotated key: run `npx wrangler secret put ANTHROPIC_API_KEY` again
-  with the new value, then `npx wrangler deploy`.
+- New/rotated Claude key: run `npx wrangler secret put ANTHROPIC_API_KEY`
+  again with the new value, then `npx wrangler deploy`.
+- New/rotated Firebase service account key: repeat Step 9 with the new
+  file, then `npx wrangler deploy`.
 
-No app changes or app rebuild are ever needed for either of those — they
+No app changes or app rebuild are ever needed for any of those — they
 only touch the Worker.

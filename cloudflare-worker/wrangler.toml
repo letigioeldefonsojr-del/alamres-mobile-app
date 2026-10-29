@@ -16,18 +16,35 @@ CLAUDE_MODEL = "claude-haiku-5-5"
 # initialize the OneSignal SDK on-device. Safe to commit.
 ONESIGNAL_APP_ID = "c3b735fb-99e4-49be-8f63-e8606b95d918"
 
+# Products moved from Firestore to Supabase on the app side (see the
+# Flutter app's kUseSupabaseProducts) - the chatbot's product lookups now
+# go through the same backend instead of Firestore's `products` collection,
+# which that migration left frozen with old sample data. Like
+# ONESIGNAL_APP_ID above, this key is NOT a secret - it's the same public
+# publishable key already shipped inside the Flutter app
+# (lib/core/constants.dart's kSupabasePublishableKey), safe to commit here
+# too. Set USE_SUPABASE_PRODUCTS to "false" to instantly revert the
+# chatbot's product lookups to the old direct-Firestore path in
+# src/firestore.js (kept intact, not deleted) if anything here needs
+# rolling back - that path still needs FIREBASE_SERVICE_ACCOUNT_KEY below.
+USE_SUPABASE_PRODUCTS = "true"
+SUPABASE_URL = "https://jytrozeqqdyhzrafvfat.supabase.co"
+SUPABASE_PUBLISHABLE_KEY = "sb_publishable_cl2ddz-5ZPYxjuqhls6AGQ_2eIuqpcK"
+
 # ANTHROPIC_API_KEY is NOT set here - it's a real secret. Set it with:
 #   npx wrangler secret put ANTHROPIC_API_KEY
 # (see SETUP_CHATBOT.md). That stores it encrypted on Cloudflare, not in
 # this file, so it never ends up in git.
 
 # FIREBASE_SERVICE_ACCOUNT_KEY is also NOT set here - also a real secret.
-# It's what lets the chatbot look up real products, stock, and order
-# status from Firestore instead of just answering generic questions. Set
-# it with (see SETUP_CHATBOT.md for where to get the key file):
+# It's what lets the chatbot look up a signed-in customer's own order
+# status from Firestore (products are looked up from Supabase instead now
+# - see USE_SUPABASE_PRODUCTS above - so this is no longer needed for
+# that). Set it with (see SETUP_CHATBOT.md for where to get the key file):
 #   npx wrangler secret put FIREBASE_SERVICE_ACCOUNT_KEY
-# Optional: the chatbot still works without this, it just can't look up
-# live store data until it's set.
+# Optional: the chatbot still works without this, it just can't look up a
+# customer's order status until it's set (or, if USE_SUPABASE_PRODUCTS is
+# ever set back to "false", product lookups too).
 
 # ONESIGNAL_REST_API_KEY is also NOT set here - also a real secret (the
 # most sensitive one here, actually: anyone who has it can push a

@@ -41,6 +41,13 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
   }
 
   Future<void> _pickSort() async {
+    // Without this, if the search field still technically has focus (e.g.
+    // the customer tapped it, then tapped Sort without typing anything),
+    // Flutter's FocusScope remembers that and restores it - silently
+    // reopening the keyboard - the moment this bottom sheet is dismissed.
+    // Same reasoning everywhere else in this file that opens a sheet while
+    // the search field is on screen.
+    FocusScope.of(context).unfocus();
     final selected = await showModalBottomSheet<ProductSortOption>(
       context: context,
       isScrollControlled: true,
@@ -219,10 +226,15 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
                                 isBestSelling: bestSellingIds.contains(
                                   product['id'],
                                 ),
-                                onTap: () => showProductOptions(
-                                  context,
-                                  product: product,
-                                ),
+                                onTap: () {
+                                  // See _pickSort's comment above - same
+                                  // fix, same reason.
+                                  FocusScope.of(context).unfocus();
+                                  showProductOptions(
+                                    context,
+                                    product: product,
+                                  );
+                                },
                               );
                             },
                           );
@@ -255,10 +267,15 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
                               isBestSelling: bestSellingIds.contains(
                                 product['id'],
                               ),
-                              onImageTap: () => showProductOptions(
-                                context,
-                                product: product,
-                              ),
+                              onImageTap: () {
+                                // See _pickSort's comment above - same fix,
+                                // same reason.
+                                FocusScope.of(context).unfocus();
+                                showProductOptions(
+                                  context,
+                                  product: product,
+                                );
+                              },
                             );
                           },
                         );
