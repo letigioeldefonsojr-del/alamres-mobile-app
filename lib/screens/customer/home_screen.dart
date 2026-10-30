@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/focus_helpers.dart';
 import 'categories_tab.dart';
 import 'chat_screen.dart';
 import 'home_tab.dart';
@@ -257,6 +258,13 @@ class _HomeScreenState extends State<HomeScreen> {
     // same ChatConversation singleton (see chat_conversation.dart), so the
     // full-screen view already shows the exact same conversation the
     // moment it opens, reply-in-progress and all.
+    //
+    // clearKeyboardFocus here covers the same keyboard-reopens-by-itself
+    // bug as the category/product screens - whatever tab is underneath
+    // (e.g. Categories, still focused on its search field) would otherwise
+    // silently regain that focus, and its keyboard, the moment this pushed
+    // ChatScreen is popped back.
+    clearKeyboardFocus(context);
     setState(() => _isChatOpen = false);
     Navigator.push(
       context,
@@ -344,7 +352,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: Colors.white,
                       size: 20,
                     ),
-                    onPressed: () => setState(() => _isChatOpen = false),
+                    onPressed: () {
+                      // Covers the chat panel's own input field the same
+                      // way - closing it this way shouldn't leave it (or
+                      // whatever had focus underneath) able to silently
+                      // reopen the keyboard later.
+                      clearKeyboardFocus(context);
+                      setState(() => _isChatOpen = false);
+                    },
                   ),
                 ],
               ),
@@ -381,7 +396,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ignoring: !_isChatOpen,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: () => setState(() => _isChatOpen = false),
+                onTap: () {
+                  clearKeyboardFocus(context);
+                  setState(() => _isChatOpen = false);
+                },
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
                   child: Container(color: Colors.black.withValues(alpha: 0.15)),
@@ -439,7 +457,14 @@ class _HomeScreenState extends State<HomeScreen> {
         child: FloatingActionButton(
           heroTag: 'chatAssistantFab',
           backgroundColor: primaryGreen,
-          onPressed: () => setState(() => _isChatOpen = !_isChatOpen),
+          onPressed: () {
+            // Covers opening the chat too - otherwise a search field
+            // focused on whichever tab is underneath can keep that focus
+            // the whole time chat is open and silently reclaim the
+            // keyboard once chat closes.
+            clearKeyboardFocus(context);
+            setState(() => _isChatOpen = !_isChatOpen);
+          },
           child: Icon(
             _isChatOpen ? Icons.close : Icons.smart_toy_outlined,
             color: Colors.white,

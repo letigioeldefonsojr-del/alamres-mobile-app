@@ -7,6 +7,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../../core/routing.dart';
 import '../../core/validators.dart';
 import '../../core/ph_locations.dart';
+import '../../services/login_guard_api.dart';
 import 'address_picker_screen.dart';
 import 'home_screen.dart';
 
@@ -378,14 +379,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // A mobile number must map to exactly one account, regardless of
       // whether an email was given - two customers could otherwise end up
       // sharing one number, which would make phone-number login pick the
-      // wrong account.
+      // wrong account. Firestore's `users` collection isn't publicly
+      // readable anymore (only a signed-in customer can read their own
+      // doc), and there's no signed-in customer yet at sign-up - so this
+      // goes through the login-guard Supabase function instead of a direct
+      // Firestore query.
       try {
-        final existing = await FirebaseFirestore.instance
-            .collection('users')
-            .where('mobileNumber', isEqualTo: mobileDigits)
-            .limit(1)
-            .get();
-        if (existing.docs.isNotEmpty) {
+        final taken = await LoginGuardApi.instance.checkTaken(
+          mobile: mobileDigits,
+        );
+        if (taken.mobileTaken) {
           throw FirebaseAuthException(
             code: 'mobile-already-in-use',
             message: 'An account already exists for that mobile number.',
@@ -395,9 +398,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         rethrow;
       } catch (_) {
         // This lookup is a nice-to-have early check, not a hard
-        // requirement - if it can't run (e.g. no network yet), don't
-        // block registration on it. Firebase Auth will still catch a
-        // genuine duplicate email if one was given.
+        // requirement - if it can't run (e.g. no network yet, or it's been
+        // rate-limited), don't block registration on it. Firebase Auth
+        // will still catch a genuine duplicate email if one was given.
       }
 
       final credential = await FirebaseAuth.instance

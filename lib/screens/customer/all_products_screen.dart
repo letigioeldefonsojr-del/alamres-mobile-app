@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/cart_helpers.dart';
+import '../../core/focus_helpers.dart';
 import '../../core/product_helpers.dart';
 import '../../core/search_helpers.dart';
 import '../../core/product_view_preference.dart';
@@ -41,13 +42,13 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
   }
 
   Future<void> _pickSort() async {
-    // Without this, if the search field still technically has focus (e.g.
-    // the customer tapped it, then tapped Sort without typing anything),
-    // Flutter's FocusScope remembers that and restores it - silently
-    // reopening the keyboard - the moment this bottom sheet is dismissed.
-    // Same reasoning everywhere else in this file that opens a sheet while
-    // the search field is on screen.
-    FocusScope.of(context).unfocus();
+    // See clearKeyboardFocus's doc comment - without this, if the search
+    // field still technically has focus (e.g. the customer tapped it, then
+    // tapped Sort without typing anything), the keyboard can reopen by
+    // itself the moment this bottom sheet is dismissed. Same reasoning
+    // everywhere else in this file that opens a sheet while the search
+    // field is on screen.
+    clearKeyboardFocus(context);
     final selected = await showModalBottomSheet<ProductSortOption>(
       context: context,
       isScrollControlled: true,
@@ -229,7 +230,7 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
                                 onTap: () {
                                   // See _pickSort's comment above - same
                                   // fix, same reason.
-                                  FocusScope.of(context).unfocus();
+                                  clearKeyboardFocus(context);
                                   showProductOptions(
                                     context,
                                     product: product,
@@ -270,7 +271,7 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
                               onImageTap: () {
                                 // See _pickSort's comment above - same fix,
                                 // same reason.
-                                FocusScope.of(context).unfocus();
+                                clearKeyboardFocus(context);
                                 showProductOptions(
                                   context,
                                   product: product,

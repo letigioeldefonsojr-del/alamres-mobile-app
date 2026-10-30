@@ -206,22 +206,38 @@ class SupabaseProductsApi {
 
   /// Compensates a successful [applySale] when something downstream (the
   /// Firestore order write) failed afterwards - puts the deducted stock
-  /// back. Best-effort and never throws: the order was never created
-  /// either way, and there's nothing more useful this app can do with a
-  /// second failure here than leave the stock under-counted until it's
-  /// next reconciled.
+  /// back. Best-effort and never throws: in that checkout-failure case the
+  /// order was never created either way, and there's nothing more useful
+  /// this app can do with a second failure here than leave the stock
+  /// under-counted until it's next reconciled.
+  ///
+  /// [items] is omitted when giving back everything a whole order
+  /// deducted, rather than compensating one specific checkout attempt -
+  /// see order_details_screen.dart's cancel flow, which calls this with
+  /// just [ref] (the order id) and lets the server work out what that
+  /// order's own app_apply_sale call took. The server only restocks a
+  /// given [ref] once; a repeat call (the order was already restocked)
+  /// comes back as an error this treats as a success, not a real failure,
+  /// same best-effort/never-throws reasoning as above.
   Future<void> restock({
-    required List<CheckoutItem> items,
+    List<CheckoutItem>? items,
     required String ref,
   }) async {
     try {
       await _call({
         'action': 'app_restock',
-        'items': items.map((i) => i.toJson()).toList(),
+        if (items != null) 'items': items.map((i) => i.toJson()).toList(),
         'ref': ref,
       });
-    } catch (_) {
-      // Best-effort - see doc comment above.
+    } on SupabaseApiException catch (e) {
+      // Nothing left to restock for this ref (e.g. already restocked, or
+      // nothing was ever deducted for it) - not a real failure.
+      if (e.code == 'nothing_to_restock') return;
+      debugPrint('restock failed: $e');
+    } catch (e) {
+      // Best-effort - see doc comment above. Logged (not surfaced to the
+      // customer) so a genuine, recurring failure is still discoverable.
+      debugPrint('restock failed: $e');
     }
   }
 

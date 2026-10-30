@@ -134,6 +134,18 @@ const String kSupabasePublishableKey =
 const String kSupabaseStoreApiUrl =
     '$kSupabaseUrl/functions/v1/store-api';
 
+// --- Supabase login guard ---------------------------------------------------
+//
+// Firestore's `users` collection used to be readable by anyone, which is
+// what let this app query it before a customer was even signed in: turning
+// a typed mobile number into a sign-in email at login, and checking whether
+// a mobile number/email was already registered at sign-up. Tightening the
+// security rules so `users` can only be read by its own signed-in owner
+// broke both of those - there's no "signed-in owner" yet at that point. This
+// Edge Function answers those two narrow questions instead, without needing
+// a Firebase ID token (see login_guard_api.dart).
+const String kSupabaseLoginGuardUrl = '$kSupabaseUrl/functions/v1/login-guard';
+
 // --- Supabase staff notifications migration --------------------------------
 //
 // Same backend/reasoning as kUseSupabaseProducts above (one Supabase Edge

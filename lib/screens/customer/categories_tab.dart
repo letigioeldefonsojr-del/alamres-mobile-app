@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/constants.dart';
+import '../../core/focus_helpers.dart';
 import '../../core/product_helpers.dart';
 import '../../core/product_view_preference.dart';
 import '../../core/search_helpers.dart';
@@ -65,13 +66,13 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
   }
 
   Future<void> _pickSort() async {
-    // Without this, if the search field still technically has focus (e.g.
-    // the customer tapped it, then tapped Sort without typing anything),
-    // Flutter's FocusScope remembers that and restores it - silently
-    // reopening the keyboard - the moment this bottom sheet is dismissed.
-    // Same reasoning everywhere else in this file that pushes a route or
-    // opens a sheet/dialog while the search field is on screen.
-    FocusScope.of(context).unfocus();
+    // See clearKeyboardFocus's doc comment - without this, if the search
+    // field still technically has focus (e.g. the customer tapped it, then
+    // tapped Sort without typing anything), the keyboard can reopen by
+    // itself the moment this bottom sheet is dismissed. Same reasoning
+    // everywhere else in this file that pushes a route or opens a
+    // sheet/dialog while the search field is on screen.
+    clearKeyboardFocus(context);
     final selected = await showModalBottomSheet<ProductSortOption>(
       context: context,
       isScrollControlled: true,
@@ -235,9 +236,8 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
                       borderRadius: BorderRadius.circular(16),
                       onTap: () {
                         // See _pickSort's comment above - same fix, same
-                        // reason: otherwise the search field's keyboard can
-                        // reopen by itself when the customer comes back.
-                        FocusScope.of(context).unfocus();
+                        // reason.
+                        clearKeyboardFocus(context);
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -371,7 +371,7 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
                                   onTap: () {
                                     // See _pickSort's comment above - same
                                     // fix, same reason.
-                                    FocusScope.of(context).unfocus();
+                                    clearKeyboardFocus(context);
                                     showProductOptions(
                                       context,
                                       product: product,
@@ -409,7 +409,7 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
                                 onImageTap: () {
                                   // See _pickSort's comment above - same
                                   // fix, same reason.
-                                  FocusScope.of(context).unfocus();
+                                  clearKeyboardFocus(context);
                                   showProductOptions(
                                     context,
                                     product: product,
@@ -489,7 +489,7 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
                               // have focus even though it's empty and the
                               // category grid (not search results) is what's
                               // showing.
-                              FocusScope.of(context).unfocus();
+                              clearKeyboardFocus(context);
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(

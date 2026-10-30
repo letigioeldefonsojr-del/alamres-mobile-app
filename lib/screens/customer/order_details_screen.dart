@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/constants.dart';
 import '../../core/order_helpers.dart';
+import '../../services/supabase_products.dart';
 import '../../widgets/order_item_card.dart';
 import '../order_items_list_screen.dart';
 import 'cart_order_confirmation_screen.dart';
@@ -429,6 +431,18 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
           .doc(widget.orderId)
           .update({'status': 'cancelled', 'cancelReason': reason});
 
+      // Gives back whatever this order's own app_apply_sale deducted at
+      // checkout - only relevant when products actually live on Supabase
+      // (see kUseSupabaseProducts); the old Firestore-only stock path is
+      // untouched. restock() is best-effort and never throws (see its doc
+      // comment in supabase_products.dart), so a failure here can't undo
+      // the cancellation above or need its own error message - the
+      // cancellation the customer asked for has already succeeded either
+      // way.
+      if (kUseSupabaseProducts) {
+        await SupabaseProductsApi.instance.restock(ref: widget.orderId);
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -521,6 +535,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         status == 'undelivered';
     final String? deliveryIssueReason = data['deliveryIssueReason'] as String?;
     final String? cancelReason = data['cancelReason'] as String?;
+    final String? rejectReason = data['rejectReason'] as String?;
     // Pickup orders follow their own admin-side lifecycle (ready_for_pickup
     // instead of on_the_way) - never both in the same order, so this picks
     // whichever 4-stage list actually matches how this particular order
@@ -580,7 +595,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               const SizedBox(height: 28),
             ],
             if ((status == 'undelivered' && deliveryIssueReason != null) ||
-                (status == 'cancelled' && cancelReason != null)) ...[
+                (status == 'cancelled' && cancelReason != null) ||
+                (status == 'rejected' &&
+                    rejectReason != null &&
+                    rejectReason.isNotEmpty)) ...[
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -605,6 +623,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                           Text(
                             status == 'cancelled'
                                 ? 'Order Cancelled'
+                                : status == 'rejected'
+                                ? 'Order Rejected'
                                 : 'Unable to be Delivered',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
@@ -614,7 +634,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Reason: ${status == 'cancelled' ? cancelReason : deliveryIssueReason}',
+                            status == 'rejected'
+                                ? 'Reason for rejection: $rejectReason'
+                                : 'Reason: ${status == 'cancelled' ? cancelReason : deliveryIssueReason}',
                             style: TextStyle(
                               fontSize: 12.5,
                               color: Colors.redAccent.shade700,

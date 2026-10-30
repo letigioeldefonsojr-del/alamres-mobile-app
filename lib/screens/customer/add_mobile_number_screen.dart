@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
+import '../../services/login_guard_api.dart';
 
 /// Mandatory gate screen shown when the signed-in customer's account has
 /// no mobile number on file (this happens for accounts created through
@@ -52,15 +53,21 @@ class _AddMobileNumberScreenState extends State<AddMobileNumberScreen> {
       }
 
       // A mobile number must map to exactly one account, same rule as
-      // registration - otherwise phone-number login could pick the
-      // wrong account.
-      final existing = await FirebaseFirestore.instance
-          .collection('users')
-          .where('mobileNumber', isEqualTo: mobileDigits)
-          .limit(1)
-          .get();
-      if (existing.docs.isNotEmpty &&
-          existing.docs.first.id != user.uid) {
+      // registration - otherwise phone-number login could pick the wrong
+      // account. Firestore's `users` collection isn't publicly readable
+      // anymore (only a signed-in customer can read their own doc), and a
+      // collection-wide query like this used to be needs read access to
+      // every matched doc, not just the caller's own, so it now goes
+      // through the login-guard Supabase function instead - same one
+      // login/register use. This screen is only ever shown to a customer
+      // with no mobile number on file yet (see the class doc comment), so
+      // there's no "this is already my own saved number" case to guard
+      // against here - whatever they type is necessarily different from
+      // what's on their profile (nothing).
+      final taken = await LoginGuardApi.instance.checkTaken(
+        mobile: mobileDigits,
+      );
+      if (taken.mobileTaken) {
         setState(() {
           _isSubmitting = false;
           _errorMessage = 'An account already exists for that mobile number.';
@@ -75,6 +82,11 @@ class _AddMobileNumberScreenState extends State<AddMobileNumberScreen> {
 
       if (!mounted) return;
       Navigator.of(context).pop();
+    } on LoginGuardRateLimitException {
+      setState(() {
+        _isSubmitting = false;
+        _errorMessage = 'Too many attempts, please wait a moment and try again.';
+      });
     } catch (e) {
       setState(() {
         _isSubmitting = false;

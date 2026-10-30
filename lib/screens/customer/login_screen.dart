@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../services/login_guard_api.dart';
 import '../../services/onesignal_service.dart';
 import '../../services/suspension_service.dart';
 import '../../widgets/suspended_account_overlay.dart';
@@ -149,6 +150,8 @@ class _LoginScreenState extends State<LoginScreen> {
     switch (e.code) {
       case 'user-not-found':
         return 'No account found for that email.';
+      case 'mobile-not-found':
+        return 'No account found for that mobile number.';
       case 'wrong-password':
       case 'invalid-credential':
         return 'Incorrect email or password.';
@@ -227,47 +230,32 @@ class _LoginScreenState extends State<LoginScreen> {
       if (input.contains('@')) {
         email = input;
       } else {
-        final digitsOnly = input.replaceAll(RegExp(r'[^0-9]'), '');
-        // No .limit(1) - if more than one account record shares this
-        // mobile number (e.g. a leftover/duplicate from earlier testing),
-        // pick the one that actually resolves to a sign-in email instead
-        // of blindly taking whichever one Firestore returns first.
-        final query = await FirebaseFirestore.instance
-            .collection('users')
-            .where('mobileNumber', isEqualTo: digitsOnly)
-            .get();
-
-        if (query.docs.isEmpty) {
+        // Firestore's `users` collection isn't publicly readable anymore
+        // (only a signed-in customer can read their own doc), and there's
+        // no signed-in customer yet at this point - so this goes through
+        // the login-guard Supabase function instead of a direct Firestore
+        // query. It already resolves to whichever email Firebase Auth
+        // actually has on file for the account (the real one if given,
+        // otherwise the synthetic phone-only placeholder), same as the
+        // authEmail-then-email fallback this used to do by hand.
+        final String? resolvedEmail = await LoginGuardApi.instance
+            .resolveMobileToEmail(input);
+        if (resolvedEmail == null) {
+          // Deliberately a different code from Firebase Auth's own
+          // 'user-not-found' below (same code, different cause: that one
+          // means the *resolved* email has no Firebase Auth account - a
+          // data mismatch worth telling apart from "login-guard didn't
+          // recognize this mobile number at all"). _mapAuthError's old,
+          // single 'user-not-found' case used to show "No account found
+          // for that email." even when the customer had typed a mobile
+          // number, which was confusing and masked which lookup actually
+          // failed.
           throw FirebaseAuthException(
-            code: 'user-not-found',
+            code: 'mobile-not-found',
             message: 'No account found for that mobile number.',
           );
         }
-
-        String? foundEmail;
-        for (final doc in query.docs) {
-          final data = doc.data();
-          // authEmail is what Firebase Auth actually has on file for this
-          // account - set for every account registered with the phone-only
-          // flow (it's a real email if they gave one, otherwise a
-          // synthetic placeholder). Older accounts predating that field
-          // fall back to the plain email column.
-          final String? candidate =
-              (data['authEmail'] as String?) ?? (data['email'] as String?);
-          if (candidate != null && candidate.isNotEmpty) {
-            foundEmail = candidate;
-            break;
-          }
-        }
-        if (foundEmail == null) {
-          // Every matching account record has no usable email on file -
-          // sign in with email instead of crashing on a null cast.
-          throw FirebaseAuthException(
-            code: 'no-email-on-file',
-            message: 'This account has no email on file.',
-          );
-        }
-        email = foundEmail;
+        email = resolvedEmail;
       }
 
       await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -310,6 +298,12 @@ class _LoginScreenState extends State<LoginScreen> {
       // only warning shown - no snackbar as well, so there's just one
       // place to look.
       setState(() => _errorMessage = _mapAuthError(e));
+    } on LoginGuardRateLimitException {
+      if (!mounted) return;
+      setState(
+        () => _errorMessage =
+            'Too many attempts, please wait a moment and try again.',
+      );
     } catch (e) {
       // Catch-all so an unexpected error always surfaces some feedback
       // instead of leaving the customer staring at a spinner that quietly
