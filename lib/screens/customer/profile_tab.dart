@@ -8,7 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/constants.dart';
 import '../../core/dialog_helpers.dart';
+import '../../core/order_helpers.dart';
 import '../../core/routing.dart';
+import '../../services/customer_profile_cache.dart';
 import '../../services/onesignal_service.dart';
 import '../../widgets/profile_menu_tile.dart';
 import 'edit_profile_screen.dart';
@@ -39,6 +41,18 @@ class _ProfileTabState extends State<ProfileTab> {
     super.initState();
     _loadMobileNumber();
     _loadAppVersion();
+    _loadOrderStats();
+    // Refetch the stat badge once, right after this tab's own place/
+    // cancel/rate actions - not a live listener, so an unrelated order
+    // elsewhere (another device, the admin side) doesn't cost this tab a
+    // re-render it didn't ask for.
+    ordersChangedSignal.addListener(_loadOrderStats);
+  }
+
+  @override
+  void dispose() {
+    ordersChangedSignal.removeListener(_loadOrderStats);
+    super.dispose();
   }
 
   Future<void> _loadAppVersion() async {
@@ -56,12 +70,10 @@ class _ProfileTabState extends State<ProfileTab> {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       bool appUpdatesEnabled = false;
       if (uid != null) {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(uid)
-            .get();
-        final prefs =
-            userDoc.data()?['notificationPrefs'] as Map<String, dynamic>?;
+        final data = await CustomerProfileCache.instance.getProfile(
+          uid: uid,
+        );
+        final prefs = data?['notificationPrefs'] as Map<String, dynamic>?;
         appUpdatesEnabled = (prefs?['appUpdates'] as bool?) ?? false;
       }
       if (!appUpdatesEnabled) return;
@@ -107,29 +119,44 @@ class _ProfileTabState extends State<ProfileTab> {
     return false;
   }
 
-  Stream<Map<String, int>> _orderStatsStream() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) {
-      return Stream.value({'total': 0, 'delivered': 0, 'pending': 0});
-    }
+  // Was a live `.snapshots()` listener kept open for as long as this tab
+  // was mounted - this badge only ever needs to change right after this
+  // same customer places/cancels/rates an order (see ordersChangedSignal
+  // above), so a one-time `.get()` refetched on that signal gets the same
+  // result without paying for a standing listener the rest of the time.
+  Map<String, int> _orderStats = const {
+    'total': 0,
+    'delivered': 0,
+    'pending': 0,
+  };
 
-    return FirebaseFirestore.instance
-        .collection('orders')
-        .where('userId', isEqualTo: uid)
-        .snapshots()
-        .map((snapshot) {
-          int total = snapshot.docs.length;
-          int delivered = 0;
-          int pending = 0;
-          for (final doc in snapshot.docs) {
-            final status = (doc.data()['status'] ?? '')
-                .toString()
-                .toLowerCase();
-            if (status == 'delivered') delivered++;
-            if (status == 'pending') pending++;
-          }
-          return {'total': total, 'delivered': delivered, 'pending': pending};
-        });
+  Future<void> _loadOrderStats() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('orders')
+          .where('userId', isEqualTo: uid)
+          .get();
+      int total = snapshot.docs.length;
+      int delivered = 0;
+      int pending = 0;
+      for (final doc in snapshot.docs) {
+        final status = (doc.data()['status'] ?? '').toString().toLowerCase();
+        if (status == 'delivered') delivered++;
+        if (status == 'pending') pending++;
+      }
+      if (!mounted) return;
+      setState(() {
+        _orderStats = {
+          'total': total,
+          'delivered': delivered,
+          'pending': pending,
+        };
+      });
+    } catch (_) {
+      // Non-critical - badge just keeps showing whatever it last had.
+    }
   }
 
   String get _displayName {
@@ -148,11 +175,8 @@ class _ProfileTabState extends State<ProfileTab> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
-      final number = doc.data()?['mobileNumber'] as String?;
+      final data = await CustomerProfileCache.instance.getProfile(uid: uid);
+      final number = data?['mobileNumber'] as String?;
       if (mounted && number != null && number.trim().isNotEmpty) {
         setState(() => _mobileNumber = number);
       }
@@ -215,6 +239,9 @@ class _ProfileTabState extends State<ProfileTab> {
       await secureStorage.delete(key: 'savedLoginPassword');
     } catch (_) {}
 
+    // So a different account signing in right after on this same device
+    // never sees this customer's still-fresh cached profile.
+    CustomerProfileCache.instance.clear();
     await FirebaseAuth.instance.signOut();
 
     if (!mounted) return;
@@ -309,6 +336,7 @@ class _ProfileTabState extends State<ProfileTab> {
           .doc(user.uid)
           .delete();
       await user.delete();
+      CustomerProfileCache.instance.clear();
 
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
@@ -471,37 +499,29 @@ class _ProfileTabState extends State<ProfileTab> {
                     ),
                   ],
                 ),
-                child: StreamBuilder<Map<String, int>>(
-                  stream: _orderStatsStream(),
-                  builder: (context, snapshot) {
-                    final stats =
-                        snapshot.data ??
-                        const {'total': 0, 'delivered': 0, 'pending': 0};
-                    return Row(
-                      children: [
-                        Expanded(
-                          child: _StatItem(
-                            value: '${stats['total']}',
-                            label: 'Orders',
-                          ),
-                        ),
-                        _StatDivider(),
-                        Expanded(
-                          child: _StatItem(
-                            value: '${stats['delivered']}',
-                            label: 'Delivered',
-                          ),
-                        ),
-                        _StatDivider(),
-                        Expanded(
-                          child: _StatItem(
-                            value: '${stats['pending']}',
-                            label: 'Pending',
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _StatItem(
+                        value: '${_orderStats['total']}',
+                        label: 'Orders',
+                      ),
+                    ),
+                    _StatDivider(),
+                    Expanded(
+                      child: _StatItem(
+                        value: '${_orderStats['delivered']}',
+                        label: 'Delivered',
+                      ),
+                    ),
+                    _StatDivider(),
+                    Expanded(
+                      child: _StatItem(
+                        value: '${_orderStats['pending']}',
+                        label: 'Pending',
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -96,6 +96,14 @@ class ChatPanelState extends State<ChatPanel> {
     unawaited(_conversation.send(text));
   }
 
+  /// Sends one of the `_kQuickReplyQuestions` buttons straight away,
+  /// bypassing the text field entirely - tapping it is "ready to send" by
+  /// itself, the customer never has to type or press the send button too.
+  void _sendQuickReply(String question) {
+    if (_conversation.isSending) return;
+    unawaited(_conversation.send(question));
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -112,6 +120,11 @@ class ChatPanelState extends State<ChatPanel> {
         final Color sendButtonColor = canSend
             ? primaryGreen
             : Colors.grey.shade300;
+        // Only on a truly fresh chat - just the opening greeting, nothing
+        // sent yet - so the buttons don't linger once the customer is
+        // already mid-conversation. Reappears after "New chat" since that
+        // resets `messages` back down to just the greeting too.
+        final bool showQuickReplies = messages.length == 1 && !isSending;
 
         final Widget inputBar = Container(
           color: Colors.white,
@@ -173,6 +186,11 @@ class ChatPanelState extends State<ChatPanel> {
                 ),
               ),
             ),
+            if (showQuickReplies)
+              _QuickReplyRow(
+                questions: _conversation.quickReplyQuestions,
+                onTap: _sendQuickReply,
+              ),
             // Only reserve the device's bottom system-inset space when
             // this panel really does sit at the physical bottom of the
             // screen (see the `bottomSafeArea` doc comment on ChatPanel
@@ -183,6 +201,49 @@ class ChatPanelState extends State<ChatPanel> {
           ],
         );
       },
+    );
+  }
+}
+
+/// The row of tappable quick-reply buttons shown above the input bar on a
+/// fresh chat - see `showQuickReplies` in ChatPanelState. [questions]
+/// comes from `ChatConversation.quickReplyQuestions` (2 random FAQs plus
+/// the fixed contact-number question), so it's whatever that chat's
+/// current pick happens to be, not a fixed list owned by this widget.
+class _QuickReplyRow extends StatelessWidget {
+  final List<String> questions;
+  final ValueChanged<String> onTap;
+  const _QuickReplyRow({required this.questions, required this.onTap});
+
+  static const Color primaryGreen = ChatPanelState.primaryGreen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFFF7F7F7),
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: questions.map((question) {
+          return OutlinedButton(
+            onPressed: () => onTap(question),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: primaryGreen,
+              backgroundColor: Colors.white,
+              side: const BorderSide(color: primaryGreen),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 8,
+              ),
+            ),
+            child: Text(question, style: const TextStyle(fontSize: 13)),
+          );
+        }).toList(),
+      ),
     );
   }
 }

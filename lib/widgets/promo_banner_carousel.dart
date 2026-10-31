@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../core/banner_helpers.dart';
+import '../services/banner_repository.dart';
 import 'product_image.dart';
 
 /// Home-screen promo carousel. Replaces the old single-banner
@@ -27,10 +27,13 @@ import 'product_image.dart';
 ///     dragging it (resuming ~4s after they let go), pauses while the
 ///     app is backgrounded, and shows dot indicators.
 ///
-/// Both streams are re-checked every 60s on a timer (in addition to
-/// whenever Firestore pushes a new snapshot) so a promo whose schedule
-/// starts or ends while the app is sitting open on the home screen
-/// appears/disappears on its own, without needing a new write.
+/// Both sources used to be held open as live Firestore listeners for as
+/// long as this widget existed. They're now a one-time fetch through
+/// [BannerRepository] (cached 5 minutes) instead - the 60s timer below
+/// still re-checks schedule windows opening/closing while the app sits
+/// open on the home screen, it just does that against whatever
+/// [BannerRepository.cachedSnapshot] last returned rather than opening a
+/// new read every tick.
 class PromoBannerCarousel extends StatefulWidget {
   const PromoBannerCarousel({super.key});
 
@@ -48,16 +51,13 @@ class _PromoBannerCarouselState extends State<PromoBannerCarousel>
   // infinite in both directions.
   static const int _pageMultiplier = 5000;
 
-  StreamSubscription<List<PromoBanner>>? _newBannersSub;
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _legacySub;
   Timer? _recheckTimer;
   Timer? _autoScrollTimer;
   Timer? _resumeTimer;
 
-  List<PromoBanner> _newBanners = [];
-  DocumentSnapshot<Map<String, dynamic>>? _legacyDoc;
-  bool _newBannersLoaded = false;
-  bool _legacyLoaded = false;
+  List<PromoBanner> _newBanners = const [];
+  Map<String, dynamic>? _legacyData;
+  bool _dataLoaded = false;
 
   List<PromoBanner> _liveBanners = const [];
   PageController? _pageController;
@@ -68,31 +68,20 @@ class _PromoBannerCarouselState extends State<PromoBannerCarousel>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    _newBannersSub = storeBannersStream().listen((banners) {
-      _newBanners = banners;
-      _newBannersLoaded = true;
-      _recomputeLiveBanners();
-    });
-
-    _legacySub = storeBannerStream().listen((doc) {
-      _legacyDoc = doc;
-      _legacyLoaded = true;
-      _recomputeLiveBanners();
-    });
+    _loadBanners();
 
     // Belt-and-suspenders re-check for schedule windows opening/closing
-    // while nothing has written to Firestore in the meantime.
+    // while nothing has written to Firestore in the meantime. Reads
+    // whatever BannerRepository last cached - never hits Firestore itself.
     _recheckTimer = Timer.periodic(
       const Duration(seconds: 60),
-      (_) => _recomputeLiveBanners(),
+      (_) => _applySnapshot(BannerRepository.instance.cachedSnapshot),
     );
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _newBannersSub?.cancel();
-    _legacySub?.cancel();
     _recheckTimer?.cancel();
     _autoScrollTimer?.cancel();
     _resumeTimer?.cancel();
@@ -104,6 +93,9 @@ class _PromoBannerCarouselState extends State<PromoBannerCarousel>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _startAutoScroll();
+      // Cheap either way: a no-op against the cache if under 5 minutes
+      // have passed while backgrounded, a real refresh if more.
+      _loadBanners();
     } else {
       _autoScrollTimer?.cancel();
       _resumeTimer?.cancel();
@@ -112,16 +104,29 @@ class _PromoBannerCarouselState extends State<PromoBannerCarousel>
 
   // --- Data -----------------------------------------------------------
 
+  Future<void> _loadBanners() async {
+    final snapshot = await BannerRepository.instance.ensureFresh();
+    if (!mounted) return;
+    _applySnapshot(snapshot);
+  }
+
+  void _applySnapshot(BannerSnapshot snapshot) {
+    _newBanners = snapshot.newBanners;
+    _legacyData = snapshot.legacyData;
+    _dataLoaded = true;
+    _recomputeLiveBanners();
+  }
+
   void _recomputeLiveBanners() {
-    // Wait until at least one stream has actually emitted once, so we
-    // don't flash an empty carousel for a frame before Firestore replies.
-    if (!_newBannersLoaded && !_legacyLoaded) return;
+    // Wait until something has actually loaded, so we don't flash an
+    // empty carousel for a frame before the first fetch replies.
+    if (!_dataLoaded) return;
 
     List<PromoBanner> live;
     if (_newBanners.isNotEmpty) {
       live = _newBanners.where((b) => b.isCurrentlyLive).toList();
     } else {
-      final data = _legacyDoc?.data();
+      final data = _legacyData;
       if (data != null && isBannerCurrentlyValid(data)) {
         live = [PromoBanner.fromMap('legacy', data)];
       } else {
@@ -129,8 +134,9 @@ class _PromoBannerCarouselState extends State<PromoBannerCarousel>
         // Same cleanup the old single-banner code did: once a scheduled
         // banner's end date has passed, delete the doc instead of
         // leaving a dead banner behind forever.
-        if (data != null && (data['scheduleEnd'] as Timestamp?) != null) {
+        if (data != null && data['scheduleEnd'] != null) {
           deleteStoreBanner();
+          _legacyData = null;
         }
       }
     }

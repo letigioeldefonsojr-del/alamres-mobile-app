@@ -1,5 +1,18 @@
 import 'package:flutter/material.dart';
 
+/// Fires whenever an order is placed, cancelled, or rated - the only three
+/// actions that change what the customer's own order lists/badges should
+/// show. `OrdersListView` (orders_tab.dart) and the Profile tab's order
+/// stats both listen to this instead of keeping a live Firestore listener
+/// open just to catch their own writes; bump it with [notifyOrdersChanged]
+/// right after any of those three actions succeeds, and whichever of those
+/// screens is currently mounted re-fetches once.
+final ValueNotifier<int> ordersChangedSignal = ValueNotifier<int>(0);
+
+void notifyOrdersChanged() {
+  ordersChangedSignal.value++;
+}
+
 List<Map<String, dynamic>> getOrderItems(Map<String, dynamic> data) {
   final rawItems = data['items'] as List?;
   if (rawItems != null && rawItems.isNotEmpty) {

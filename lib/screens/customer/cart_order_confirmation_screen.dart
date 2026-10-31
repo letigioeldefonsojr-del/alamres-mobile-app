@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/constants.dart';
 import '../../core/delivery_helpers.dart';
+import '../../core/order_helpers.dart';
 import '../../core/product_helpers.dart';
 import '../../services/product_repository.dart';
 import '../../services/supabase_products.dart';
@@ -534,6 +535,10 @@ class _CartOrderConfirmationScreenState
           ),
         );
       }
+
+      // No live listener anymore to pick this up on its own - let the
+      // orders list/stats badge know a new order just landed.
+      notifyOrdersChanged();
 
       if (!mounted) return;
       messenger.showSnackBar(

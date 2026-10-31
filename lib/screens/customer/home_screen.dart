@@ -16,6 +16,7 @@ import '../../widgets/cart_floating_bar.dart';
 import '../../widgets/chat_panel.dart';
 import '../../services/engagement_reminder_service.dart';
 import '../../services/beta_announcement_service.dart';
+import '../../services/customer_profile_cache.dart';
 
 class HomeScreen extends StatefulWidget {
   // Which bottom-nav tab to land on when this screen first appears - 0
@@ -190,12 +191,11 @@ class _HomeScreenState extends State<HomeScreen> {
     if (user == null) return;
 
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      final data = await CustomerProfileCache.instance.getProfile(
+        uid: user.uid,
+      );
 
-      final String mobileNumber = (doc.data()?['mobileNumber'] as String?) ?? '';
+      final String mobileNumber = (data?['mobileNumber'] as String?) ?? '';
       if (mobileNumber.trim().isEmpty) {
         if (!mounted) return;
         await Navigator.of(context).push(
@@ -204,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       if (!mounted) return;
-      final String address = (doc.data()?['address'] as String?) ?? '';
+      final String address = (data?['address'] as String?) ?? '';
       _checkAddressReminder(address);
 
       // "Tops up" the on-device Shop Reminders queue every time the
@@ -212,7 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // customer who opens the app regularly - see
       // EngagementReminderService for why this needs refreshing at all
       // rather than being scheduled once.
-      final prefs = doc.data()?['notificationPrefs'] as Map<String, dynamic>?;
+      final prefs = data?['notificationPrefs'] as Map<String, dynamic>?;
       final bool shopRemindersEnabled = prefs?['shopReminders'] ?? false;
       unawaited(
         EngagementReminderService.instance.applyPreference(

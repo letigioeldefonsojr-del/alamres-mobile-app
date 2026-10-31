@@ -4,7 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/delivery_helpers.dart';
+import '../../core/order_helpers.dart';
 import '../../core/product_helpers.dart';
+import '../../services/customer_profile_cache.dart';
 import '../../widgets/fulfillment_type_toggle.dart';
 
 class OrderConfirmationScreen extends StatefulWidget {
@@ -100,11 +102,9 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
 
     try {
       if (user != null) {
-        final doc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-        final data = doc.data();
+        final data = await CustomerProfileCache.instance.getProfile(
+          uid: user.uid,
+        );
         _customerAddress = combineAddressAndLandmark(
           (data?['address'] as String?) ?? '',
           data?['landmark'] as String?,
@@ -363,6 +363,10 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
         });
         await batch.commit();
       }
+
+      // No live listener anymore to pick this up on its own - let the
+      // orders list/stats badge know a new order just landed.
+      notifyOrdersChanged();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

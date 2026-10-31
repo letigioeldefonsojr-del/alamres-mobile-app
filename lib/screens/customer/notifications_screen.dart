@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/onesignal_service.dart';
 import '../../services/engagement_reminder_service.dart';
+import '../../services/customer_profile_cache.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -34,11 +35,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       return;
     }
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
-      final prefs = doc.data()?['notificationPrefs'] as Map<String, dynamic>?;
+      final data = await CustomerProfileCache.instance.getProfile(uid: uid);
+      final prefs = data?['notificationPrefs'] as Map<String, dynamic>?;
       if (prefs != null) {
         _orderUpdates = prefs['orderUpdates'] ?? true;
         _promotions = prefs['promotions'] ?? true;
@@ -54,14 +52,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Future<void> _save() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
+    final Map<String, dynamic> notificationPrefs = {
+      'orderUpdates': _orderUpdates,
+      'promotions': _promotions,
+      'appUpdates': _appUpdates,
+      'shopReminders': _shopReminders,
+    };
     await FirebaseFirestore.instance.collection('users').doc(uid).set({
-      'notificationPrefs': {
-        'orderUpdates': _orderUpdates,
-        'promotions': _promotions,
-        'appUpdates': _appUpdates,
-        'shopReminders': _shopReminders,
-      },
+      'notificationPrefs': notificationPrefs,
     }, SetOptions(merge: true));
+    // Keeps every other screen reading through CustomerProfileCache (Home's
+    // Shop Reminders top-up, Profile's app-update check) in sync with this
+    // toggle immediately, without any of them having to re-read Firestore.
+    CustomerProfileCache.instance.updateCache(uid, {
+      'notificationPrefs': notificationPrefs,
+    });
   }
 
   @override

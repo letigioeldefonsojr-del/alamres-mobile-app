@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import '../../core/ph_locations.dart';
+import '../../services/customer_profile_cache.dart';
 import 'address_picker_screen.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -129,11 +130,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       return;
     }
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
-      final data = doc.data();
+      final data = await CustomerProfileCache.instance.getProfile(uid: uid);
       if (data != null) {
         _firstNameController.text = data['firstName'] ?? '';
         _middleInitialController.text = data['middleInitial'] ?? '';
@@ -268,7 +265,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ? '0$_mobileNationalNumber'
                 : '$_mobileCountryDialCode$_mobileNationalNumber');
 
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      final Map<String, dynamic> changedFields = {
         'firstName': firstName,
         'middleInitial': middleInitial,
         'lastName': lastName,
@@ -291,7 +288,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         if (_hasAddressPin) 'addressLat': _addressLat,
         if (_hasAddressPin) 'addressLng': _addressLng,
         'landmark': _landmarkController.text.trim(),
-      }, SetOptions(merge: true));
+      };
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .set(changedFields, SetOptions(merge: true));
+      // So Home's mobile-number/address checks and the Profile tab's
+      // header immediately see the change without a second read.
+      CustomerProfileCache.instance.updateCache(user.uid, changedFields);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

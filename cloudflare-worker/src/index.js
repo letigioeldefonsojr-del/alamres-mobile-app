@@ -405,6 +405,13 @@ async function runTool(name, input, env, uid, firebaseToken) {
   }
 }
 
+// Almares 328's own number for real-time human help - see the
+// `contactGuidance` block in buildSystemPrompt() below for when Claude is
+// told to hand it out. Also shown to the customer as a tappable starter
+// question in the app itself (lib/widgets/chat_panel.dart's
+// `_kQuickReplyQuestions`) - keep both in sync if this number ever changes.
+const CLIENT_CONTACT_NUMBER = '0945 463 0846';
+
 function buildSystemPrompt({ hasProductLookup, hasOrderLookup }) {
   const base =
     'You are the customer support assistant for Almares 328, a wholesale ' +
@@ -414,12 +421,17 @@ function buildSystemPrompt({ hasProductLookup, hasOrderLookup }) {
     'search, open a product to pick a flavor/variant and quantity, then add ' +
     'it to the cart or buy it directly. Buying 6 or more pieces of the same ' +
     "product/flavor in one go automatically charges that item's wholesale " +
-    'price instead of the regular price. At checkout the customer picks a ' +
-    'delivery address and a delivery fee is calculated from the distance to ' +
-    'the nearest branch, then they confirm the order. Orders start as ' +
-    '"Pending" and move through Approved, On the Way, and Delivered (or, ' +
-    'rarely, Rejected / Cancelled / Unable to Deliver) - customers can check ' +
-    'status anytime under Profile > My Orders.';
+    'price instead of the regular price. At checkout the customer chooses ' +
+    'Delivery or Pick Up In Store. For Delivery, they pick a delivery ' +
+    'address and a delivery fee is calculated from the distance to the ' +
+    'nearest branch. For Pick Up In Store, there is no delivery fee (it is ' +
+    'free) - they pick which store branch they will come to instead of an ' +
+    'address. Either way they then confirm the order. Orders start as ' +
+    '"Pending" and move through Approved, then either On the Way -> ' +
+    'Delivered (for Delivery orders) or Ready for Pickup -> Picked Up (for ' +
+    'Pick Up In Store orders) - or, rarely, Rejected / Cancelled / Unable ' +
+    'to Deliver. Customers can check status anytime under Profile > My ' +
+    'Orders.';
 
   let toolGuidance;
   if (hasProductLookup && hasOrderLookup) {
@@ -450,6 +462,32 @@ function buildSystemPrompt({ hasProductLookup, hasOrderLookup }) {
       'that instead of guessing.';
   }
 
+  const scopeGuidance =
+    '\n\nStay strictly on topic: Almares 328 products, orders, and customer ' +
+    'service (stock, prices, flavors/variants, discounts, delivery, order ' +
+    'status, how to use the app). Do not answer anything outside that - ' +
+    'this includes math problems/calculations (e.g. "what is 10+17"), ' +
+    'general trivia, coding help, or any other unrelated request, even if ' +
+    'it looks harmless or the customer insists it is store-related. For any ' +
+    'off-topic request, politely decline using this exact reply and nothing ' +
+    'else: "I\'m designed to assist with Almares 328 product inquiries, ' +
+    'orders, and customer services. I can help you with those topics." Do ' +
+    'not do the math/trivia/etc. first and then add this - just reply with ' +
+    'that sentence alone.';
+
+  const contactGuidance =
+    `\n\nAlmares 328's number for real-time inquiries is ${CLIENT_CONTACT_NUMBER}. ` +
+    'Give out this number whenever the customer directly asks for a phone ' +
+    'number, contact, or how to reach a real person, AND as a fallback ' +
+    'whenever you genuinely cannot answer a store-related question yourself ' +
+    "(your tools can't look up what they need, or you're not sure about a " +
+    'policy) - in that case tell them to message or call that number for ' +
+    'real-time help instead of guessing or making something up. Do not use ' +
+    'this number for an off-topic request you are declining under the scope ' +
+    "rule above - use that fixed decline reply instead, it's a different " +
+    'situation (you won\'t answer that, not that you can\'t answer a store ' +
+    'question).';
+
   const formattingGuidance =
     '\n\nYour replies are shown in a simple chat bubble that renders basic ' +
     'Markdown - you may use **bold** (e.g. for product names or prices) ' +
@@ -458,7 +496,7 @@ function buildSystemPrompt({ hasProductLookup, hasOrderLookup }) {
     'place in a chat bubble. Keep replies short and conversational rather ' +
     'than heavily formatted.';
 
-  return base + toolGuidance + formattingGuidance;
+  return base + toolGuidance + scopeGuidance + contactGuidance + formattingGuidance;
 }
 
 export default {

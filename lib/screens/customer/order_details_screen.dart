@@ -76,7 +76,8 @@ class _TrackingStep extends StatelessWidget {
   }
 }
 
-class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
+class _OrderDetailsScreenState extends State<OrderDetailsScreen>
+    with WidgetsBindingObserver {
   static const Color primaryGreen = Color(0xFF2E6B3E);
 
   bool _isCancelling = false;
@@ -84,9 +85,56 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   // Delivery is confirmed by the admin side marking the order "Delivered" -
   // there's no separate customer confirmation step. This just makes sure
   // the rating prompt (see _buildBody) only auto-opens once per time this
-  // screen is on screen, rather than re-popping on every Firestore
-  // snapshot rebuild while the order stays delivered-and-unrated.
+  // screen is on screen, rather than re-popping on every refetch while the
+  // order stays delivered-and-unrated.
   bool _hasPromptedRatingThisSession = false;
+
+  // Was a live `.snapshots()` listener on this one order document, kept
+  // open for as long as this screen stayed on screen - most of that time
+  // nothing about the order is actually changing. Starts from whatever
+  // the orders list already had on hand (no flash of a blank screen),
+  // then one real `.get()` to make sure it's current, refetched on
+  // pull-to-refresh and on resuming the app. Cancelling or rating updates
+  // this local copy immediately (no extra read needed to see your own
+  // write) and fires [notifyOrdersChanged] so the orders list behind this
+  // screen picks it up too.
+  late Map<String, dynamic> _data = Map<String, dynamic>.from(widget.data);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _fetchLatest();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _fetchLatest();
+    }
+  }
+
+  Future<void> _fetchLatest() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(widget.orderId)
+          .get();
+      final fresh = doc.data();
+      if (fresh != null && mounted) {
+        setState(() => _data = fresh);
+      }
+    } catch (_) {
+      // Keep showing whatever's already on screen - the passed-in data,
+      // or the last successful fetch.
+    }
+  }
 
   // Goes straight to the order-confirmation screen with this order's items
   // pre-filled - it never touches the live cart, so tapping "Order Again"
@@ -280,13 +328,29 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       },
     );
 
-    if (ratingSubmitted != true) {
+    if (ratingSubmitted == true) {
+      if (mounted) {
+        setState(() {
+          _data = {
+            ..._data,
+            'rating': rating,
+            'feedback': feedbackController.text.trim(),
+          };
+        });
+      }
+      // No live listener anymore to pick this up on its own - let the
+      // orders list behind this screen know a rating just landed.
+      notifyOrdersChanged();
+    } else {
       // Dismissed via the X or by tapping outside the dialog, or the
       // Firestore write above failed - either way, no rating landed, but
       // the order is still "already prompted" from here on. Best-effort:
       // if this write itself fails (e.g. offline), the auto-popup may
       // show again next time, which is an acceptable fallback rather than
       // blocking anything.
+      if (mounted) {
+        setState(() => _data = {..._data, 'ratingPromptDismissed': true});
+      }
       unawaited(
         FirebaseFirestore.instance
             .collection('orders')
@@ -443,6 +507,11 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         await SupabaseProductsApi.instance.restock(ref: widget.orderId);
       }
 
+      _data = {..._data, 'status': 'cancelled', 'cancelReason': reason};
+      // No live listener anymore to pick this up on its own - let the
+      // orders list behind this screen know right away.
+      notifyOrdersChanged();
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -563,6 +632,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     return SafeArea(
       top: false,
       child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1100,15 +1170,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         foregroundColor: Colors.white,
         title: const Text('Order Details'),
       ),
-      body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance
-            .collection('orders')
-            .doc(widget.orderId)
-            .snapshots(),
-        builder: (context, snapshot) {
-          final data = snapshot.data?.data() ?? widget.data;
-          return _buildBody(context, data);
-        },
+      body: RefreshIndicator(
+        color: primaryGreen,
+        onRefresh: _fetchLatest,
+        child: _buildBody(context, _data),
       ),
     );
   }
