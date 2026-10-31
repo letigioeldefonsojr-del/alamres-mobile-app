@@ -24,28 +24,27 @@ const Duration _bestSellingTtl = Duration(minutes: 5);
 final Map<int, _BestSellingEntry> _bestSellingCache = {};
 final Map<int, Future<Set<String>>> _bestSellingInFlight = {};
 
-/// Which product ids are "best selling" right now, by total units sold
-/// across every order ever placed.
+/// Which product ids are "best selling" right now.
 ///
-/// This was the actual cause of a Firestore read spike (a routine ~100-read
-/// app tour costing ~14,000 reads instead): both call sites
+/// This used to be the actual cause of a Firestore read spike (a routine
+/// ~100-read app tour costing ~14,000 reads instead): both call sites
 /// (home_tab.dart's Featured section, all_products_screen.dart) invoke this
 /// from inside a `FutureBuilder`'s `future:` parameter, which re-evaluates
-/// the expression - and therefore re-ran this whole, unfiltered,
-/// unlimited `.get()` of the ENTIRE orders collection - on every rebuild of
-/// that subtree: every product-catalog refresh (the ~3-minute periodic
-/// timer in product_repository.dart, which runs continuously once Home has
-/// ever registered a product screen as visible), every app resume while a
-/// product screen is visible, and in all_products_screen.dart's case,
-/// every single keystroke while searching. On a store with a non-trivial
-/// orders history, that's a full-collection read dozens of times an hour
-/// for data that only meaningfully changes as fast as new orders come in.
+/// the expression on every rebuild of that subtree - every product-catalog
+/// refresh, every app resume while a product screen is visible, and in
+/// all_products_screen.dart's case, every single keystroke while
+/// searching - and it ran a full, unfiltered, unlimited `.get()` of the
+/// ENTIRE `orders` collection each time.
 ///
-/// Now cached for 5 minutes (same TTL as [CustomerProfileCache] and
-/// [BannerRepository], for the same reason), with concurrent callers
-/// sharing one in-flight fetch instead of firing a second one - a rebuild,
-/// a keystroke, or a catalog refresh landing inside that window reuses the
-/// cached result instead of re-reading the whole collection.
+/// A 5-minute cache alone wasn't enough - the collection still got fully
+/// read once per cache expiry, for every customer, forever. This now
+/// computes the answer server-side via the same `store-api` Supabase Edge
+/// Function the rest of this app's product calls already go through (see
+/// [SupabaseProductsApi.bestSellingProductIds]) - the Firestore read is
+/// gone entirely, not just throttled. The 5-minute in-memory cache (same
+/// TTL as [CustomerProfileCache] and [BannerRepository]) and in-flight
+/// de-dup stay, so a rebuild/keystroke/catalog-refresh landing inside that
+/// window still doesn't even cost a network round trip, let alone a read.
 Future<Set<String>> fetchBestSellingProductIds({int topN = 5}) async {
   final _BestSellingEntry? cached = _bestSellingCache[topN];
   if (cached != null &&
@@ -66,29 +65,20 @@ Future<Set<String>> fetchBestSellingProductIds({int topN = 5}) async {
 }
 
 Future<Set<String>> _fetchBestSellingProductIds(int topN) async {
-  final ordersSnapshot = await FirebaseFirestore.instance
-      .collection('orders')
-      .get();
-  ReadCounter.log(
-    'fetchBestSellingProductIds:orders',
-    ordersSnapshot.docs.length,
-  );
-  final Map<String, int> soldCounts = {};
-
-  for (final doc in ordersSnapshot.docs) {
-    final data = doc.data();
-    final String? productId = data['productId'] as String?;
-    if (productId == null) continue;
-    final int amount = (data['amount'] as num?)?.toInt() ?? 0;
-    soldCounts[productId] = (soldCounts[productId] ?? 0) + amount;
+  try {
+    final ids = await SupabaseProductsApi.instance.bestSellingProductIds(
+      limit: topN,
+    );
+    final Set<String> result = ids.toSet();
+    _bestSellingCache[topN] = _BestSellingEntry(result, DateTime.now());
+    return result;
+  } catch (_) {
+    // Best-effort - worst case the Best Sellers/badge rows just don't show
+    // anything this time. Deliberately NOT falling back to a Firestore
+    // read of the orders collection; that read is exactly what this
+    // function exists to never do again.
+    return const <String>{};
   }
-
-  final sorted = soldCounts.entries.toList()
-    ..sort((a, b) => b.value.compareTo(a.value));
-
-  final Set<String> result = sorted.take(topN).map((e) => e.key).toSet();
-  _bestSellingCache[topN] = _BestSellingEntry(result, DateTime.now());
-  return result;
 }
 
 Future<void> seedProductCatalog() async {

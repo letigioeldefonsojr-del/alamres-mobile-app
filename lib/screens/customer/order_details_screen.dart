@@ -419,22 +419,31 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
       // orders list behind this screen know a rating just landed.
       notifyOrdersChanged();
     } else {
-      // Dismissed via the X or by tapping outside the dialog, or the
-      // Firestore write above failed - either way, no rating landed, but
-      // the order is still "already prompted" from here on. Best-effort:
-      // if this write itself fails (e.g. offline), the auto-popup may
-      // show again next time, which is an acceptable fallback rather than
-      // blocking anything.
+      // Dismissed via the X or by tapping outside the dialog - no rating
+      // landed, but the order is still "already prompted" from here on.
       if (mounted) {
         setState(() => _data = {..._data, 'ratingPromptDismissed': true});
       }
-      unawaited(
-        FirebaseFirestore.instance
+      try {
+        await FirebaseFirestore.instance
             .collection('orders')
             .doc(widget.orderId)
-            .update({'ratingPromptDismissed': true})
-            .catchError((_) {}),
-      );
+            .update({'ratingPromptDismissed': true});
+      } catch (_) {
+        // Best-effort - if this write fails (e.g. offline), the auto-popup
+        // may show again next time, which is an acceptable fallback
+        // rather than blocking anything.
+      }
+      // Same reason as the ratingSubmitted branch above: the My Orders
+      // list behind this screen is holding whatever copy of this order it
+      // last fetched, from before this dismissal. Without this, reopening
+      // this exact order hands this screen that stale cached copy again -
+      // still missing ratingPromptDismissed - so the auto-popup fired all
+      // over again on every single reopen instead of just once, ever,
+      // per order. Awaited above (rather than fire-and-forget) so this
+      // refetch actually sees the write that just happened, instead of a
+      // race that could refetch the pre-dismissal doc.
+      notifyOrdersChanged();
     }
   }
 
