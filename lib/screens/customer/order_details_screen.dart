@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants.dart';
 import '../../core/order_helpers.dart';
+import '../../core/read_counter.dart';
 import '../../services/supabase_products.dart';
 import '../../widgets/order_item_card.dart';
 import '../order_items_list_screen.dart';
@@ -89,27 +90,47 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
   // order stays delivered-and-unrated.
   bool _hasPromptedRatingThisSession = false;
 
-  // Was a live `.snapshots()` listener on this one order document, kept
-  // open for as long as this screen stayed on screen - most of that time
-  // nothing about the order is actually changing. Starts from whatever
-  // the orders list already had on hand (no flash of a blank screen),
-  // then one real `.get()` to make sure it's current, refetched on
-  // pull-to-refresh and on resuming the app. Cancelling or rating updates
-  // this local copy immediately (no extra read needed to see your own
-  // write) and fires [notifyOrdersChanged] so the orders list behind this
-  // screen picks it up too.
+  // Starts from whatever the orders list already had on hand (no flash of
+  // a blank screen), then one real `.get()` to make sure it's current.
+  // While the order is still in progress ([_isActiveStatus]), a real
+  // `.snapshots()` listener on this one doc keeps it live - same as
+  // before this file started one-time-fetching history - so a status
+  // change from the admin side (approved, dispatched, ...) still shows up
+  // on its own. The moment the order reaches a terminal status (here or
+  // via this same listener's own update), there's nothing left that will
+  // ever change about it, so the listener drops itself. Cancelling or
+  // rating updates this local copy immediately (no extra read needed to
+  // see your own write) and fires [notifyOrdersChanged] so the orders
+  // list behind this screen picks it up too.
   late Map<String, dynamic> _data = Map<String, dynamic>.from(widget.data);
+
+  static const List<String> _activeStatuses = [
+    'pending',
+    'approved',
+    'ready_for_pickup',
+    'on_the_way',
+  ];
+
+  bool get _isActiveStatus =>
+      _activeStatuses.contains((_data['status'] ?? '').toString().toLowerCase());
+
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _liveSub;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Based on whatever status this screen was opened with, so an active
+    // order starts live-updating immediately rather than waiting on the
+    // fetch below to resolve first.
+    _syncLiveListener();
     _fetchLatest();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _detachLiveListener();
     super.dispose();
   }
 
@@ -117,6 +138,22 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _fetchLatest();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      // Same reasoning as the orders list behind this screen - no point
+      // paying for a live listener nobody's watching while backgrounded.
+      // _fetchLatest()'s own call to _syncLiveListener() reattaches it on
+      // resume if the order's still active.
+      //
+      // Deliberately NOT keying off `inactive` here (that was the actual
+      // bug behind status updates going stale until a manual refresh):
+      // `inactive` fires for all sorts of things that aren't really
+      // backgrounding - an incoming call, the notification shade, a
+      // permission/share/image-picker sheet, even just the rating dialog
+      // this same screen pops up - and isn't reliably followed by a
+      // `resumed` callback to reattach on. `paused` (and `detached`) are
+      // the only states that actually mean "the app left the foreground."
+      _detachLiveListener();
     }
   }
 
@@ -126,6 +163,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
           .collection('orders')
           .doc(widget.orderId)
           .get();
+      ReadCounter.log('order_details:fetchLatest', doc.exists ? 1 : 0);
       final fresh = doc.data();
       if (fresh != null && mounted) {
         setState(() => _data = fresh);
@@ -134,6 +172,45 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
       // Keep showing whatever's already on screen - the passed-in data,
       // or the last successful fetch.
     }
+    _syncLiveListener();
+  }
+
+  void _syncLiveListener() {
+    if (_isActiveStatus) {
+      _attachLiveListener();
+    } else {
+      _detachLiveListener();
+    }
+  }
+
+  void _attachLiveListener() {
+    if (_liveSub != null) return;
+    _liveSub = FirebaseFirestore.instance
+        .collection('orders')
+        .doc(widget.orderId)
+        .snapshots()
+        .listen(
+          (doc) {
+            ReadCounter.log('order_details:live', doc.exists ? 1 : 0);
+            final fresh = doc.data();
+            if (fresh == null || !mounted) return;
+            setState(() => _data = fresh);
+            // This very update may be the one that moved the order to a
+            // terminal status - nothing left to watch live for, so drop
+            // the listener right away instead of waiting for the next
+            // background/resume cycle to notice.
+            if (!_isActiveStatus) _detachLiveListener();
+          },
+          onError: (_) {
+            // Best-effort - the last successful fetch/update stays on
+            // screen either way.
+          },
+        );
+  }
+
+  void _detachLiveListener() {
+    _liveSub?.cancel();
+    _liveSub = null;
   }
 
   // Goes straight to the order-confirmation screen with this order's items
@@ -508,8 +585,15 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
       }
 
       _data = {..._data, 'status': 'cancelled', 'cancelReason': reason};
-      // No live listener anymore to pick this up on its own - let the
-      // orders list behind this screen know right away.
+      // The orders list's own active-orders listener (if it's mounted
+      // behind this screen) will also pick this transition up on its
+      // own in a moment - but there's no reason to wait on that
+      // round-trip here, and this screen's own listener has nothing
+      // further to watch for now that the order's reached a terminal
+      // status.
+      _detachLiveListener();
+      // Still needed for anything that isn't live - e.g. the Profile
+      // tab's order-stats badge, which only refreshes on this signal.
       notifyOrdersChanged();
 
       if (!mounted) return;

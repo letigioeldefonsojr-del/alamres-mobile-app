@@ -9,6 +9,7 @@ import '../../services/login_guard_api.dart';
 import '../../services/onesignal_service.dart';
 import '../../services/suspension_service.dart';
 import '../../widgets/suspended_account_overlay.dart';
+import '../../core/read_counter.dart';
 import '../../core/routing.dart';
 import '../../core/validators.dart';
 import 'forgot_password_screen.dart';
@@ -361,6 +362,7 @@ class _LoginScreenState extends State<LoginScreen> {
           .collection('users')
           .doc(user.uid);
       final existingDoc = await docRef.get();
+      ReadCounter.log('login_screen:googleCheck', existingDoc.exists ? 1 : 0);
       if (!existingDoc.exists) {
         // Firebase Auth itself auto-creates the underlying auth record on
         // first Google sign-in (that part can't be prevented client-side),

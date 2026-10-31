@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import '../core/routing.dart';
 import '../screens/customer/home_screen.dart';
+import 'customer_profile_cache.dart';
 
 /// Handles OneSignal setup and linking a device to the signed-in
 /// Firebase user so pushes can be targeted at them by uid.
@@ -146,11 +146,14 @@ class OneSignalService {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
-      final prefs = doc.data()?['notificationPrefs'] as Map<String, dynamic>?;
+      // Goes through the same shared, 5-minute-cached profile fetch every
+      // other screen uses (see customer_profile_cache.dart) instead of its
+      // own direct `.get()` - this runs at cold start, right before
+      // HomeScreen's own profile check, so routing it through the cache
+      // here means that later check reuses this same fetch instead of
+      // paying for a second one a moment later.
+      final data = await CustomerProfileCache.instance.getProfile(uid: uid);
+      final prefs = data?['notificationPrefs'] as Map<String, dynamic>?;
       final bool enabled = (prefs?['promotions'] as bool?) ?? true;
       await setPromotionsTag(enabled);
     } catch (_) {

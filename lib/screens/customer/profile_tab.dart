@@ -9,6 +9,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/constants.dart';
 import '../../core/dialog_helpers.dart';
 import '../../core/order_helpers.dart';
+import '../../core/read_counter.dart';
 import '../../core/routing.dart';
 import '../../services/customer_profile_cache.dart';
 import '../../services/onesignal_service.dart';
@@ -85,6 +86,7 @@ class _ProfileTabState extends State<ProfileTab> {
           .collection('settings')
           .doc('appInfo')
           .get();
+      ReadCounter.log('profile_tab:appInfo', infoDoc.exists ? 1 : 0);
       final data = infoDoc.data();
       final String? latest = data?['latestVersion'] as String?;
       if (latest == null || latest.trim().isEmpty) return;
@@ -122,8 +124,18 @@ class _ProfileTabState extends State<ProfileTab> {
   // Was a live `.snapshots()` listener kept open for as long as this tab
   // was mounted - this badge only ever needs to change right after this
   // same customer places/cancels/rates an order (see ordersChangedSignal
-  // above), so a one-time `.get()` refetched on that signal gets the same
-  // result without paying for a standing listener the rest of the time.
+  // above), so refetching on that signal gets the same result without
+  // paying for a standing listener the rest of the time.
+  //
+  // This used to be one plain `.get()` of every order this customer has
+  // ever placed, just to count 3 numbers off of it - billed as one read
+  // PER ORDER DOCUMENT, every single time this tab opens or any order
+  // anywhere gets placed/cancelled/rated, and only getting more expensive
+  // as a long-time customer's order history grows. Firestore's count
+  // aggregation (`.count().get()`) bills a flat 1 read per query
+  // regardless of how many documents match, so three of those (total,
+  // delivered, pending) cost 3 reads total no matter whether this
+  // customer has 5 orders or 5,000.
   Map<String, int> _orderStats = const {
     'total': 0,
     'delivered': 0,
@@ -134,24 +146,23 @@ class _ProfileTabState extends State<ProfileTab> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     try {
-      final snapshot = await FirebaseFirestore.instance
+      final ordersForUser = FirebaseFirestore.instance
           .collection('orders')
-          .where('userId', isEqualTo: uid)
-          .get();
-      int total = snapshot.docs.length;
-      int delivered = 0;
-      int pending = 0;
-      for (final doc in snapshot.docs) {
-        final status = (doc.data()['status'] ?? '').toString().toLowerCase();
-        if (status == 'delivered') delivered++;
-        if (status == 'pending') pending++;
-      }
+          .where('userId', isEqualTo: uid);
+
+      final results = await Future.wait([
+        ordersForUser.count().get(),
+        ordersForUser.where('status', isEqualTo: 'delivered').count().get(),
+        ordersForUser.where('status', isEqualTo: 'pending').count().get(),
+      ]);
+      ReadCounter.log('profile_tab:orderStats', results.length);
+
       if (!mounted) return;
       setState(() {
         _orderStats = {
-          'total': total,
-          'delivered': delivered,
-          'pending': pending,
+          'total': results[0].count ?? 0,
+          'delivered': results[1].count ?? 0,
+          'pending': results[2].count ?? 0,
         };
       });
     } catch (_) {

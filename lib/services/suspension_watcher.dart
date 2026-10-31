@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'onesignal_service.dart';
 import 'suspension_service.dart';
+import '../core/read_counter.dart';
 import '../core/routing.dart';
 import '../screens/customer/login_screen.dart';
 
@@ -97,6 +98,7 @@ class _SuspensionWatcherState extends State<SuspensionWatcher> {
   Future<void> _handleSnapshot(
     DocumentSnapshot<Map<String, dynamic>> snapshot,
   ) async {
+    ReadCounter.log('suspension_watcher:users', snapshot.exists ? 1 : 0);
     if (_isHandlingSuspension) return;
 
     // The very first snapshot after (re)subscribing can be served

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/read_counter.dart';
 
 /// In-memory, 5-minute cache for the signed-in customer's own
 /// `users/{uid}` document.
@@ -52,6 +53,7 @@ class CustomerProfileCache {
           .collection('users')
           .doc(uid)
           .get();
+      ReadCounter.log('customer_profile_cache:users', doc.exists ? 1 : 0);
       _cachedUid = uid;
       _cachedData = doc.data();
       _fetchedAt = DateTime.now();

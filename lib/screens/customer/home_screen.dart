@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/focus_helpers.dart';
+import '../../core/read_counter.dart';
 import 'categories_tab.dart';
 import 'chat_screen.dart';
 import 'home_tab.dart';
@@ -172,6 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
           .collection('orders')
           .doc(orderId)
           .get();
+      ReadCounter.log('home_screen:openOrderId', doc.exists ? 1 : 0);
       final orderData = doc.data();
       if (orderData == null) return;
       if (!mounted) return;

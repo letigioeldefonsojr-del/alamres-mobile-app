@@ -7,11 +7,72 @@ import '../screens/customer/product_options_sheet.dart';
 import '../screens/customer/address_picker_screen.dart';
 import '../services/supabase_products.dart';
 import 'product_helpers.dart';
+import 'read_counter.dart';
 
+// In-memory, 5-minute cache for fetchBestSellingProductIds() below - see
+// its own doc comment for why this exists. Keyed by topN so two callers
+// asking for different counts (there's only ever been one in practice -
+// both call sites below use the default) never hand each other a
+// differently-sized result.
+class _BestSellingEntry {
+  final Set<String> ids;
+  final DateTime fetchedAt;
+  const _BestSellingEntry(this.ids, this.fetchedAt);
+}
+
+const Duration _bestSellingTtl = Duration(minutes: 5);
+final Map<int, _BestSellingEntry> _bestSellingCache = {};
+final Map<int, Future<Set<String>>> _bestSellingInFlight = {};
+
+/// Which product ids are "best selling" right now, by total units sold
+/// across every order ever placed.
+///
+/// This was the actual cause of a Firestore read spike (a routine ~100-read
+/// app tour costing ~14,000 reads instead): both call sites
+/// (home_tab.dart's Featured section, all_products_screen.dart) invoke this
+/// from inside a `FutureBuilder`'s `future:` parameter, which re-evaluates
+/// the expression - and therefore re-ran this whole, unfiltered,
+/// unlimited `.get()` of the ENTIRE orders collection - on every rebuild of
+/// that subtree: every product-catalog refresh (the ~3-minute periodic
+/// timer in product_repository.dart, which runs continuously once Home has
+/// ever registered a product screen as visible), every app resume while a
+/// product screen is visible, and in all_products_screen.dart's case,
+/// every single keystroke while searching. On a store with a non-trivial
+/// orders history, that's a full-collection read dozens of times an hour
+/// for data that only meaningfully changes as fast as new orders come in.
+///
+/// Now cached for 5 minutes (same TTL as [CustomerProfileCache] and
+/// [BannerRepository], for the same reason), with concurrent callers
+/// sharing one in-flight fetch instead of firing a second one - a rebuild,
+/// a keystroke, or a catalog refresh landing inside that window reuses the
+/// cached result instead of re-reading the whole collection.
 Future<Set<String>> fetchBestSellingProductIds({int topN = 5}) async {
+  final _BestSellingEntry? cached = _bestSellingCache[topN];
+  if (cached != null &&
+      DateTime.now().difference(cached.fetchedAt) < _bestSellingTtl) {
+    return cached.ids;
+  }
+
+  final Future<Set<String>>? inFlight = _bestSellingInFlight[topN];
+  if (inFlight != null) return inFlight;
+
+  final Future<Set<String>> future = _fetchBestSellingProductIds(topN);
+  _bestSellingInFlight[topN] = future;
+  try {
+    return await future;
+  } finally {
+    _bestSellingInFlight.remove(topN);
+  }
+}
+
+Future<Set<String>> _fetchBestSellingProductIds(int topN) async {
   final ordersSnapshot = await FirebaseFirestore.instance
       .collection('orders')
       .get();
+  ReadCounter.log(
+    'fetchBestSellingProductIds:orders',
+    ordersSnapshot.docs.length,
+  );
   final Map<String, int> soldCounts = {};
 
   for (final doc in ordersSnapshot.docs) {
@@ -25,7 +86,9 @@ Future<Set<String>> fetchBestSellingProductIds({int topN = 5}) async {
   final sorted = soldCounts.entries.toList()
     ..sort((a, b) => b.value.compareTo(a.value));
 
-  return sorted.take(topN).map((e) => e.key).toSet();
+  final Set<String> result = sorted.take(topN).map((e) => e.key).toSet();
+  _bestSellingCache[topN] = _BestSellingEntry(result, DateTime.now());
+  return result;
 }
 
 Future<void> seedProductCatalog() async {
@@ -365,6 +428,7 @@ Future<PickedDeliveryAddress?> pickDeliveryAddress(
   final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
 
   final userDoc = await userRef.get();
+  ReadCounter.log('pickDeliveryAddress:users', userDoc.exists ? 1 : 0);
   String profileAddress = (userDoc.data()?['address'] as String?) ?? '';
   final String profileLandmark =
       (userDoc.data()?['landmark'] as String?) ?? '';
@@ -378,6 +442,10 @@ Future<PickedDeliveryAddress?> pickDeliveryAddress(
       .collection('addresses')
       .orderBy('createdAt', descending: true)
       .get();
+  ReadCounter.log(
+    'pickDeliveryAddress:addresses',
+    addressesSnapshot.docs.length,
+  );
   final List<Map<String, dynamic>> addresses = addressesSnapshot.docs
       .map((doc) => {'id': doc.id, ...doc.data()})
       .toList();

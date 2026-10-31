@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/read_counter.dart';
 
 /// Reads the temporary "Hey Beta Tester!" announcement banner's config
 /// from Firestore (config/betaAnnouncement) and figures out whether it
@@ -36,6 +37,10 @@ class BetaAnnouncementService {
         .snapshots()
         .asyncMap((doc) async {
           try {
+            ReadCounter.log(
+              'beta_announcement_service:config',
+              doc.exists ? 1 : 0,
+            );
             final data = doc.data();
             if (data == null) return null;
 

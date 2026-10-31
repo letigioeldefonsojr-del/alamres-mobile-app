@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/read_counter.dart';
 
 /// Shared logic for checking whether a customer's account has been
 /// suspended from the web admin panel. Staff write a `suspendedUntil`
@@ -55,6 +56,7 @@ Future<SuspensionCheckResult> checkAccountSuspension(String uid) async {
       .collection('users')
       .doc(uid)
       .get();
+  ReadCounter.log('suspension_service:users', doc.exists ? 1 : 0);
   return evaluateSuspension(doc.data());
 }
 

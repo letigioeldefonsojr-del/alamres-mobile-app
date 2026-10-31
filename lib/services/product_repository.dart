@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import '../core/constants.dart';
+import '../core/read_counter.dart';
 import 'supabase_products.dart';
 
 /// The one shared source of product data for the whole app - every product
@@ -93,6 +94,10 @@ class ProductRepository {
         .collection('products')
         .snapshots()
         .listen((snapshot) {
+          ReadCounter.log(
+            'product_repository:products(firestore)',
+            snapshot.docs.length,
+          );
           productsNotifier.value = snapshot.docs
               .map((doc) => <String, dynamic>{...doc.data(), 'id': doc.id})
               .toList();

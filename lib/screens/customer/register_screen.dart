@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import '../../core/read_counter.dart';
 import '../../core/routing.dart';
 import '../../core/validators.dart';
 import '../../core/ph_locations.dart';
@@ -533,6 +534,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
           .collection('users')
           .doc(user.uid);
       final existingDoc = await docRef.get();
+      ReadCounter.log(
+        'register_screen:googleCheck',
+        existingDoc.exists ? 1 : 0,
+      );
       if (existingDoc.exists) {
         await FirebaseAuth.instance.signOut();
         await googleSignIn.signOut();

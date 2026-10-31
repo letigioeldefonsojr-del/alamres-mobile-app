@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/read_counter.dart';
 import '../screens/customer/cart_screen.dart';
 
 /// A persistent "View Cart" bar - the piece of the foodpanda-style ordering
@@ -13,25 +14,50 @@ import '../screens/customer/cart_screen.dart';
 /// layout space) whenever nobody's logged in or the cart is empty, so it's
 /// always safe to add - no visible change until there's actually something
 /// to show.
-class CartFloatingBar extends StatelessWidget {
+///
+/// Was a StatelessWidget that called `cartRef.snapshots()` straight inside
+/// build() - same bug as the old cart_badge.dart (see its doc comment):
+/// every rebuild of whatever screen this sits in as a bottomNavigationBar
+/// (a search keystroke, a sort change, anything) handed StreamBuilder a
+/// brand-new Stream and re-read the whole cart. Now a StatefulWidget so
+/// the stream is created once, in initState, and reused across rebuilds.
+class CartFloatingBar extends StatefulWidget {
   const CartFloatingBar({super.key});
 
+  @override
+  State<CartFloatingBar> createState() => _CartFloatingBarState();
+}
+
+class _CartFloatingBarState extends State<CartFloatingBar> {
   static const Color primaryGreen = Color(0xFF2E6B3E);
+
+  Stream<QuerySnapshot<Map<String, dynamic>>>? _cartStream;
+
+  @override
+  void initState() {
+    super.initState();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      _cartStream = FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('cart')
+          .snapshots();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return const SizedBox.shrink();
-
-    final cartRef = FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('cart');
+    final stream = _cartStream;
+    if (stream == null) return const SizedBox.shrink();
 
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: cartRef.snapshots(),
+      stream: stream,
       builder: (context, snapshot) {
         final docs = snapshot.data?.docs ?? [];
+        if (snapshot.hasData) {
+          ReadCounter.log('cart_floating_bar:cart', docs.length);
+        }
         if (docs.isEmpty) return const SizedBox.shrink();
 
         // Distinct cart entries (product/flavor combos), not total pieces -

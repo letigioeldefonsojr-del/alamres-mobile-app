@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/ph_locations.dart';
+import '../../core/read_counter.dart';
 import 'address_picker_screen.dart';
 
 class SavedAddressesScreen extends StatefulWidget {
@@ -27,6 +28,23 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
         .collection('users')
         .doc(uid)
         .collection('addresses');
+  }
+
+  // Created once in initState and reused across every rebuild - `build()`
+  // used to call `ref.orderBy(...).snapshots()` straight inline, handing
+  // StreamBuilder a brand-new Stream (and re-reading every saved address
+  // again) on every rebuild of this screen, e.g. toggling
+  // _isOpeningAddAddress above. Same fix as cart_screen.dart's
+  // `_cartStream` and the widgets/cart_badge.dart /
+  // widgets/cart_floating_bar.dart rewrite.
+  Stream<QuerySnapshot<Map<String, dynamic>>>? _addressesStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _addressesStream = _addressesRef
+        ?.orderBy('createdAt', descending: true)
+        .snapshots();
   }
 
   Future<void> _addAddress() async {
@@ -431,7 +449,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final ref = _addressesRef;
+    final stream = _addressesStream;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -454,15 +472,18 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
               )
             : const Icon(Icons.add, color: Colors.white),
       ),
-      body: ref == null
+      body: stream == null
           ? const Center(child: Text('Please log in to manage addresses.'))
           : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: ref.orderBy('createdAt', descending: true).snapshots(),
+              stream: stream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 final docs = snapshot.data?.docs ?? [];
+                if (snapshot.hasData) {
+                  ReadCounter.log('saved_addresses:addresses', docs.length);
+                }
                 if (docs.isEmpty) {
                   return Center(
                     child: Padding(

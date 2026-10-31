@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants.dart';
 import '../../core/order_helpers.dart';
+import '../../core/read_counter.dart';
 import '../../widgets/product_image.dart';
 import 'order_details_screen.dart';
 
@@ -43,30 +44,56 @@ class OrdersListView extends StatefulWidget {
   State<OrdersListView> createState() => _OrdersListViewState();
 }
 
+/// One order row for display, decoupled from which Firestore type it came
+/// from. [_recentDocs]/[_activeDocs] used to hold `QueryDocumentSnapshot`s
+/// straight from a query's `.docs`, but the 'removed' change Firestore
+/// sends when an active order transitions to a terminal status hands back
+/// a plain `DocumentSnapshot` instead (not a `QueryDocumentSnapshot` - it's
+/// no longer part of any query result) - this wrapper lets both sit in the
+/// same list without the snapshot-type mismatch.
+class _OrderRow {
+  final String id;
+  final Map<String, dynamic> data;
+  const _OrderRow(this.id, this.data);
+}
+
 /// Was a single `.snapshots()` listener on every one of this customer's
 /// orders ever placed, held open for as long as this tab was mounted - a
 /// customer who's been ordering for a year paid to keep that entire
-/// history "live" just to see today's status update. This now does two
-/// one-time `.get()`s instead:
-///   - "recent": the last [_recentWindow] of orders, newest first, paged
-///     in batches of [_pageSize] via `startAfterDocument` behind a
-///     "Load older orders" button - covered by the project's existing
-///     (userId, createdAt) composite index.
-///   - "active": every order in [_activeStatuses] regardless of age (a
-///     pure multi-equality query, no composite index needed) - so an
-///     order placed 6 weeks ago that's still `pending` never silently
-///     drops out of view just because it's outside the recent window.
-/// Both are merged (deduped by order id) and sorted newest-first for
-/// display. Refetched on pull-to-refresh, on resuming the app, and via
-/// [ordersChangedSignal] right after this same customer places, cancels,
-/// or rates an order - never on a timer, and never just because some
-/// other screen rebuilt.
+/// history "live" just to see today's status update, when in practice
+/// only the handful of orders still in progress ever actually change.
+/// This now splits the two:
+///   - "active" ([_activeStatuses], regardless of age - a pure
+///     multi-equality query, no composite index needed): a real
+///     `.snapshots()` listener, so an in-progress order's status keeps
+///     updating on its own exactly like before - including an order
+///     placed 6 weeks ago that's still `pending`. Attached while this
+///     tab (or the app) is in the foreground, detached the moment it
+///     isn't - see [didChangeAppLifecycleState] and [dispose].
+///   - "history" (everything else - delivered/cancelled/rejected/
+///     undelivered, or just older than [_recentWindow]): a one-time
+///     `.get()`, paged in batches of [_pageSize] via `startAfterDocument`
+///     behind a "Load older orders" button - covered by the project's
+///     existing (userId, createdAt) composite index. Refetched on
+///     pull-to-refresh, on resuming the app, and via [ordersChangedSignal]
+///     right after this same customer places an order.
+/// The moment an active order's status changes to something outside
+/// [_activeStatuses] (delivered, cancelled, ...), Firestore's own
+/// `DocumentChangeType.removed` event for it still carries that order's
+/// final data - that's folded straight into the history list already in
+/// memory instead of costing another read.
+/// Both lists are merged (deduped by order id, active wins on overlap)
+/// and sorted newest-first for display.
 class _OrdersListViewState extends State<OrdersListView>
     with WidgetsBindingObserver {
   static const Color primaryGreen = Color(0xFF2E6B3E);
 
   static const Duration _recentWindow = Duration(days: 30);
   static const int _pageSize = 30;
+  // NOTE: the status list that should always stay visible regardless of
+  // age named "preparing" as an example - this app's real order
+  // lifecycle (order_helpers.dart) has no such status; the matching
+  // in-progress one is `ready_for_pickup`, used here instead.
   static const List<String> _activeStatuses = [
     'pending',
     'approved',
@@ -91,30 +118,50 @@ class _OrdersListViewState extends State<OrdersListView>
   bool _error = false;
   Object? _lastError;
 
-  List<QueryDocumentSnapshot<Map<String, dynamic>>> _recentDocs = [];
-  List<QueryDocumentSnapshot<Map<String, dynamic>>> _activeDocs = [];
+  List<_OrderRow> _recentDocs = [];
+  List<_OrderRow> _activeDocs = [];
   DocumentSnapshot<Map<String, dynamic>>? _lastRecentDoc;
   bool _hasMoreRecent = false;
+
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _activeSub;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadInitial();
-    ordersChangedSignal.addListener(_loadInitial);
+    ordersChangedSignal.addListener(_refreshHistory);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    ordersChangedSignal.removeListener(_loadInitial);
+    ordersChangedSignal.removeListener(_refreshHistory);
+    _detachActiveListener();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     if (state == AppLifecycleState.resumed) {
-      _loadInitial();
+      if (uid != null) _attachActiveListenerIfNeeded(uid);
+      _refreshHistory();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      // Keeping a `.snapshots()` listener open while the app is
+      // backgrounded just burns reads for updates nobody's watching -
+      // see [didChangeAppLifecycleState]'s resumed branch for where it
+      // reattaches.
+      //
+      // Deliberately NOT keying off `inactive` here - that was the actual
+      // bug behind active orders' status going stale until a manual
+      // refresh. `inactive` fires for all sorts of things that aren't
+      // really backgrounding (an incoming call, the notification shade, a
+      // permission/share sheet, ...) and isn't reliably followed by a
+      // `resumed` callback to reattach on. `paused` (and `detached`) are
+      // the only states that actually mean "the app left the foreground."
+      _detachActiveListener();
     }
   }
 
@@ -122,46 +169,51 @@ class _OrdersListViewState extends State<OrdersListView>
 
   // --- Data -------------------------------------------------------------
 
+  /// First load (or pull-to-refresh / Retry): fetches the one-time
+  /// history page and makes sure the active-orders listener is attached.
   Future<void> _loadInitial() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
       if (mounted) setState(() => _loading = false);
       return;
     }
+    await _fetchHistoryPage(uid);
+    _attachActiveListenerIfNeeded(uid);
+  }
 
+  /// Re-fetches just the history page - used by [ordersChangedSignal]
+  /// (right after this customer places an order) and on app resume. Never
+  /// touches the active listener: a newly placed/cancelled/approved order
+  /// is already covered live by it the moment Firestore syncs the write,
+  /// so there's nothing extra to do for that here.
+  Future<void> _refreshHistory() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    await _fetchHistoryPage(uid);
+  }
+
+  Future<void> _fetchHistoryPage(String uid) async {
     if (mounted) setState(() => _error = false);
-
     try {
       final Timestamp cutoff = Timestamp.fromDate(
         DateTime.now().subtract(_recentWindow),
       );
-      final recentFuture = FirebaseFirestore.instance
+      final snap = await FirebaseFirestore.instance
           .collection('orders')
           .where('userId', isEqualTo: uid)
           .where('createdAt', isGreaterThanOrEqualTo: cutoff)
           .orderBy('createdAt', descending: true)
           .limit(_pageSize)
           .get();
-      final activeFuture = FirebaseFirestore.instance
-          .collection('orders')
-          .where('userId', isEqualTo: uid)
-          .where('status', whereIn: _activeStatuses)
-          .get();
-
-      final results = await Future.wait([recentFuture, activeFuture]);
-      final recentSnap =
-          results[0] as QuerySnapshot<Map<String, dynamic>>;
-      final activeSnap =
-          results[1] as QuerySnapshot<Map<String, dynamic>>;
+      ReadCounter.log('orders_tab:history', snap.docs.length);
 
       if (!mounted) return;
       setState(() {
-        _recentDocs = recentSnap.docs;
-        _activeDocs = activeSnap.docs;
-        _lastRecentDoc = recentSnap.docs.isNotEmpty
-            ? recentSnap.docs.last
-            : null;
-        _hasMoreRecent = recentSnap.docs.length == _pageSize;
+        _recentDocs = snap.docs
+            .map((d) => _OrderRow(d.id, d.data()))
+            .toList();
+        _lastRecentDoc = snap.docs.isNotEmpty ? snap.docs.last : null;
+        _hasMoreRecent = snap.docs.length == _pageSize;
         _loading = false;
       });
     } catch (e) {
@@ -172,6 +224,65 @@ class _OrdersListViewState extends State<OrdersListView>
         _lastError = e;
       });
     }
+  }
+
+  /// A real `.snapshots()` listener on this customer's in-progress
+  /// orders - small by nature (an active order is never one for long),
+  /// so keeping it live costs little and is what makes status changes
+  /// (admin approves/dispatches it, etc.) show up on their own, same as
+  /// before this file started one-time-fetching everything else. A no-op
+  /// if one's already attached, so calling this from both [_loadInitial]
+  /// and the resumed branch of [didChangeAppLifecycleState] never opens a
+  /// second listener on top of one that's already live.
+  void _attachActiveListenerIfNeeded(String uid) {
+    if (_activeSub != null) return;
+    _activeSub = FirebaseFirestore.instance
+        .collection('orders')
+        .where('userId', isEqualTo: uid)
+        .where('status', whereIn: _activeStatuses)
+        .snapshots()
+        .listen(
+          (snapshot) {
+            if (!mounted) return;
+            ReadCounter.log('orders_tab:active', snapshot.docs.length);
+            // A doc that just stopped matching this active-status filter
+            // has moved to a terminal status (delivered/cancelled/...) -
+            // Firestore's 'removed' change still hands over that doc's
+            // final data (as a plain DocumentSnapshot, not a
+            // QueryDocumentSnapshot - it's no longer part of any query
+            // result), so it's folded straight into the history list
+            // already in memory rather than triggering another read.
+            for (final change in snapshot.docChanges) {
+              if (change.type == DocumentChangeType.removed) {
+                final Map<String, dynamic>? movedData = change.doc.data();
+                if (movedData != null) {
+                  final String movedId = change.doc.id;
+                  _recentDocs = [
+                    ..._recentDocs.where((r) => r.id != movedId),
+                    _OrderRow(movedId, movedData),
+                  ];
+                }
+              }
+            }
+            setState(() {
+              _activeDocs = snapshot.docs
+                  .map((d) => _OrderRow(d.id, d.data()))
+                  .toList();
+              _loading = false;
+            });
+          },
+          onError: (_) {
+            // Best-effort - the history fetch already got something on
+            // screen; a listener error just means active orders stop
+            // live-updating until the next successful attach (e.g. on
+            // resume).
+          },
+        );
+  }
+
+  void _detachActiveListener() {
+    _activeSub?.cancel();
+    _activeSub = null;
   }
 
   Future<void> _loadMoreRecent() async {
@@ -193,10 +304,14 @@ class _OrdersListViewState extends State<OrdersListView>
           .startAfterDocument(after)
           .limit(_pageSize)
           .get();
+      ReadCounter.log('orders_tab:loadMoreHistory', snap.docs.length);
 
       if (!mounted) return;
       setState(() {
-        _recentDocs = [..._recentDocs, ...snap.docs];
+        _recentDocs = [
+          ..._recentDocs,
+          ...snap.docs.map((d) => _OrderRow(d.id, d.data())),
+        ];
         if (snap.docs.isNotEmpty) _lastRecentDoc = snap.docs.last;
         _hasMoreRecent = snap.docs.length == _pageSize;
         _loadingMore = false;
@@ -208,22 +323,20 @@ class _OrdersListViewState extends State<OrdersListView>
 
   // --- Merge / filter -----------------------------------------------------
 
-  List<QueryDocumentSnapshot<Map<String, dynamic>>> get _mergedDocs {
-    final Map<String, QueryDocumentSnapshot<Map<String, dynamic>>> byId = {};
-    for (final doc in _recentDocs) {
-      byId[doc.id] = doc;
+  List<_OrderRow> get _mergedDocs {
+    final Map<String, _OrderRow> byId = {};
+    for (final row in _recentDocs) {
+      byId[row.id] = row;
     }
     // Active orders are added last so one that's also inside the recent
     // window doesn't get counted/shown twice.
-    for (final doc in _activeDocs) {
-      byId[doc.id] = doc;
+    for (final row in _activeDocs) {
+      byId[row.id] = row;
     }
-    final List<QueryDocumentSnapshot<Map<String, dynamic>>> merged = byId
-        .values
-        .toList();
+    final List<_OrderRow> merged = byId.values.toList();
     merged.sort((a, b) {
-      final ta = a.data()['createdAt'];
-      final tb = b.data()['createdAt'];
+      final ta = a.data['createdAt'];
+      final tb = b.data['createdAt'];
       final int ma = ta is Timestamp ? ta.millisecondsSinceEpoch : 0;
       final int mb = tb is Timestamp ? tb.millisecondsSinceEpoch : 0;
       return mb.compareTo(ma);
@@ -325,7 +438,11 @@ class _OrdersListViewState extends State<OrdersListView>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
+              const Icon(
+                Icons.error_outline,
+                color: Colors.redAccent,
+                size: 40,
+              ),
               const SizedBox(height: 12),
               const Text(
                 "Couldn't load orders",
@@ -348,17 +465,15 @@ class _OrdersListViewState extends State<OrdersListView>
       );
     }
 
-    final List<QueryDocumentSnapshot<Map<String, dynamic>>> allDocs =
-        _mergedDocs;
-    final List<QueryDocumentSnapshot<Map<String, dynamic>>> filteredDocs =
-        allDocs.where((doc) {
-      final data = doc.data();
+    final List<_OrderRow> allDocs = _mergedDocs;
+    final List<_OrderRow> filteredDocs = allDocs.where((row) {
+      final data = row.data;
       return _selectedStatus == null ||
           (data['status'] ?? '').toString().toLowerCase() == _selectedStatus;
     }).toList();
 
-    final double total = filteredDocs.fold<double>(0, (sum, doc) {
-      final data = doc.data();
+    final double total = filteredDocs.fold<double>(0, (sum, row) {
+      final data = row.data;
       final String docStatus = (data['status'] ?? '').toString().toLowerCase();
       if (docStatus == 'cancelled' ||
           docStatus == 'rejected' ||
@@ -540,7 +655,7 @@ class _OrdersListViewState extends State<OrdersListView>
                           );
                         }
 
-                        final data = filteredDocs[index].data();
+                        final data = filteredDocs[index].data;
                         final orderItems = getOrderItems(data);
                         final status = (data['status'] ?? 'pending').toString();
                         final total = data['total'];
@@ -592,8 +707,7 @@ class _OrdersListViewState extends State<OrdersListView>
                                             height: 48,
                                             child: ProductImage(
                                               imageUrl: orderItems.isNotEmpty
-                                                  ? orderItems
-                                                            .first['imageUrl']
+                                                  ? orderItems.first['imageUrl']
                                                         as String?
                                                   : null,
                                               seedText: orderItems.isNotEmpty
@@ -615,37 +729,32 @@ class _OrdersListViewState extends State<OrdersListView>
                                                 Text(
                                                   'Order #$shortId',
                                                   style: const TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.w600,
+                                                    fontWeight: FontWeight.w600,
                                                     fontSize: 13,
                                                   ),
                                                 ),
                                                 const SizedBox(height: 4),
                                                 Text(
                                                   orderItems.length == 1
-                                                      ? (orderItems
-                                                                .first['productName']
-                                                            as String? ??
-                                                        '')
+                                                      ? (orderItems.first['productName']
+                                                                as String? ??
+                                                            '')
                                                       : '${orderItems.length} items',
                                                   maxLines: 1,
                                                   overflow:
                                                       TextOverflow.ellipsis,
                                                   style: TextStyle(
-                                                    color:
-                                                        Colors.grey.shade600,
+                                                    color: Colors.grey.shade600,
                                                     fontSize: 12,
                                                   ),
                                                 ),
-                                                if (dateLabel
-                                                    .isNotEmpty) ...[
+                                                if (dateLabel.isNotEmpty) ...[
                                                   const SizedBox(height: 2),
                                                   Text(
                                                     dateLabel,
                                                     style: TextStyle(
-                                                      color: Colors
-                                                          .grey
-                                                          .shade500,
+                                                      color:
+                                                          Colors.grey.shade500,
                                                       fontSize: 11.5,
                                                     ),
                                                   ),
@@ -655,25 +764,22 @@ class _OrdersListViewState extends State<OrdersListView>
                                           ),
                                           if (total != null)
                                             Padding(
-                                              padding:
-                                                  const EdgeInsets.only(
-                                                    right: 10,
-                                                  ),
+                                              padding: const EdgeInsets.only(
+                                                right: 10,
+                                              ),
                                               child: Text(
                                                 '₱${total.toString()}',
                                                 style: const TextStyle(
-                                                  fontWeight:
-                                                      FontWeight.bold,
+                                                  fontWeight: FontWeight.bold,
                                                   fontSize: 13,
                                                 ),
                                               ),
                                             ),
                                           Container(
-                                            padding:
-                                                const EdgeInsets.symmetric(
-                                                  horizontal: 10,
-                                                  vertical: 5,
-                                                ),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 5,
+                                            ),
                                             decoration: BoxDecoration(
                                               color: _statusColor(
                                                 status,
@@ -727,9 +833,7 @@ class _LoadOlderButton extends StatelessWidget {
       onPressed: loading ? null : onPressed,
       style: OutlinedButton.styleFrom(
         side: const BorderSide(color: primaryGreen),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       icon: loading
           ? const SizedBox(
@@ -743,7 +847,10 @@ class _LoadOlderButton extends StatelessWidget {
           : const Icon(Icons.expand_more, color: primaryGreen, size: 18),
       label: Text(
         loading ? 'Loading...' : 'Load older orders',
-        style: const TextStyle(color: primaryGreen, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+          color: primaryGreen,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../core/banner_helpers.dart';
+import '../core/read_counter.dart';
 
 /// Everything [PromoBannerCarousel] needs to decide what to show: the raw
 /// `storeBanners` collection (already sorted by `sortOrder`, NOT filtered
@@ -75,6 +76,14 @@ class BannerRepository {
       ]);
       final newBannersSnap = results[0] as QuerySnapshot<Map<String, dynamic>>;
       final legacyDoc = results[1] as DocumentSnapshot<Map<String, dynamic>>;
+      ReadCounter.log(
+        'banner_repository:storeBanners',
+        newBannersSnap.docs.length,
+      );
+      ReadCounter.log(
+        'banner_repository:legacyStoreBanner',
+        legacyDoc.exists ? 1 : 0,
+      );
 
       final banners = newBannersSnap.docs
           .map((doc) => PromoBanner.fromMap(doc.id, doc.data()))

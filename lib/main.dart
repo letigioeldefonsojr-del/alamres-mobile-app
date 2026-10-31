@@ -11,6 +11,7 @@ import 'services/engagement_reminder_service.dart';
 import 'services/suspension_watcher.dart';
 import 'screens/splash_screen.dart';
 import 'core/product_view_preference.dart';
+import 'core/read_counter.dart';
 import 'services/product_repository.dart';
 
 // Lets SuspensionWatcher force navigation back to the login screen from
@@ -20,6 +21,11 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Debug-only Firestore read counter (see read_counter.dart) - starts
+  // every fresh debug session, hot restart included, counting from 0
+  // rather than carrying over a stale total from before.
+  ReadCounter.reset();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(

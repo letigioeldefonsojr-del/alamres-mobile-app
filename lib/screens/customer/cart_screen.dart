@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/cart_helpers.dart';
 import '../../core/product_helpers.dart';
+import '../../core/read_counter.dart';
+import '../../services/customer_profile_cache.dart';
 import '../../services/product_repository.dart';
 import '../../widgets/product_image.dart';
 import 'cart_order_confirmation_screen.dart';
@@ -94,12 +96,15 @@ class _CartScreenState extends State<CartScreen> {
   Future<void> _loadDefaultAddress() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
+    // Goes through the same 5-minute profile cache every other screen
+    // uses now (see customer_profile_cache.dart) instead of its own direct
+    // `.get()` - by the time the customer reaches Cart, Home has almost
+    // always already warmed this exact cache entry, so this is usually a
+    // free, in-memory read rather than another trip to Firestore.
+    final data = await CustomerProfileCache.instance.getProfile(
+      uid: user.uid,
+    );
     if (mounted) {
-      final data = doc.data();
       setState(() {
         _selectedAddress = combineAddressAndLandmark(
           (data?['address'] as String?) ?? '',
@@ -256,6 +261,9 @@ class _CartScreenState extends State<CartScreen> {
                 }
 
                 final docs = snapshot.data?.docs ?? [];
+                if (snapshot.hasData) {
+                  ReadCounter.log('cart_screen:cart', docs.length);
+                }
 
                 if (docs.isEmpty) {
                   return Center(
