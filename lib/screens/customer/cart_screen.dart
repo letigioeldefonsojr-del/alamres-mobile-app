@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -47,6 +48,30 @@ class _CartScreenState extends State<CartScreen> {
   // rebuilds until the cart doc is actually gone).
   final Set<String> _removingGoneIds = {};
 
+  // Cart docs currently matching a real product/flavor that is marked
+  // unavailable or out of stock - kept in the cart (never deleted), shown
+  // as "Unavailable", and excluded from selection/checkout. Re-derived by
+  // [_validateAgainstCatalog] every time the live catalog or the cart
+  // itself changes. See cartItemStatusAgainstProduct() in
+  // core/product_helpers.dart for how a row lands here vs. being auto-
+  // removed as [gone][CartItemStatus.gone] instead.
+  Set<String> _unavailableIds = {};
+
+  // The most recent cart snapshot's docs, cached here so catalog-driven
+  // re-validation (the periodic timer, a catalog refresh landing while
+  // this screen is open) has something to check against without waiting
+  // for the cart itself to also emit a new snapshot.
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _lastDocs = const [];
+  Set<String> _lastCartDocIds = const {};
+
+  // Keeps the product catalog reasonably fresh (never older than ~30-45s)
+  // for as long as this screen is open, so a product deleted or marked
+  // unavailable on the admin side while the customer is sitting on their
+  // cart gets caught without them having to leave and come back. This is
+  // a Supabase call (ProductRepository.refresh(), debounced to at most
+  // once every 20s internally) - never a Firestore read.
+  Timer? _catalogCheckTimer;
+
   // Created once and reused across every rebuild - this is what was
   // causing the screen to flicker. `stream:` was previously being handed
   // a brand-new `ref.orderBy(...).snapshots()` call straight in build(),
@@ -91,6 +116,96 @@ class _CartScreenState extends State<CartScreen> {
     });
     _cartStream = _cartRef?.orderBy('updatedAt', descending: true).snapshots();
     _loadDefaultAddress();
+
+    // Registers this screen as a "product-consuming" screen with
+    // ProductRepository - same mechanism the product grids use. This
+    // triggers one immediate (debounced) catalog refresh now, and makes
+    // the app-resume hook in main.dart refresh the catalog too while this
+    // is the only such screen open, so coming back to the app with Cart
+    // open still catches a product that was deleted/changed meanwhile.
+    ProductRepository.instance.registerVisible();
+    ProductRepository.instance.productsNotifier.addListener(
+      _onCatalogChanged,
+    );
+    // The spec asks for roughly a 30-60s re-check cadence while this
+    // screen specifically is open - tighter than ProductRepository's own
+    // ~3-minute periodic refresh (which exists for the product grids, not
+    // this). refresh() itself is still debounced to at most once every
+    // 20s internally, so this timer just makes sure that debounce window
+    // is actually hit regularly rather than only refreshing on the
+    // triggers above.
+    _catalogCheckTimer = Timer.periodic(const Duration(seconds: 45), (_) {
+      unawaited(ProductRepository.instance.refresh());
+    });
+  }
+
+  @override
+  void dispose() {
+    ProductRepository.instance.unregisterVisible();
+    ProductRepository.instance.productsNotifier.removeListener(
+      _onCatalogChanged,
+    );
+    _catalogCheckTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onCatalogChanged() {
+    _validateAgainstCatalog();
+  }
+
+  // The actual cart-vs-catalog comparison, run against whatever cart docs
+  // were last seen ([_lastDocs]) and whatever ProductRepository has
+  // loaded right now. Never deletes or flags anything off of a catalog
+  // that hasn't successfully loaded at least once, or came back empty
+  // (a failed/empty fetch always leaves the cart exactly as it was) - see
+  // ProductRepository.hasRefreshedOnce's own doc comment for why that
+  // flag exists.
+  void _validateAgainstCatalog() {
+    if (!mounted) return;
+    if (!ProductRepository.instance.hasRefreshedOnce) return;
+    if (ProductRepository.instance.productsNotifier.value.isEmpty) return;
+
+    final Set<String> unavailable = {};
+    for (final doc in _lastDocs) {
+      if (_removingGoneIds.contains(doc.id)) continue;
+      final data = doc.data();
+      final String? productId = data['productId'] as String?;
+      if (productId == null || productId.isEmpty) {
+        // Not tied to the catalog at all (e.g. a one-off item) - nothing
+        // to validate.
+        continue;
+      }
+      final product = ProductRepository.instance.byId(productId);
+      final status = cartItemStatusAgainstProduct(
+        product,
+        data['flavor'] as String?,
+      );
+      switch (status) {
+        case CartItemStatus.gone:
+          _handleProductGone(doc.id, (data['productName'] as String?) ?? '');
+          break;
+        case CartItemStatus.unavailable:
+          unavailable.add(doc.id);
+          break;
+        case CartItemStatus.available:
+          break;
+      }
+    }
+
+    if (!setEquals(unavailable, _unavailableIds)) {
+      setState(() {
+        _unavailableIds = unavailable;
+        // An item that just became unavailable can never be part of
+        // checkout - drop it from the current selection the same way a
+        // deleted item already is.
+        _selectedIds.removeWhere(unavailable.contains);
+      });
+    }
+  }
+
+  Future<void> _onPullToRefresh() async {
+    await ProductRepository.instance.refresh(force: true);
+    _validateAgainstCatalog();
   }
 
   Future<void> _loadDefaultAddress() async {
@@ -129,6 +244,9 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   void _toggleSelected(String docId) {
+    // Unavailable items can never be checked out - tapping one does
+    // nothing instead of letting it sneak into the selection.
+    if (_unavailableIds.contains(docId)) return;
     setState(() {
       if (_selectedIds.contains(docId)) {
         _selectedIds.remove(docId);
@@ -139,13 +257,17 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   void _selectAll(List<String> allIds) {
+    final List<String> selectableIds = allIds
+        .where((id) => !_unavailableIds.contains(id))
+        .toList();
     setState(() {
-      if (_selectedIds.length == allIds.length) {
+      if (_selectedIds.length == selectableIds.length &&
+          selectableIds.every(_selectedIds.contains)) {
         _selectedIds.clear();
       } else {
         _selectedIds
           ..clear()
-          ..addAll(allIds);
+          ..addAll(selectableIds);
       }
     });
   }
@@ -190,7 +312,7 @@ class _CartScreenState extends State<CartScreen> {
           content: Text(
             productName.trim().isEmpty
                 ? 'An item in your cart is no longer available and was removed.'
-                : '"$productName" is no longer available and was removed from your cart.',
+                : '$productName is no longer available and was removed from your cart.',
           ),
           backgroundColor: Colors.grey.shade800,
           behavior: SnackBarBehavior.floating,
@@ -263,6 +385,14 @@ class _CartScreenState extends State<CartScreen> {
                 final docs = snapshot.data?.docs ?? [];
                 if (snapshot.hasData) {
                   ReadCounter.log('cart_screen:cart', docs.length);
+                  _lastDocs = docs;
+                  final Set<String> currentIds = docs.map((d) => d.id).toSet();
+                  if (!setEquals(currentIds, _lastCartDocIds)) {
+                    _lastCartDocIds = currentIds;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) _validateAgainstCatalog();
+                    });
+                  }
                 }
 
                 if (docs.isEmpty) {
@@ -312,7 +442,11 @@ class _CartScreenState extends State<CartScreen> {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted && _selectedIds.isEmpty) {
                       setState(
-                        () => _selectedIds.addAll(docs.map((d) => d.id)),
+                        () => _selectedIds.addAll(
+                          docs
+                              .map((d) => d.id)
+                              .where((id) => !_unavailableIds.contains(id)),
+                        ),
                       );
                     }
                   });
@@ -333,8 +467,12 @@ class _CartScreenState extends State<CartScreen> {
                   total += unitPrice * amount;
                 }
 
+                final int selectableCount = docs
+                    .where((d) => !_unavailableIds.contains(d.id))
+                    .length;
                 final bool allSelected =
-                    docs.isNotEmpty && _selectedIds.length == docs.length;
+                    selectableCount > 0 &&
+                    _selectedIds.length == selectableCount;
 
                 return Column(
                   children: [
@@ -365,7 +503,10 @@ class _CartScreenState extends State<CartScreen> {
                       ),
                     ),
                     Expanded(
-                      child: ListView.separated(
+                      child: RefreshIndicator(
+                        color: primaryGreen,
+                        onRefresh: _onPullToRefresh,
+                        child: ListView.separated(
                         padding: EdgeInsets.fromLTRB(
                           20,
                           20,
@@ -388,16 +529,21 @@ class _CartScreenState extends State<CartScreen> {
                           final int amount =
                               (data['amount'] as num?)?.toInt() ?? 0;
                           final bool isSelected = _selectedIds.contains(doc.id);
+                          final bool isUnavailable = _unavailableIds.contains(
+                            doc.id,
+                          );
 
                           return Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: isSelected
+                              color: isUnavailable
+                                  ? Colors.grey.withValues(alpha: 0.05)
+                                  : isSelected
                                   ? primaryGreen.withValues(alpha: 0.06)
                                   : Colors.white,
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(
-                                color: isSelected
+                                color: isSelected && !isUnavailable
                                     ? primaryGreen
                                     : const Color(0xFFF0F0F0),
                               ),
@@ -410,7 +556,9 @@ class _CartScreenState extends State<CartScreen> {
                                     isSelected
                                         ? Icons.check_box
                                         : Icons.check_box_outline_blank,
-                                    color: primaryGreen,
+                                    color: isUnavailable
+                                        ? Colors.grey.shade400
+                                        : primaryGreen,
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -462,6 +610,17 @@ class _CartScreenState extends State<CartScreen> {
                                         onLivePrice: _reportLivePrice,
                                         onProductGone: _handleProductGone,
                                       ),
+                                      if (isUnavailable) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Unavailable',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.redAccent.shade700,
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -477,8 +636,11 @@ class _CartScreenState extends State<CartScreen> {
                                           // this button double as an
                                           // unconfirmed remove. Removing is
                                           // only ever done through the
-                                          // "Remove" link below now.
-                                          onTap: amount > 1
+                                          // "Remove" link below now. Also
+                                          // disabled outright for an
+                                          // unavailable item - nothing to
+                                          // adjust toward buying more of.
+                                          onTap: (amount > 1 && !isUnavailable)
                                               ? () => _updateQuantity(
                                                   doc.id,
                                                   amount - 1,
@@ -498,10 +660,12 @@ class _CartScreenState extends State<CartScreen> {
                                         ),
                                         _CartQtyButton(
                                           icon: Icons.add,
-                                          onTap: () => _updateQuantity(
-                                            doc.id,
-                                            amount + 1,
-                                          ),
+                                          onTap: isUnavailable
+                                              ? null
+                                              : () => _updateQuantity(
+                                                  doc.id,
+                                                  amount + 1,
+                                                ),
                                         ),
                                       ],
                                     ),
@@ -537,6 +701,7 @@ class _CartScreenState extends State<CartScreen> {
                             ),
                           );
                         },
+                        ),
                       ),
                     ),
                     SafeArea(
@@ -754,12 +919,20 @@ class _LiveUnitPriceTextState extends State<_LiveUnitPriceText> {
       builder: (context, products, _) {
         final data = ProductRepository.instance.byId(widget.productId!);
 
-        // Only treated as "the admin deleted this product" once the
-        // repository has actually confirmed at least one real load -
-        // never off of an empty/not-yet-loaded list, which would
-        // otherwise look identical to "not found" and wrongly clear out
-        // every item in the cart on a cold start.
-        if (data == null && ProductRepository.instance.hasRefreshedOnce) {
+        // Only treated as "gone" (the admin deleted the product, or
+        // removed this exact flavor from it - see
+        // cartItemStatusAgainstProduct()) once the repository has
+        // actually confirmed at least one real, non-empty load - never
+        // off of an empty/not-yet-loaded list, which would otherwise look
+        // identical to "not found" and wrongly clear out every item in
+        // the cart on a cold start.
+        final bool catalogReady =
+            ProductRepository.instance.hasRefreshedOnce && products.isNotEmpty;
+        final CartItemStatus status = catalogReady
+            ? cartItemStatusAgainstProduct(data, widget.flavorName)
+            : CartItemStatus.available;
+
+        if (status == CartItemStatus.gone) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             widget.onProductGone(widget.docId, widget.productName);
           });

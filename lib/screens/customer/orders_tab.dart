@@ -78,10 +78,13 @@ class _OrderRow {
 ///     pull-to-refresh, on resuming the app, and via [ordersChangedSignal]
 ///     right after this same customer places an order.
 /// The moment an active order's status changes to something outside
-/// [_activeStatuses] (delivered, cancelled, ...), Firestore's own
-/// `DocumentChangeType.removed` event for it still carries that order's
-/// final data - that's folded straight into the history list already in
-/// memory instead of costing another read.
+/// [_activeStatuses] (delivered, cancelled, ...), it drops out of the
+/// active snapshot - [_attachActiveListenerIfNeeded] notices the id is
+/// gone and does one direct `.get()` on that order to find out what it
+/// actually finished as (see that method's doc comment for why a plain
+/// `.get()`, rather than trusting the data Firestore's own 'removed'
+/// change hands back, is what's needed here), then inserts the result at
+/// the top of the history list already in memory.
 /// Both lists are merged (deduped by order id, active wins on overlap)
 /// and sorted newest-first for display.
 class _OrdersListViewState extends State<OrdersListView>
@@ -124,6 +127,13 @@ class _OrdersListViewState extends State<OrdersListView>
   bool _hasMoreRecent = false;
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _activeSub;
+
+  // What the active-orders query last told us was active, by id - compared
+  // against each new snapshot in [_attachActiveListenerIfNeeded] below to
+  // notice which orders just fell out of it (see that method's doc
+  // comment for why this replaced trusting the 'removed' DocumentChange's
+  // own data).
+  Map<String, Map<String, dynamic>> _lastActiveById = {};
 
   @override
   void initState() {
@@ -234,6 +244,25 @@ class _OrdersListViewState extends State<OrdersListView>
   /// if one's already attached, so calling this from both [_loadInitial]
   /// and the resumed branch of [didChangeAppLifecycleState] never opens a
   /// second listener on top of one that's already live.
+  ///
+  /// This used to assume Firestore's 'removed' `DocumentChange` for an
+  /// order that just stopped matching this query handed back that order's
+  /// *new* data (its final status) - it doesn't. That change's document
+  /// snapshot reflects the order as it looked right before the write that
+  /// caused it to drop out of the query's results, i.e. its last still-
+  /// active status, not the delivered/cancelled/rejected/undelivered
+  /// status that actually caused the removal. Folding that straight into
+  /// history left the customer looking at a frozen "On the Way" (or
+  /// whatever it was) until something else (a manual pull-to-refresh, or
+  /// resuming the app) forced a real re-fetch.
+  ///
+  /// Comparing each new snapshot against [_lastActiveById] instead - which
+  /// ids were active a moment ago but aren't anymore - and doing one
+  /// direct `.get()` per id that just finished is the only way to actually
+  /// see what it finished *as*. Still no polling and no re-querying the
+  /// whole history: this is exactly one extra read per order that
+  /// transitions out of the active set, which is rare by nature (an order
+  /// is active for a small fraction of its lifetime).
   void _attachActiveListenerIfNeeded(String uid) {
     if (_activeSub != null) return;
     _activeSub = FirebaseFirestore.instance
@@ -245,25 +274,19 @@ class _OrdersListViewState extends State<OrdersListView>
           (snapshot) {
             if (!mounted) return;
             ReadCounter.log('orders_tab:active', snapshot.docs.length);
-            // A doc that just stopped matching this active-status filter
-            // has moved to a terminal status (delivered/cancelled/...) -
-            // Firestore's 'removed' change still hands over that doc's
-            // final data (as a plain DocumentSnapshot, not a
-            // QueryDocumentSnapshot - it's no longer part of any query
-            // result), so it's folded straight into the history list
-            // already in memory rather than triggering another read.
-            for (final change in snapshot.docChanges) {
-              if (change.type == DocumentChangeType.removed) {
-                final Map<String, dynamic>? movedData = change.doc.data();
-                if (movedData != null) {
-                  final String movedId = change.doc.id;
-                  _recentDocs = [
-                    ..._recentDocs.where((r) => r.id != movedId),
-                    _OrderRow(movedId, movedData),
-                  ];
-                }
-              }
+
+            final Map<String, Map<String, dynamic>> currentActiveById = {
+              for (final doc in snapshot.docs) doc.id: doc.data(),
+            };
+            final List<String> justFinishedIds = _lastActiveById.keys
+                .where((id) => !currentActiveById.containsKey(id))
+                .toList();
+            _lastActiveById = currentActiveById;
+
+            for (final id in justFinishedIds) {
+              unawaited(_fetchFinishedOrder(id));
             }
+
             setState(() {
               _activeDocs = snapshot.docs
                   .map((d) => _OrderRow(d.id, d.data()))
@@ -283,6 +306,34 @@ class _OrdersListViewState extends State<OrdersListView>
   void _detachActiveListener() {
     _activeSub?.cancel();
     _activeSub = null;
+  }
+
+  /// One direct `.get()` for an order that just dropped out of the
+  /// active-orders snapshot - see [_attachActiveListenerIfNeeded]'s doc
+  /// comment for why this is the only reliable way to learn what it
+  /// finished as. Inserted at the top of the in-memory history list
+  /// (replacing any stale copy already there from the one-time history
+  /// page, which could be carrying the same last-active status this
+  /// whole fix exists to get past) rather than re-querying history itself.
+  Future<void> _fetchFinishedOrder(String id) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(id)
+          .get();
+      ReadCounter.log('orders_tab:finishedOrder', doc.exists ? 1 : 0);
+      final data = doc.data();
+      if (data == null || !mounted) return;
+      setState(() {
+        _recentDocs = [
+          _OrderRow(id, data),
+          ..._recentDocs.where((r) => r.id != id),
+        ];
+      });
+    } catch (_) {
+      // Best-effort - if this fails, the next pull-to-refresh or app
+      // resume's history re-fetch will still pick up the real status.
+    }
   }
 
   Future<void> _loadMoreRecent() async {

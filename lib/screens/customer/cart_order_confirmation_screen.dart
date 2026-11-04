@@ -339,6 +339,60 @@ class _CartOrderConfirmationScreenState
     setState(() => _isConfirming = true);
     final messenger = ScaffoldMessenger.of(context);
 
+    // One more check against the live catalog, right before actually
+    // placing the order - closes the gap between whatever was last
+    // checked while browsing the cart/this screen and the moment
+    // "Confirm Order" is tapped. Never blocks on a catalog that hasn't
+    // successfully loaded at least once, or came back empty -
+    // deductStockAndResolvePricesSupabase()'s own stock check further
+    // below is still the real gate in that case, same as before this
+    // existed.
+    await ProductRepository.instance.refresh();
+    if (!mounted) return;
+    if (ProductRepository.instance.hasRefreshedOnce &&
+        ProductRepository.instance.productsNotifier.value.isNotEmpty) {
+      final List<int> goneIndices = [];
+      for (int i = 0; i < _items.length; i++) {
+        final String? productId = _items[i]['productId'] as String?;
+        if (productId == null || productId.isEmpty) continue;
+        final product = ProductRepository.instance.byId(productId);
+        final status = cartItemStatusAgainstProduct(
+          product,
+          _items[i]['flavor'] as String?,
+        );
+        if (status == CartItemStatus.gone) goneIndices.add(i);
+      }
+      if (goneIndices.isNotEmpty) {
+        // Delete the matching cart doc(s) too (when these items came
+        // straight from the live cart - see widget.cartRefs) so the cart
+        // itself doesn't keep showing something just confirmed gone.
+        if (_cartRefs != null) {
+          for (final index in goneIndices) {
+            if (index < _cartRefs!.length) {
+              await _cartRefs![index].delete();
+            }
+          }
+        }
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Some items in your cart are no longer available and were '
+              'removed. Please review your cart.',
+            ),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+        Navigator.pop(context);
+        return;
+      }
+    }
+
     final orderRef = FirebaseFirestore.instance.collection('orders').doc();
     // Only created/written when kUseSupabaseStaffNotifications is off - the
     // old path writes this alongside the order (see the txn.set below) so

@@ -421,6 +421,61 @@ bool isVariantAvailable(Map<String, dynamic> variant) {
   return !(stock is num && stock == 0);
 }
 
+/// A cart row's standing against the live catalog right now, as loaded by
+/// ProductRepository - shared by the cart screen (deciding what to
+/// auto-remove vs. show as "Unavailable") and the checkout screen (the
+/// final re-check right before placing an order).
+///
+///  - [gone]: the product itself was deleted/unpublished, or this exact
+///    flavor no longer exists on it. The cart row should be removed -
+///    there's nothing left to buy.
+///  - [unavailable]: the product (and, for a variant item, this exact
+///    flavor) still exists, but is currently out of stock or marked
+///    unavailable. Kept in the cart, just not purchasable right now.
+///  - [available]: fine to buy as-is.
+enum CartItemStatus { available, unavailable, gone }
+
+/// Checks one cart item's `productId`/`flavor` against [product] - the
+/// matching entry from [ProductRepository.instance.byId], or null if none
+/// was found. A cart item with no `productId` at all (e.g. a one-off item
+/// not tied to the catalog) is never flagged - callers should skip calling
+/// this for those rather than relying on it to say [available] for them.
+CartItemStatus cartItemStatusAgainstProduct(
+  Map<String, dynamic>? product,
+  String? flavorName,
+) {
+  if (product == null) return CartItemStatus.gone;
+
+  final bool productUnavailable = product['available'] == false;
+
+  if (flavorName == null || flavorName.isEmpty) {
+    if (productUnavailable) return CartItemStatus.unavailable;
+    final stockCount = product['stockCount'];
+    if (stockCount is num && stockCount == 0) {
+      return CartItemStatus.unavailable;
+    }
+    return CartItemStatus.available;
+  }
+
+  final flavors =
+      (product['flavors'] as List?)
+          ?.map((f) => Map<String, dynamic>.from(f as Map))
+          .toList() ??
+      const <Map<String, dynamic>>[];
+  Map<String, dynamic>? variant;
+  for (final f in flavors) {
+    if (f['name'] == flavorName) {
+      variant = f;
+      break;
+    }
+  }
+  if (variant == null) return CartItemStatus.gone;
+  if (productUnavailable || !isVariantAvailable(variant)) {
+    return CartItemStatus.unavailable;
+  }
+  return CartItemStatus.available;
+}
+
 /// Whether this product should show the "Best Seller" badge. Driven
 /// entirely by the admin-curated `bestSeller` field on the product
 /// document - a missing or non-boolean value is treated as false, per
