@@ -115,6 +115,94 @@ class ProductRepository {
   /// debouncing the spec asks for, so a screen opening, the periodic
   /// timer, and a pull-to-refresh landing close together don't turn into
   /// three separate full-catalog fetches.
+  /// When [productsNotifier]'s current value was last successfully
+  /// refreshed - null if it never has been (a cold start still only
+  /// showing the on-disk cache, or [kUseSupabaseProducts] is off and this
+  /// is running the Firestore-listener path instead, which doesn't use
+  /// this field at all). Exposed for [isStale]/[refreshIfStale] and for
+  /// any screen that wants its own staleness check.
+  DateTime? get lastRefreshAt => _lastRefreshAt;
+
+  /// True when the catalog has never been refreshed yet, or was last
+  /// refreshed more than [maxAge] ago (~60s by default). This is a
+  /// separate, explicit policy from [refresh]'s own internal ~20s
+  /// anti-spam debounce (which exists only to collapse several triggers
+  /// landing at once into one network call, not to express "fresh
+  /// enough") - [maxAge] is the actual "does a customer looking at this
+  /// right now risk seeing a stale admin edit" threshold.
+  bool isStale({Duration maxAge = const Duration(seconds: 60)}) {
+    final DateTime? at = _lastRefreshAt;
+    return at == null || DateTime.now().difference(at) > maxAge;
+  }
+
+  /// Refreshes the whole catalog only if [isStale]. This is the trigger
+  /// used for "a product screen opened", "the app came back to the
+  /// foreground", and "the customer pulled to refresh" - each of those
+  /// landing within the freshness window is a no-op instead of costing a
+  /// network call, while one older than ~60s always gets a real refetch.
+  /// Still routes through [refresh], so a failed/empty fetch never
+  /// replaces the cached list - see its own doc comment.
+  Future<void> refreshIfStale({
+    Duration maxAge = const Duration(seconds: 60),
+  }) async {
+    if (!isStale(maxAge: maxAge)) return;
+    await refresh();
+  }
+
+  /// Fetches just [ids] fresh from Supabase (`app_get_products` - no
+  /// caching on that end either, per its own doc comment) and merges the
+  /// results into [productsNotifier] in place, so every other screen
+  /// reading the shared catalog for the same id sees the update too. This
+  /// is for the moments price/stock freshness matters most and can't
+  /// wait for the next scheduled catalog refresh - a product's detail
+  /// sheet, and the cart. (Checkout already does its own version of this
+  /// exact fresh-by-id lookup, folded into its atomic stock-deduction
+  /// call - see deductStockAndResolvePricesSupabase() in
+  /// core/cart_helpers.dart - so it doesn't need to call this too.)
+  ///
+  /// Never replaces anything on a failed call or an empty response - the
+  /// existing cached entries (if any) for these ids are left exactly as
+  /// they were, same "never guess gone off a failed/empty fetch" rule
+  /// [hasRefreshedOnce] exists for elsewhere in this class. A product
+  /// fetched here that isn't already in the cached catalog (e.g. opened
+  /// via a direct link before the next full refresh) is appended rather
+  /// than dropped.
+  Future<void> refreshIds(List<String> ids) async {
+    if (!kUseSupabaseProducts) return;
+    final List<String> cleanIds = ids
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+    if (cleanIds.isEmpty) return;
+    try {
+      final List<Map<String, dynamic>> fresh = await SupabaseProductsApi
+          .instance
+          .getProducts(cleanIds);
+      if (fresh.isEmpty) return;
+
+      final Map<Object?, Map<String, dynamic>> freshById = {
+        for (final product in fresh)
+          if (product['id'] != null) product['id']: product,
+      };
+
+      final List<Map<String, dynamic>> current = productsNotifier.value;
+      final List<Map<String, dynamic>> merged = current
+          .map((product) => freshById[product['id']] ?? product)
+          .toList();
+      final Set<Object?> existingIds = current
+          .map((product) => product['id'])
+          .toSet();
+      for (final product in fresh) {
+        if (!existingIds.contains(product['id'])) merged.add(product);
+      }
+      productsNotifier.value = merged;
+    } catch (_) {
+      // Best-effort - the shared catalog's cached entry (if any) for
+      // these ids is left untouched; the next scheduled refresh (or a
+      // retry of this same call) is what eventually catches up.
+    }
+  }
+
   Future<void> refresh({bool force = false}) async {
     if (!kUseSupabaseProducts) return;
 
@@ -194,9 +282,13 @@ class ProductRepository {
 
   /// Call from the app's lifecycle observer on resume (see main.dart) -
   /// only actually refreshes if a product screen is currently visible,
-  /// same as the periodic timer.
+  /// same as the periodic timer. Gated by [refreshIfStale]'s ~60s
+  /// staleness check rather than an unconditional [refresh] - coming back
+  /// from a few seconds in another app (a quick switch to check a
+  /// notification, say) shouldn't force a network call if the catalog is
+  /// already fresh.
   void onAppResumed() {
-    if (_visibleScreens > 0) unawaited(refresh());
+    if (_visibleScreens > 0) unawaited(refreshIfStale());
   }
 
   Map<String, dynamic>? byId(String id) {

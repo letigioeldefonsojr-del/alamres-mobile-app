@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -40,7 +41,14 @@ class HomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
+    return RefreshIndicator(
+      color: primaryGreen,
+      // Gated the same ~60s-staleness way as app-resume and this tab's
+      // own initState (see ProductRepository.refreshIfStale()) - pulling
+      // down repeatedly within that window is a no-op rather than a
+      // fresh network call every time.
+      onRefresh: () => ProductRepository.instance.refreshIfStale(),
+      child: SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -390,6 +398,7 @@ class HomeTab extends StatelessWidget {
           ),
         ],
       ),
+      ),
     );
   }
 }
@@ -437,6 +446,11 @@ class _LiveCategoryRowState extends State<_LiveCategoryRow> {
     // read the same catalog and benefit from the same refresh, so one
     // registration here covers all of Home's product-derived content.
     ProductRepository.instance.registerVisible();
+    // On top of that: a real refetch right now if what's cached is more
+    // than ~60s old, so landing back on Home after a while away (without
+    // necessarily backgrounding the app) doesn't keep showing an admin
+    // edit that already happened - see ProductRepository.refreshIfStale().
+    unawaited(ProductRepository.instance.refreshIfStale());
   }
 
   @override

@@ -116,6 +116,26 @@ class _CartOrderConfirmationScreenState
     // source of truth regardless of what's shown here while browsing.
     ProductRepository.instance.productsNotifier.addListener(_onCatalogChanged);
     _onCatalogChanged();
+    // On top of whatever the shared catalog already has cached: a
+    // targeted, fresh-right-now fetch of just these items' products, so
+    // the price shown on this screen while reviewing the order (before
+    // Confirm is even tapped) reflects an admin edit made moments ago.
+    // _onCatalogChanged() above picks the result up automatically, since
+    // refreshIds() merges into the same productsNotifier this screen
+    // already listens to. _confirmOrder() below does its own separate,
+    // authoritative fresh-by-id lookup right before actually placing the
+    // order (see deductStockAndResolvePricesSupabase in
+    // core/cart_helpers.dart) - this call is purely about what's shown
+    // on screen in the meantime.
+    final List<String> productIds = _items
+        .map((item) => item['productId'] as String?)
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+    if (productIds.isNotEmpty) {
+      unawaited(ProductRepository.instance.refreshIds(productIds));
+    }
   }
 
   @override

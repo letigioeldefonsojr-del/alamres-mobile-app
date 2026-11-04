@@ -392,6 +392,23 @@ class _CartScreenState extends State<CartScreen> {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (mounted) _validateAgainstCatalog();
                     });
+                    // Targeted, fresh-right-now price/stock fetch for
+                    // exactly the products now in the cart (not the whole
+                    // catalog) - so an admin edit shows up here the
+                    // instant the cart opens or a new item lands in it,
+                    // without waiting on the shared catalog's own refresh
+                    // schedule. Merges into ProductRepository's shared
+                    // notifier, so _LiveUnitPriceText above (which already
+                    // listens to it) picks the result up automatically.
+                    final List<String> productIds = docs
+                        .map((d) => d.data()['productId'] as String?)
+                        .whereType<String>()
+                        .where((id) => id.isNotEmpty)
+                        .toSet()
+                        .toList();
+                    if (productIds.isNotEmpty) {
+                      unawaited(ProductRepository.instance.refreshIds(productIds));
+                    }
                   }
                 }
 

@@ -51,6 +51,17 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
       _onCatalogChanged,
     );
     _onCatalogChanged();
+    // On top of whatever the shared catalog already has cached: a
+    // targeted, fresh-right-now fetch of just this one product, so an
+    // admin edit (price, stock, availability) made moments ago shows up
+    // the instant this sheet opens instead of waiting for the catalog's
+    // own refresh schedule. _onCatalogChanged() above picks up the
+    // result automatically once it lands, since refreshIds() merges into
+    // the same productsNotifier this sheet already listens to.
+    final String? id = widget.product['id'] as String?;
+    if (id != null && id.isNotEmpty) {
+      unawaited(ProductRepository.instance.refreshIds([id]));
+    }
   }
 
   @override

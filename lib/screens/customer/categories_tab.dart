@@ -56,6 +56,11 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
     // Keeps the shared catalog's ~3-minute background refresh running while
     // this tab is on screen - see product_repository.dart.
     ProductRepository.instance.registerVisible();
+    // On top of that: a real refetch right now if what's cached is more
+    // than ~60s old, so reopening this tab after a while away (without
+    // necessarily backgrounding the app) doesn't keep showing an admin
+    // edit that already happened - see ProductRepository.refreshIfStale().
+    unawaited(ProductRepository.instance.refreshIfStale());
   }
 
   @override
@@ -298,7 +303,14 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
                   ),
                 ),
               Expanded(
-                child: ValueListenableBuilder<List<Map<String, dynamic>>>(
+                child: RefreshIndicator(
+                  color: primaryGreen,
+                  // Gated the same ~60s-staleness way as app-resume and
+                  // this tab's own initState (see refreshIfStale()) -
+                  // pulling down repeatedly within that window is a no-op
+                  // rather than a fresh network call every time.
+                  onRefresh: () => ProductRepository.instance.refreshIfStale(),
+                  child: ValueListenableBuilder<List<Map<String, dynamic>>>(
                   valueListenable: ProductRepository.instance.productsNotifier,
                   builder: (context, products, _) {
                     if (!ProductRepository.instance.hasRefreshedOnce &&
@@ -526,6 +538,7 @@ class _CategoriesPlaceholderTabState extends State<CategoriesPlaceholderTab> {
                       },
                     );
                   },
+                  ),
                 ),
               ),
             ],
