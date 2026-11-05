@@ -93,16 +93,21 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
     // typed/picked in the fields above.
     double? pickedLat;
     double? pickedLng;
-    // The cascading pick, one level at a time - choosing a new value at
-    // one level clears everything picked below it.
-    String? regionCode;
-    String? regionName;
-    String? provinceCode;
-    String? provinceName;
-    String? municipalityCode;
-    String? municipalityName;
+    // Region/Province/City-Municipality are locked to the store's fixed
+    // service area - only Barangay is actually picked by the customer,
+    // from the bundled dataset narrowed to that area's barangays below.
+    String? regionCode = kServiceAreaRegionCode;
+    String? regionName = kServiceAreaRegionName;
+    String? provinceCode = kServiceAreaProvinceCode;
+    String? provinceName = kServiceAreaProvinceName;
+    String? municipalityCode = kServiceAreaMunicipalityCode;
+    String? municipalityName = kServiceAreaMunicipalityName;
     String? barangayCode;
     String? barangayName;
+    // Kicked off as soon as the small dataset finishes loading (below),
+    // instead of waiting for a City-Municipality pick that never happens
+    // now - usually ready by the time "Select Barangay" is tapped.
+    phLocations.prefetchBarangays();
     // True only while the (lazily-loaded, ~42,000-row) barangay list is
     // being fetched/parsed for the first time this app run - see
     // prefetchBarangays below, which usually finishes this before the
@@ -210,77 +215,27 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                   ),
                   const SizedBox(height: 12),
                   PhLocationSelectField(
-                    hint: 'Select Region',
+                    hint: 'Region',
                     icon: Icons.map_outlined,
                     value: regionName,
-                    enabled: true,
-                    onTap: () async {
-                      final PhLocationItem? picked = await pickPhLocation(
-                        context: context,
-                        title: 'Select Region',
-                        items: phLocations.regions,
-                      );
-                      if (picked == null) return;
-                      setDialogState(() {
-                        regionCode = picked.code;
-                        regionName = picked.name;
-                        provinceCode = null;
-                        provinceName = null;
-                        municipalityCode = null;
-                        municipalityName = null;
-                        barangayCode = null;
-                        barangayName = null;
-                      });
-                    },
+                    enabled: false,
+                    onTap: () {},
                   ),
                   const SizedBox(height: 10),
                   PhLocationSelectField(
-                    hint: 'Select Province',
+                    hint: 'Province',
                     icon: Icons.terrain_outlined,
                     value: provinceName,
-                    enabled: regionCode != null,
-                    onTap: () async {
-                      final PhLocationItem? picked = await pickPhLocation(
-                        context: context,
-                        title: 'Select Province',
-                        items: phLocations.provincesOf(regionCode),
-                      );
-                      if (picked == null) return;
-                      setDialogState(() {
-                        provinceCode = picked.code;
-                        provinceName = picked.name;
-                        municipalityCode = null;
-                        municipalityName = null;
-                        barangayCode = null;
-                        barangayName = null;
-                      });
-                    },
+                    enabled: false,
+                    onTap: () {},
                   ),
                   const SizedBox(height: 10),
                   PhLocationSelectField(
-                    hint: 'Select City/Municipality',
+                    hint: 'City/Municipality',
                     icon: Icons.location_city_outlined,
                     value: municipalityName,
-                    enabled: provinceCode != null,
-                    onTap: () async {
-                      final PhLocationItem? picked = await pickPhLocation(
-                        context: context,
-                        title: 'Select City/Municipality',
-                        items: phLocations.municipalitiesOf(provinceCode),
-                      );
-                      if (picked == null) return;
-                      setDialogState(() {
-                        municipalityCode = picked.code;
-                        municipalityName = picked.name;
-                        barangayCode = null;
-                        barangayName = null;
-                      });
-                      // Barangays are the bulk of the dataset and are
-                      // only parsed on first use - kick that off now, in
-                      // the background, so it's usually ready by the
-                      // time the customer taps "Select Barangay" below.
-                      phLocations.prefetchBarangays();
-                    },
+                    enabled: false,
+                    onTap: () {},
                   ),
                   const SizedBox(height: 10),
                   PhLocationSelectField(
@@ -289,7 +244,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                         : 'Select Barangay',
                     icon: Icons.holiday_village_outlined,
                     value: barangayName,
-                    enabled: municipalityCode != null && !isLoadingBarangays,
+                    enabled: !isLoadingBarangays,
                     onTap: () async {
                       setDialogState(() => isLoadingBarangays = true);
                       final List<PhLocationItem> items = await phLocations
@@ -298,7 +253,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                       final PhLocationItem? picked = await pickPhLocation(
                         context: context,
                         title: 'Select Barangay',
-                        items: items,
+                        items: serviceAreaBarangaysOf(items),
                       );
                       if (picked == null) return;
                       setDialogState(() {
@@ -365,9 +320,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                   }
                   if (barangayCode == null) {
                     setDialogState(
-                      () => errorText =
-                          'Please select your Region, Province, '
-                          'City/Municipality, and Barangay',
+                      () => errorText = 'Please select your Barangay',
                     );
                     return;
                   }

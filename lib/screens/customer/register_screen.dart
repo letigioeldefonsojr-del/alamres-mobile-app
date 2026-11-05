@@ -49,10 +49,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   double? _addressLng;
   bool get _hasAddressPin => _addressLat != null && _addressLng != null;
 
-  // The bundled Region/Province/City-Municipality/Barangay dataset, plus
-  // whichever of the four the customer has picked so far. Each level is
-  // only enabled once its parent is chosen, and choosing a new value at
-  // one level clears everything picked below it (see _pickRegion etc.).
+  // Region/Province/City-Municipality are locked to the store's fixed
+  // service area (set in initState from the kServiceArea* constants in
+  // ph_locations.dart) - only Barangay is still picked by the customer,
+  // from the bundled dataset narrowed to that area's barangays (see
+  // _pickBarangay).
   PhLocationsData? _phLocations;
   String? _regionCode;
   String? _regionName;
@@ -99,6 +100,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
+    // Region/Province/City-Municipality are locked to the store's service
+    // area - set them up front, before the dataset even loads, since they
+    // don't depend on it. Only Barangay still needs _phLocations.
+    _regionCode = kServiceAreaRegionCode;
+    _regionName = kServiceAreaRegionName;
+    _provinceCode = kServiceAreaProvinceCode;
+    _provinceName = kServiceAreaProvinceName;
+    _municipalityCode = kServiceAreaMunicipalityCode;
+    _municipalityName = kServiceAreaMunicipalityName;
     _loadPhLocationsData();
   }
 
@@ -114,6 +124,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       final PhLocationsData data = await PhLocations.load();
       if (mounted) setState(() => _phLocations = data);
+      // City-Municipality is already fixed (see initState) - kick off the
+      // barangay parse now instead of waiting for a pick that never
+      // happens, so it's usually ready by the time "Select Barangay" is
+      // tapped.
+      data.prefetchBarangays();
     } catch (e) {
       if (mounted) setState(() => _phLocationsError = e.toString());
     }
@@ -181,84 +196,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
     ),
   );
 
-  Future<void> _pickRegion() async {
-    final PhLocationsData? data = _phLocations;
-    if (data == null) return;
-    final PhLocationItem? picked = await pickPhLocation(
-      context: context,
-      title: 'Select Region',
-      items: data.regions,
-    );
-    if (picked == null) return;
-    setState(() {
-      _regionCode = picked.code;
-      _regionName = picked.name;
-      // Picking a new region invalidates whatever was picked below it -
-      // a province from the old region doesn't belong under the new one.
-      _provinceCode = null;
-      _provinceName = null;
-      _municipalityCode = null;
-      _municipalityName = null;
-      _barangayCode = null;
-      _barangayName = null;
-    });
-  }
-
-  Future<void> _pickProvince() async {
-    final PhLocationsData? data = _phLocations;
-    if (data == null || _regionCode == null) return;
-    final PhLocationItem? picked = await pickPhLocation(
-      context: context,
-      title: 'Select Province',
-      items: data.provincesOf(_regionCode),
-    );
-    if (picked == null) return;
-    setState(() {
-      _provinceCode = picked.code;
-      _provinceName = picked.name;
-      _municipalityCode = null;
-      _municipalityName = null;
-      _barangayCode = null;
-      _barangayName = null;
-    });
-  }
-
-  Future<void> _pickMunicipality() async {
-    final PhLocationsData? data = _phLocations;
-    if (data == null || _provinceCode == null) return;
-    final PhLocationItem? picked = await pickPhLocation(
-      context: context,
-      title: 'Select City/Municipality',
-      items: data.municipalitiesOf(_provinceCode),
-    );
-    if (picked == null) return;
-    setState(() {
-      _municipalityCode = picked.code;
-      _municipalityName = picked.name;
-      _barangayCode = null;
-      _barangayName = null;
-    });
-    // Barangays are the bulk of the dataset and are only parsed on first
-    // use - kick that off now, in the background, so it's usually ready
-    // by the time the customer actually taps "Select Barangay" below.
-    data.prefetchBarangays();
-  }
-
   bool _isLoadingBarangays = false;
 
   Future<void> _pickBarangay() async {
     final PhLocationsData? data = _phLocations;
-    if (data == null || _municipalityCode == null) return;
+    if (data == null) return;
     setState(() => _isLoadingBarangays = true);
     final List<PhLocationItem> items = await data.barangaysOf(
-      _municipalityCode,
+      kServiceAreaMunicipalityCode,
     );
     if (!mounted) return;
     setState(() => _isLoadingBarangays = false);
     final PhLocationItem? picked = await pickPhLocation(
       context: context,
       title: 'Select Barangay',
-      items: items,
+      items: serviceAreaBarangaysOf(items),
     );
     if (picked == null) return;
     setState(() {
@@ -319,8 +271,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     // property of the address as a whole, not any single field.
     if (!_hasBarangaySelected) {
       setState(() {
-        _errorMessage = 'Please select your Region, Province, '
-            'City/Municipality, and Barangay before continuing.';
+        _errorMessage = 'Please select your Barangay before continuing.';
       });
       return;
     }
@@ -874,19 +825,47 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const SizedBox(height: 10),
                       _addressSubLabel('Region'),
                       PhLocationSelectField(
+                        hint: 'Region',
+                        icon: Icons.map_outlined,
+                        value: _regionName,
+                        enabled: false,
+                        onTap: () {},
+                      ),
+                      const SizedBox(height: 14),
+                      _addressSubLabel('Province'),
+                      PhLocationSelectField(
+                        hint: 'Province',
+                        icon: Icons.terrain_outlined,
+                        value: _provinceName,
+                        enabled: false,
+                        onTap: () {},
+                      ),
+                      const SizedBox(height: 14),
+                      _addressSubLabel('City/Municipality'),
+                      PhLocationSelectField(
+                        hint: 'City/Municipality',
+                        icon: Icons.location_city_outlined,
+                        value: _municipalityName,
+                        enabled: false,
+                        onTap: () {},
+                      ),
+                      const SizedBox(height: 14),
+                      _addressSubLabel('Barangay'),
+                      PhLocationSelectField(
                         hint: _phLocationsError != null
                             ? "Couldn't load - tap to retry"
-                            : (_phLocations == null
-                                  ? 'Loading regions...'
-                                  : 'Select Region'),
+                            : (_phLocations == null || _isLoadingBarangays
+                                  ? 'Loading barangays...'
+                                  : 'Select Barangay'),
                         icon: _phLocationsError != null
                             ? Icons.refresh
-                            : Icons.map_outlined,
-                        value: _regionName,
-                        enabled: _phLocations != null || _phLocationsError != null,
+                            : Icons.holiday_village_outlined,
+                        value: _barangayName,
+                        enabled: _phLocationsError != null ||
+                            (_phLocations != null && !_isLoadingBarangays),
                         onTap: _phLocationsError != null
                             ? _loadPhLocationsData
-                            : _pickRegion,
+                            : _pickBarangay,
                       ),
                       if (_phLocationsError != null) ...[
                         const SizedBox(height: 4),
@@ -898,36 +877,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 14),
-                      _addressSubLabel('Province'),
-                      PhLocationSelectField(
-                        hint: 'Select Province',
-                        icon: Icons.terrain_outlined,
-                        value: _provinceName,
-                        enabled: _regionCode != null,
-                        onTap: _pickProvince,
-                      ),
-                      const SizedBox(height: 14),
-                      _addressSubLabel('City/Municipality'),
-                      PhLocationSelectField(
-                        hint: 'Select City/Municipality',
-                        icon: Icons.location_city_outlined,
-                        value: _municipalityName,
-                        enabled: _provinceCode != null,
-                        onTap: _pickMunicipality,
-                      ),
-                      const SizedBox(height: 14),
-                      _addressSubLabel('Barangay'),
-                      PhLocationSelectField(
-                        hint: _isLoadingBarangays
-                            ? 'Loading barangays...'
-                            : 'Select Barangay',
-                        icon: Icons.holiday_village_outlined,
-                        value: _barangayName,
-                        enabled: _municipalityCode != null &&
-                            !_isLoadingBarangays,
-                        onTap: _pickBarangay,
-                      ),
                       const SizedBox(height: 14),
                       _addressSubLabel('House/Lot No.'),
                       TextFormField(

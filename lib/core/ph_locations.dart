@@ -138,6 +138,38 @@ class PhLocationsData {
   }
 }
 
+/// The store's fixed service area - Region/Province/City-Municipality are
+/// locked to a single value everywhere an address is collected (Register,
+/// Edit Profile, Saved Addresses), since the store only operates out of
+/// Batangas City. Matched by PSGC code against the bundled dataset, not
+/// by name, so these stay correct even if a display name in the dataset
+/// ever changes.
+const String kServiceAreaRegionCode = '040000000';
+const String kServiceAreaRegionName = 'Region IV-A (CALABARZON)';
+const String kServiceAreaProvinceCode = '041000000';
+const String kServiceAreaProvinceName = 'Batangas';
+const String kServiceAreaMunicipalityCode = '041005000';
+const String kServiceAreaMunicipalityName = 'Batangas City';
+
+/// The only barangays within [kServiceAreaMunicipalityCode] that the
+/// Barangay picker offers - Alangilan, Balagtas, Balete, Banaba Kanluran,
+/// Banaba Silangan, and Banaba Ibaba. Codes, not names, for the same
+/// reason as above.
+const Set<String> kServiceAreaBarangayCodes = {
+  '041005001', // Alangilan
+  '041005003', // Balagtas
+  '041005004', // Balete
+  '041005007', // Banaba Kanluran
+  '041005008', // Banaba Silangan
+  '041005009', // Banaba Ibaba
+};
+
+/// Narrows a city/municipality's full barangay list (as returned by
+/// [PhLocationsData.barangaysOf]) down to just [kServiceAreaBarangayCodes],
+/// keeping whatever order it was already in (alphabetical).
+List<PhLocationItem> serviceAreaBarangaysOf(List<PhLocationItem> barangays) =>
+    barangays.where((b) => kServiceAreaBarangayCodes.contains(b.code)).toList();
+
 void unawaited<T>(Future<T> future) {
   // Deliberately not awaited - see prefetchBarangays above. Named the
   // same as package:pedantic/Dart's own `unawaited` so the intent reads
