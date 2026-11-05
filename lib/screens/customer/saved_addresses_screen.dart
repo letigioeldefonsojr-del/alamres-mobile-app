@@ -96,12 +96,14 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
     // Region/Province/City-Municipality are locked to the store's fixed
     // service area - only Barangay is actually picked by the customer,
     // from the bundled dataset narrowed to that area's barangays below.
-    String? regionCode = kServiceAreaRegionCode;
-    String? regionName = kServiceAreaRegionName;
-    String? provinceCode = kServiceAreaProvinceCode;
-    String? provinceName = kServiceAreaProvinceName;
-    String? municipalityCode = kServiceAreaMunicipalityCode;
-    String? municipalityName = kServiceAreaMunicipalityName;
+    // Non-nullable (unlike barangayCode/barangayName below) since these
+    // are never reassigned once set here.
+    const String regionCode = kServiceAreaRegionCode;
+    const String regionName = kServiceAreaRegionName;
+    const String provinceCode = kServiceAreaProvinceCode;
+    const String provinceName = kServiceAreaProvinceName;
+    const String municipalityCode = kServiceAreaMunicipalityCode;
+    const String municipalityName = kServiceAreaMunicipalityName;
     String? barangayCode;
     String? barangayName;
     // Kicked off as soon as the small dataset finishes loading (below),
@@ -129,8 +131,8 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
         if (street.isNotEmpty) street,
         if (purok.isNotEmpty) 'Purok $purok',
         if (barangayName != null) 'Barangay $barangayName',
-        if (municipalityName != null) municipalityName!,
-        if (provinceName != null) provinceName!,
+        municipalityName,
+        provinceName,
       ];
       return parts.join(', ');
     }
@@ -346,8 +348,8 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                     street: streetController.text.trim(),
                     purok: purokController.text.trim(),
                     barangay: barangayName!,
-                    municipality: municipalityName!,
-                    province: provinceName!,
+                    municipality: municipalityName,
+                    province: provinceName,
                     landmark: landmarkController.text.trim(),
                     hasPin: pickedLat != null && pickedLng != null,
                   );
