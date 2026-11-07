@@ -412,6 +412,23 @@ async function runTool(name, input, env, uid, firebaseToken) {
 // `_kQuickReplyQuestions`) - keep both in sync if this number ever changes.
 const CLIENT_CONTACT_NUMBER = '0945 463 0846';
 
+// The store's pickup branches - a fixed list baked into the system prompt
+// (see `storeInfoGuidance` in buildSystemPrompt() below), deliberately NOT
+// fetched from Firestore or Supabase, so answering "where can I pick up"
+// adds no extra read or latency to a chat reply. Mirrors the names in
+// kStoreBranches (lib/core/delivery_helpers.dart) exactly - keep both in
+// sync if a branch is ever added, renamed, or removed. No street address
+// or operating hours are listed here because none exist anywhere in this
+// project yet (kStoreBranches only has GPS coordinates, and for Banaba
+// East/Balagtas those are explicit barangay-centroid placeholders, not a
+// real store pin) - the system prompt is told to say so rather than guess
+// either one.
+const PICKUP_BRANCHES = [
+  'Balete Relocation Site, Batangas City',
+  'Banaba East, Batangas City',
+  'Balagtas, Batangas City',
+];
+
 function buildSystemPrompt({ hasProductLookup, hasOrderLookup }) {
   const base =
     'You are the customer support assistant for Almares 328, a wholesale ' +
@@ -432,6 +449,65 @@ function buildSystemPrompt({ hasProductLookup, hasOrderLookup }) {
     'Pick Up In Store orders) - or, rarely, Rejected / Cancelled / Unable ' +
     'to Deliver. Customers can check status anytime under Profile > My ' +
     'Orders.';
+
+  const storeInfoGuidance =
+    '\n\nSTORE_INFO - pickup branches (customers choose "Pick Up In Store" ' +
+    'at checkout, no delivery fee):\n' +
+    PICKUP_BRANCHES.map((b, i) => `${i + 1}. ${b}`).join('\n') +
+    `\nStore contact: ${CLIENT_CONTACT_NUMBER}\n\n` +
+    'When a customer asks where they can pick up their order, list the ' +
+    'branches above. Use ONLY these branches - never invent a branch, a ' +
+    "street address, or opening hours. A branch's exact street address " +
+    "and operating hours aren't listed above because they're not on file " +
+    'yet - if a customer asks for either, say that detail isn\'t available ' +
+    'yet and give the contact number above instead of guessing one. ' +
+    'Answer in whichever language the customer used, English or Tagalog.';
+
+  // Mirrors order_helpers.dart's orderStatusLabel()/orderStatusColor() (the
+  // actual raw status strings and their customer-facing labels) and
+  // order_details_screen.dart's Cancel button, which only renders when
+  // status == 'pending' - so Pending-only is the real, code-enforced rule,
+  // not a guess.
+  const storeFaqGuidance =
+    '\n\nSTORE_FAQ:\n' +
+    'How to order: Browse products by category or search, open a product ' +
+    'to pick a flavor/variant and quantity, add it to the cart or buy it ' +
+    'directly, then at checkout choose Delivery or Pick Up In Store and ' +
+    'confirm the order.\n' +
+    "Cancelling an order: a customer can cancel only while the order's " +
+    "status is still Pending, from that order's details screen in the " +
+    'app. Once the store moves it past Pending (Approved, On the Way, ' +
+    'Ready for Pickup, Delivered, or Picked Up), it can no longer be ' +
+    `cancelled from the app - contact the store at ${CLIENT_CONTACT_NUMBER} ` +
+    'instead.\n' +
+    'Order statuses: Pending = placed, waiting for the store to review; ' +
+    'Approved = accepted by the store; On the Way = with the delivery ' +
+    'rider (Delivery orders); Ready for Pickup = ready to collect at the ' +
+    'branch (Pick Up In Store orders); Delivered = received (Delivery ' +
+    'orders); Picked Up = collected (Pick Up In Store orders); Cancelled ' +
+    '= cancelled by the customer while it was Pending; Rejected = ' +
+    'declined by the store; Unable to Deliver = a delivery attempt could ' +
+    'not be completed.\n' +
+    `Store contact: ${CLIENT_CONTACT_NUMBER}\n\n` +
+    'Answer questions about how to order, cancelling an order, and what ' +
+    'order statuses mean using ONLY the STORE_FAQ above - never invent a ' +
+    'rule, fee, or time limit beyond what is stated there. If something ' +
+    "is asked that STORE_FAQ doesn't cover, say so plainly and give the " +
+    'contact number rather than guessing. When a customer asks whether ' +
+    'they can cancel their order, state the Pending-only rule above AND ' +
+    (hasOrderLookup
+      ? 'call your order-lookup tool to check their most recent order so ' +
+        'you can tell them plainly, from that real status, whether it can ' +
+        'still be cancelled right now - do not leave it as just the ' +
+        'general rule when you can check the actual answer.'
+      : "offer to check their most recent order's status once that " +
+        'becomes available, or tell them to check it themselves under ' +
+        'Profile > My Orders.') +
+    " Never say you don't have a cancellation policy, ordering steps, or " +
+    'order status meanings on file - STORE_FAQ above always has that. ' +
+    'Answer from the store\'s own point of view (e.g. "You can cancel ' +
+    'your order while..." rather than describing what information you ' +
+    'do or don\'t have access to).';
 
   let toolGuidance;
   if (hasProductLookup && hasOrderLookup) {
@@ -496,7 +572,15 @@ function buildSystemPrompt({ hasProductLookup, hasOrderLookup }) {
     'place in a chat bubble. Keep replies short and conversational rather ' +
     'than heavily formatted.';
 
-  return base + toolGuidance + scopeGuidance + contactGuidance + formattingGuidance;
+  return (
+    base +
+    storeInfoGuidance +
+    storeFaqGuidance +
+    toolGuidance +
+    scopeGuidance +
+    contactGuidance +
+    formattingGuidance
+  );
 }
 
 export default {

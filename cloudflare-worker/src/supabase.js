@@ -19,8 +19,19 @@
 // firestore.js's old productsCache: a sari-sari store's catalog doesn't
 // change fast enough within one conversation to justify a fresh network
 // round trip on every single tool call.
+//
+// 5 minutes, not 60s: at ~4,500 products and 1,000/page, a cold cache
+// means up to 5 SEQUENTIAL round trips to store-api just to build this
+// list, on top of the two Claude API calls either side of the tool call
+// (deciding to use it, then writing the final reply). Stacked together
+// that can run past the app's own chat request timeout (chat_service.dart)
+// for an ordinary "how much is X" question - confirmed in practice: a
+// plain "hi" (no tool call) replies fine, but a price question right
+// after a cold cache can time out. Same tradeoff as BannerRepository's
+// 5-minute TTL on the Flutter side - a stale product list for a few extra
+// minutes is a much smaller problem than the chatbot failing outright.
 let productsCache = null; // { products, expiresAt }
-const PRODUCTS_CACHE_MS = 60_000;
+const PRODUCTS_CACHE_MS = 5 * 60_000;
 
 async function callStoreApi(env, firebaseToken, body) {
   const res = await fetch(`${env.SUPABASE_URL}/functions/v1/store-api`, {
