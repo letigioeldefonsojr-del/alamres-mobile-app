@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:geolocator/geolocator.dart';
+import '../../core/delivery_helpers.dart';
 
 /// Shared map-based address picker - used by both the registration screen
 /// and Edit Profile so "pick on map" behaves identically everywhere it
@@ -64,9 +66,25 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
     'User-Agent': 'AlmaresApp/1.0 (Flutter capstone project)',
   };
 
-  // Falls back to roughly the center of the Philippines until an initial
-  // address, search result, or current location narrows it down.
-  static const ll.LatLng _fallbackCenter = ll.LatLng(12.8797, 121.7740);
+  // Falls back to the main branch's coordinates until an initial address,
+  // search result, or current location narrows it down. This used to be
+  // roughly the center of the Philippines, but now that the map itself is
+  // bounded to Batangas City (see _serviceAreaBounds below), a
+  // Philippines-wide fallback would sit outside that box and get yanked
+  // back on first render - every address on this app is in Batangas City
+  // anyway (locked at registration/profile), so this is a sane default.
+  static const ll.LatLng _fallbackCenter = ll.LatLng(
+    13.81429633377636,
+    121.06634036922742,
+  );
+
+  // Keeps the map itself from being dragged/zoomed out to a different
+  // city or province - see kServiceAreaMin/MaxLat/Lng in
+  // delivery_helpers.dart for what this box actually covers and why.
+  static final LatLngBounds _serviceAreaBounds = LatLngBounds(
+    const ll.LatLng(kServiceAreaMinLat, kServiceAreaMinLng),
+    const ll.LatLng(kServiceAreaMaxLat, kServiceAreaMaxLng),
+  );
 
   final MapController _mapController = MapController();
   final TextEditingController _searchController = TextEditingController();
@@ -177,6 +195,58 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
       19.0,
     );
     _mapController.move(_mapController.camera.center, newZoom);
+  }
+
+  /// Why zooming out used to break the Batangas City restriction: flutter_map's
+  /// `cameraConstraint: CameraConstraint.contain(...)` can only keep the
+  /// *visible map area* inside [_serviceAreaBounds] - once zooming out makes
+  /// that visible area (in degrees) bigger than the bounds box itself, there's
+  /// nothing left for "contain" to do, so the map is free to drift anywhere
+  /// again. A single fixed `minZoom` can't fully fix this either, because how
+  /// far out you can zoom before the viewport outgrows the box depends on the
+  /// screen's actual pixel size (a tablet shows far more of the map at the
+  /// same zoom level than a phone does).
+  ///
+  /// So this computes the minimum zoom - from the map widget's own on-screen
+  /// width/height - at which the viewport is still guaranteed to fit inside
+  /// the box, using the standard Web Mercator tile-size formula (each tile
+  /// pixel covers 360/(256*2^zoom) degrees of longitude at every latitude,
+  /// and that same span of latitude once scaled by cos(latitude)). Whichever
+  /// axis (width or height) needs the higher zoom to fit is the one that
+  /// matters.
+  ///
+  /// [_kFitMargin] below is doing more than rounding safety, though -
+  /// `CameraConstraint.contain` doesn't just stop the viewport from
+  /// exceeding the box, it also shrinks how far the CENTER is allowed to
+  /// move: the closer the viewport size gets to the box size, the smaller
+  /// that allowed range gets, until - right at the exact fit zoom with no
+  /// margin - the center can barely move off the box's own middle at all.
+  /// That's what made Balagtas (and anything else away from dead-center)
+  /// reachable only once zoomed in a bit further: there was no pan room
+  /// left for it at the minimum zoom. A bigger margin here means the
+  /// viewport is noticeably smaller than the box at minZoom, which leaves
+  /// real room to pan - at the cost of not being able to zoom out quite as
+  /// far before minZoom kicks in. 1.25 leaves the viewport at roughly 40%
+  /// of the box's size per axis (so about a 30%-of-box margin on every
+  /// side to pan into) - adjust this up if a real spot still turns out to
+  /// be unreachable at minZoom, or down if minZoom feels too zoomed-in.
+  static const double _kFitMargin = 1.25;
+
+  double _minZoomForViewport(double widthPx, double heightPx) {
+    if (widthPx <= 0 || heightPx <= 0) return 3.0;
+
+    final double midLat = (kServiceAreaMinLat + kServiceAreaMaxLat) / 2;
+    final double cosLat = math.cos(midLat * math.pi / 180);
+    final double lngExtent = kServiceAreaMaxLng - kServiceAreaMinLng;
+    final double latExtent = kServiceAreaMaxLat - kServiceAreaMinLat;
+
+    final double zoomForWidth =
+        math.log(widthPx * 360 / (256 * lngExtent)) / math.ln2;
+    final double zoomForHeight =
+        math.log(heightPx * 360 * cosLat / (256 * latExtent)) / math.ln2;
+
+    final double needed = math.max(zoomForWidth, zoomForHeight) + _kFitMargin;
+    return needed.clamp(3.0, 19.0);
   }
 
   void _onMapEvent(MapEvent event) {
@@ -392,71 +462,96 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
           Expanded(
             child: Stack(
               children: [
-                FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter: _center,
-                    initialZoom: 15,
-                    // Without a floor/ceiling, zooming out far enough
-                    // breaks flutter_map's internal tile math and throws
-                    // the same "Infinity or NaN toInt" error - this is
-                    // what was actually causing it, not the map-readiness
-                    // timing. 3 keeps a usable "most of the country" view
-                    // as the outer limit; 19 matches OpenStreetMap's own
-                    // supported max zoom for street-level detail.
-                    minZoom: 3,
-                    maxZoom: 19,
-                    // Two-finger pinch-zoom/pinch-move is turned off on
-                    // purpose - it's flutter_map's pinch gesture math
-                    // itself (not our zoom bounds) that throws "Infinity
-                    // or NaN toInt" when the two touch points momentarily
-                    // get very close together during the gesture. That's
-                    // a known open bug in the package, not something app
-                    // code can fully prevent, so zooming is done instead
-                    // through the +/- buttons below (double-tap and
-                    // scroll-wheel zoom stay on - they're a different,
-                    // unaffected code path).
-                    interactionOptions: const InteractionOptions(
-                      flags:
-                          InteractiveFlag.drag |
-                          InteractiveFlag.flingAnimation |
-                          InteractiveFlag.doubleTapZoom |
-                          InteractiveFlag.scrollWheelZoom,
-                    ),
-                    onMapEvent: _onMapEvent,
-                    onMapReady: () {
-                      _mapReady = true;
-                      if (_pendingMove != null) {
-                        _mapController.move(
-                          _pendingMove!,
-                          _pendingZoom ?? 16,
-                        );
-                        _pendingMove = null;
-                        _pendingZoom = null;
-                      }
-                    },
-                  ),
-                  children: [
-                    TileLayer(
-                      // Swapping urlTemplate alone (without a new key)
-                      // would make flutter_map keep showing already-cached
-                      // tiles from the other layer for a moment - keying
-                      // on the layer forces it to rebuild its tile
-                      // provider cleanly when the customer switches.
-                      key: ValueKey(_mapLayer),
-                      urlTemplate: _mapLayer == _MapLayer.satellite
-                          // Esri World Imagery - free, keyless aerial/
-                          // satellite tiles. Note the {y} before {x}: this
-                          // is the tile coordinate order Esri's REST tile
-                          // service expects, unlike OSM's {x} then {y}.
-                          ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-                          : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName:
-                          'com.almares328.capstone_application_development',
-                      minZoom: 3,
-                      maxZoom: 19,
-                    ),
-                  ],
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    // See _minZoomForViewport's doc comment for why this
+                    // can't just be a fixed number - it depends on how
+                    // much of the map this exact screen actually shows.
+                    final double minZoomForBox = _minZoomForViewport(
+                      constraints.maxWidth,
+                      constraints.maxHeight,
+                    );
+                    return FlutterMap(
+                      mapController: _mapController,
+                      options: MapOptions(
+                        initialCenter: _center,
+                        // Never start below minZoomForBox - flutter_map
+                        // expects initialZoom to already be within
+                        // [minZoom, maxZoom].
+                        initialZoom: math.max(15, minZoomForBox),
+                        // minZoomForBox (see above) is what actually keeps
+                        // cameraConstraint below from being defeated by
+                        // zooming out - it's always >= 3, the old fixed
+                        // floor that existed only to dodge flutter_map's
+                        // "Infinity or NaN toInt" error at very low zoom.
+                        // 19 matches OpenStreetMap's own supported max
+                        // zoom for street-level detail.
+                        minZoom: minZoomForBox,
+                        maxZoom: 19,
+                        // Stops the map from being dragged/zoomed out past
+                        // Batangas City - see _serviceAreaBounds above.
+                        // Only effective because minZoom (above) never
+                        // lets the viewport outgrow this box in the first
+                        // place.
+                        cameraConstraint: CameraConstraint.contain(
+                          bounds: _serviceAreaBounds,
+                        ),
+                        // Two-finger pinch-zoom/pinch-move is turned off on
+                        // purpose - it's flutter_map's pinch gesture math
+                        // itself (not our zoom bounds) that throws "Infinity
+                        // or NaN toInt" when the two touch points momentarily
+                        // get very close together during the gesture. That's
+                        // a known open bug in the package, not something app
+                        // code can fully prevent, so zooming is done instead
+                        // through the +/- buttons below (double-tap and
+                        // scroll-wheel zoom stay on - they're a different,
+                        // unaffected code path).
+                        interactionOptions: const InteractionOptions(
+                          flags:
+                              InteractiveFlag.drag |
+                              InteractiveFlag.flingAnimation |
+                              InteractiveFlag.doubleTapZoom |
+                              InteractiveFlag.scrollWheelZoom,
+                        ),
+                        onMapEvent: _onMapEvent,
+                        onMapReady: () {
+                          _mapReady = true;
+                          if (_pendingMove != null) {
+                            _mapController.move(
+                              _pendingMove!,
+                              math.max(
+                                _pendingZoom ?? 16,
+                                minZoomForBox,
+                              ),
+                            );
+                            _pendingMove = null;
+                            _pendingZoom = null;
+                          }
+                        },
+                      ),
+                      children: [
+                        TileLayer(
+                          // Swapping urlTemplate alone (without a new key)
+                          // would make flutter_map keep showing already-cached
+                          // tiles from the other layer for a moment - keying
+                          // on the layer forces it to rebuild its tile
+                          // provider cleanly when the customer switches.
+                          key: ValueKey(_mapLayer),
+                          urlTemplate: _mapLayer == _MapLayer.satellite
+                              // Esri World Imagery - free, keyless aerial/
+                              // satellite tiles. Note the {y} before {x}: this
+                              // is the tile coordinate order Esri's REST tile
+                              // service expects, unlike OSM's {x} then {y}.
+                              ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                              : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName:
+                              'com.almares328.capstone_application_development',
+                          minZoom: 3,
+                          maxZoom: 19,
+                        ),
+                      ],
+                    );
+                  },
                 ),
                 // Fixed center pin - the customer drags the map underneath
                 // it rather than dragging the pin itself. Same result from

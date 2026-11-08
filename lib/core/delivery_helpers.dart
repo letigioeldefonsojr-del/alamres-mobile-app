@@ -57,6 +57,23 @@ const List<StoreBranch> kStoreBranches = [
   ),
 ];
 
+/// Bounding box around Batangas City's service area, per Phoenix's own
+/// NW/NE/SE/SW corners:
+///   NW 13.849118049531507, 121.02305347787235
+///   NE 13.844451212426673, 121.17892199826915
+///   SE 13.722747128256575, 121.17995196646562
+///   SW 13.71641011320317,  121.0553258146946
+/// Those 4 points form a quadrilateral, not a perfect north-aligned
+/// rectangle, but flutter_map's CameraConstraint only takes a rectangle -
+/// so these four constants are the smallest lat/lng-aligned box that still
+/// contains all 4 corners (min/max of each axis across all 4 points).
+/// Stops the address-picker map (AddressPickerScreen) from being panned
+/// out past this area. Widen these if the service area grows.
+const double kServiceAreaMinLat = 13.716410;
+const double kServiceAreaMaxLat = 13.849118;
+const double kServiceAreaMinLng = 121.023053;
+const double kServiceAreaMaxLng = 121.179952;
+
 class NearestBranchResult {
   final StoreBranch branch;
   final double distanceMeters;

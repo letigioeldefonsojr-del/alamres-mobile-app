@@ -52,7 +52,16 @@ class ChatService {
               'messages': conversation.map((m) => m.toJson()).toList(),
             }),
           )
-          .timeout(const Duration(seconds: 30));
+          // 60s, not 30: a question that needs the Worker's list_products
+          // tool can mean up to 5 sequential Supabase round trips to build
+          // the ~4,500-product catalog (see PRODUCTS_CACHE_MS in
+          // cloudflare-worker/src/supabase.js) plus two Claude API calls
+          // either side of that tool call - on a cold cache that can run
+          // past 30s even though nothing is actually broken. A plain
+          // greeting with no tool call still replies in a couple seconds
+          // either way, so this only adds patience for the slow path, not
+          // delay for the common case.
+          .timeout(const Duration(seconds: 60));
 
       final Map<String, dynamic> data =
           jsonDecode(response.body) as Map<String, dynamic>;

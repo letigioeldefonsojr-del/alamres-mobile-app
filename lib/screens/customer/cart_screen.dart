@@ -388,7 +388,31 @@ class _CartScreenState extends State<CartScreen> {
                   _lastDocs = docs;
                   final Set<String> currentIds = docs.map((d) => d.id).toSet();
                   if (!setEquals(currentIds, _lastCartDocIds)) {
+                    // Newly-appeared cart docs (an item just added, or the
+                    // very first load - _lastCartDocIds starts empty, so
+                    // every doc counts as "new" then too) default to
+                    // selected. Anything the customer already selected or
+                    // deselected for a doc still in the cart is left
+                    // exactly as they set it - see the comment below on
+                    // why this replaced the old "select everything
+                    // whenever _selectedIds is empty" check.
+                    final Set<String> newlyAddedIds = currentIds.difference(
+                      _lastCartDocIds,
+                    );
                     _lastCartDocIds = currentIds;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      setState(() {
+                        _selectedIds.removeWhere(
+                          (id) => !currentIds.contains(id),
+                        );
+                        _selectedIds.addAll(
+                          newlyAddedIds.where(
+                            (id) => !_unavailableIds.contains(id),
+                          ),
+                        );
+                      });
+                    });
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (mounted) _validateAgainstCatalog();
                     });
@@ -453,20 +477,6 @@ class _CartScreenState extends State<CartScreen> {
                       ),
                     ),
                   );
-                }
-
-                if (_selectedIds.isEmpty && docs.isNotEmpty) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted && _selectedIds.isEmpty) {
-                      setState(
-                        () => _selectedIds.addAll(
-                          docs
-                              .map((d) => d.id)
-                              .where((id) => !_unavailableIds.contains(id)),
-                        ),
-                      );
-                    }
-                  });
                 }
 
                 final selectedDocs = docs

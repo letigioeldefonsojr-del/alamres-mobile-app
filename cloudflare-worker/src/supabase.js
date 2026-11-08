@@ -101,6 +101,19 @@ function productFromRow(row) {
   };
 }
 
+// 1000 per page, same default the app uses.
+const PAGE_SIZE = 1000;
+
+// How many pages to request AT ONCE on a cold cache, before falling back
+// to one-at-a-time. Each page's offset (0, 1000, 2000, ...) doesn't
+// depend on what any other page returned, so there's no real reason to
+// wait for page N before asking for page N+1 - the old code did exactly
+// that, which is what turned a cold cache into up to 5 SEQUENTIAL round
+// trips at today's ~4,500 products (see the latency comment on
+// PRODUCTS_CACHE_MS below). 8 pages (8,000 products) covers that with
+// real headroom to grow before this needs raising.
+const PARALLEL_PAGE_BURST = 8;
+
 // Pages through app_list_products (same action the app itself calls) and
 // caches the whole, converted catalog in memory for PRODUCTS_CACHE_MS.
 // [firebaseToken] is the raw, already-verified Firebase ID token string
@@ -111,20 +124,55 @@ export async function listProducts(env, firebaseToken) {
     return productsCache.products;
   }
 
+  // Fire the first PARALLEL_PAGE_BURST pages all at once instead of one
+  // at a time - Promise.all resolves in the same order its input array
+  // was given, regardless of which request actually finished first, so
+  // burstResults[i] is always page i and concatenating them in order is
+  // safe. Stop at the first page that comes back done/empty - a normal
+  // offset-based backend never has a later page with more rows than an
+  // earlier "past the end" one, so nothing after that point is checked.
+  const burstOffsets = Array.from(
+    { length: PARALLEL_PAGE_BURST },
+    (_, i) => i * PAGE_SIZE,
+  );
+  const burstResults = await Promise.all(
+    burstOffsets.map((offset) =>
+      callStoreApi(env, firebaseToken, {
+        action: 'app_list_products',
+        offset,
+        limit: PAGE_SIZE,
+      }),
+    ),
+  );
+
   const all = [];
-  let offset = 0;
-  // 1000 per page, same default the app uses - the store's whole catalog
-  // fits in a handful of pages even at 4,500+ products.
-  for (;;) {
-    const data = await callStoreApi(env, firebaseToken, {
-      action: 'app_list_products',
-      offset,
-      limit: 1000,
-    });
+  let reachedEnd = false;
+  for (const data of burstResults) {
     const rows = Array.isArray(data.products) ? data.products : [];
     all.push(...rows.map(productFromRow));
-    if (data.done || rows.length === 0) break;
-    offset += rows.length;
+    if (data.done || rows.length === 0) {
+      reachedEnd = true;
+      break;
+    }
+  }
+
+  // Catalog grew past what the burst covers (rare, and only gets hit at
+  // all once the store is past PARALLEL_PAGE_BURST * PAGE_SIZE products)
+  // - keep going the old, sequential way for whatever's left. Correctness
+  // never depends on the burst size being right, only speed does.
+  if (!reachedEnd) {
+    let offset = PARALLEL_PAGE_BURST * PAGE_SIZE;
+    for (;;) {
+      const data = await callStoreApi(env, firebaseToken, {
+        action: 'app_list_products',
+        offset,
+        limit: PAGE_SIZE,
+      });
+      const rows = Array.isArray(data.products) ? data.products : [];
+      all.push(...rows.map(productFromRow));
+      if (data.done || rows.length === 0) break;
+      offset += rows.length;
+    }
   }
 
   productsCache = { products: all, expiresAt: Date.now() + PRODUCTS_CACHE_MS };
