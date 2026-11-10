@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/cart_helpers.dart';
+import '../../core/focus_helpers.dart';
 import '../../core/product_helpers.dart';
 import '../../core/product_view_preference.dart';
+import '../../core/search_helpers.dart';
 import '../../services/product_repository.dart';
 import '../../widgets/cart_floating_bar.dart';
 import '../../widgets/cart_icon_button.dart';
@@ -28,6 +30,14 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
   static const Color primaryGreen = Color(0xFF2E6B3E);
 
   ProductSortOption _sortOption = ProductSortOption.nameAsc;
+
+  // Searches within whatever this screen is already showing (the current
+  // category, or every product if it fell back to that - see
+  // fellBackToAll below) rather than the whole catalog regardless of
+  // category - same fuzzyMatches() used by AllProductsScreen's own search
+  // box, just applied after the category filter instead of in place of it.
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
 
   // The product backend has no field to query a normalized category key
   // server-side (and the admin site's data structure isn't something this
@@ -61,6 +71,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
   @override
   void dispose() {
     ProductRepository.instance.unregisterVisible();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -78,6 +89,12 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
   }
 
   Future<void> _pickSort() async {
+    // See clearKeyboardFocus's doc comment - without this, if the search
+    // field below still technically has focus (the customer tapped it,
+    // then tapped Sort without typing), the keyboard can reopen by itself
+    // the moment this bottom sheet is dismissed. Same fix AllProductsScreen
+    // already applies for its own search field.
+    clearKeyboardFocus(context);
     final selected = await showModalBottomSheet<ProductSortOption>(
       context: context,
       isScrollControlled: true,
@@ -160,7 +177,14 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
         final List<Map<String, dynamic>> products = fellBackToAll
             ? _lastAllProducts
             : _lastMatches;
-        final sorted = sortProducts(products, _sortOption);
+        final List<Map<String, dynamic>> searched = _query.trim().isEmpty
+            ? products
+            : products
+                  .where(
+                    (p) => fuzzyMatches(_query, p['name'] as String? ?? ''),
+                  )
+                  .toList();
+        final sorted = sortProducts(searched, _sortOption);
 
         return Scaffold(
           backgroundColor: Colors.white,
@@ -197,6 +221,39 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                     ),
                   ),
                 ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F5F5),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) => setState(() => _query = value),
+                    decoration: InputDecoration(
+                      hintText: fellBackToAll
+                          ? 'Search all products...'
+                          : 'Search in ${widget.category}...',
+                      hintStyle: const TextStyle(color: Colors.grey),
+                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                      suffixIcon: _query.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.close, color: Colors.grey),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _query = '');
+                              },
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
               Expanded(
                 child: sorted.isEmpty
                     ? Center(
@@ -212,17 +269,21 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                   color: primaryGreen.withValues(alpha: 0.08),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(
-                                  Icons.inventory_2_outlined,
+                                child: Icon(
+                                  _query.isEmpty
+                                      ? Icons.inventory_2_outlined
+                                      : Icons.search_off,
                                   color: primaryGreen,
                                   size: 30,
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              const Text(
-                                'No products in this category yet',
+                              Text(
+                                _query.isEmpty
+                                    ? 'No products in this category yet'
+                                    : 'No products found for "$_query"',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),

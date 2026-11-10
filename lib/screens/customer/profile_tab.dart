@@ -342,6 +342,34 @@ class _ProfileTabState extends State<ProfileTab> {
         ),
       );
 
+      // Scrub this customer's name/address off their past orders instead
+      // of deleting the orders themselves - sales history (items, totals,
+      // dates, status) stays intact for the admin side's reporting, but
+      // the personal details tied to the account that's about to be gone
+      // don't linger in Firestore under an orphaned userId. Customers
+      // already write to their own orders elsewhere in the app (rating,
+      // feedback, cancelling), so this rides on that same permission.
+      final ordersToScrub = await FirebaseFirestore.instance
+          .collection('orders')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+      // Firestore caps a single batch at 500 writes - chunk defensively,
+      // though no real customer will ever come close to that many orders.
+      const int batchLimit = 500;
+      for (int i = 0; i < ordersToScrub.docs.length; i += batchLimit) {
+        final batch = FirebaseFirestore.instance.batch();
+        for (final doc in ordersToScrub.docs.skip(i).take(batchLimit)) {
+          batch.update(doc.reference, {
+            'customerName': 'Deleted Customer',
+            'customerAddress': '',
+            'deliveryLat': FieldValue.delete(),
+            'deliveryLng': FieldValue.delete(),
+            'deliveryMapUrl': FieldValue.delete(),
+          });
+        }
+        await batch.commit();
+      }
+
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)

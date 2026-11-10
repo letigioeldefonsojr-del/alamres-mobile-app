@@ -231,15 +231,21 @@ class _CartOrderConfirmationScreenState
     });
   }
 
-  // Switches an item's unit price to its cached wholesale price the
-  // instant the stepper reaches kWholesaleMinimumQuantity, purely locally
-  // (no network round-trip) - and back to the original retail/discounted
-  // price if it's stepped back down below that. This mirrors the options
-  // sheet's live behavior, so the price shown while adjusting quantity
-  // here never lags behind what Confirm will actually charge. A live
-  // discount change is still only caught at the moment of Confirm itself,
-  // same as before this - that's a much rarer case and not what this is
-  // fixing.
+  // Re-prices an item the instant its stepper changes, purely locally (no
+  // network round-trip), so what's shown here never lags behind what
+  // Confirm will actually charge. A live discount change is still only
+  // caught at the moment of Confirm itself, same as before this - that's
+  // a much rarer case and not what this is fixing.
+  //
+  // Wholesale applies in whole BLOCKS of kWholesaleMinimumQuantity, not as
+  // a one-time switch the instant newAmount crosses that threshold - only
+  // a full block of units gets the cached wholesale price; anything left
+  // over (fewer than one more full block) stays at the original
+  // retail/discounted price. Mirrors effectivePriceForQuantity()
+  // (product_helpers.dart) exactly, just working from this screen's
+  // already-resolved per-item values (_originalUnitPrices,
+  // data['wholesalePrice']) instead of a live product/discount lookup -
+  // see that function's doc comment for the full reasoning and examples.
   void _updateAmount(int index, int newAmount) {
     if (newAmount < 1) return;
     setState(() {
@@ -254,7 +260,12 @@ class _CartOrderConfirmationScreenState
             ? parsePesoAmount(wholesaleRaw)
             : null;
         if (wholesaleParsed != null && wholesaleParsed > 0) {
-          unitPrice = wholesaleParsed;
+          final int fullBlocks = newAmount ~/ kWholesaleMinimumQuantity;
+          final int remainder = newAmount % kWholesaleMinimumQuantity;
+          final double total =
+              fullBlocks * kWholesaleMinimumQuantity * wholesaleParsed +
+              remainder * originalUnitPrice;
+          unitPrice = total / newAmount;
         }
       }
 

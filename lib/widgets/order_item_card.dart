@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../core/constants.dart';
+import '../core/product_helpers.dart';
 import 'product_image.dart';
 
 class OrderItemCard extends StatelessWidget {
@@ -26,6 +28,27 @@ class OrderItemCard extends StatelessWidget {
     final double subtotal =
         (item['subtotal'] as num?)?.toDouble() ?? (unitPrice * amount);
     final bool editable = onIncrement != null;
+
+    // Only ever true here for a cart/checkout line (editable == true) -
+    // a persisted order's own items never carry wholesalePrice (see
+    // cart_order_confirmation_screen.dart's _confirmOrder, which doesn't
+    // copy it into what gets written to Firestore), so this is always
+    // false for past-order history, which is fine: there's nothing to
+    // show there either way. True from the moment a full block of
+    // kWholesaleMinimumQuantity is reached (6, 12, 18, ...) - matches
+    // effectiveTotalForQuantity()'s own block-of-6 rule in
+    // product_helpers.dart, so this label never claims wholesale applied
+    // when the price shown wasn't actually computed that way.
+    final String? wholesaleRaw = item['wholesalePrice'] as String?;
+    final double? wholesaleParsed =
+        (wholesaleRaw != null && wholesaleRaw.trim().isNotEmpty)
+        ? parsePesoAmount(wholesaleRaw)
+        : null;
+    final bool wholesaleApplied =
+        editable &&
+        amount >= kWholesaleMinimumQuantity &&
+        wholesaleParsed != null &&
+        wholesaleParsed > 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -121,6 +144,17 @@ class OrderItemCard extends StatelessWidget {
                           ),
                   ],
                 ),
+                if (wholesaleApplied) ...[
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Wholesale price applied ✓',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: primaryGreen,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 6),
                 Align(
                   alignment: Alignment.centerRight,

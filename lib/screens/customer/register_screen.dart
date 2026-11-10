@@ -421,7 +421,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       Future.delayed(const Duration(milliseconds: 900), () {
-        if (mounted) Navigator.pop(context);
+        if (!mounted) return;
+        // createUserWithEmailAndPassword already signed this customer in -
+        // go straight into the app instead of popping back to a Login
+        // screen that would just make them re-enter the password they
+        // just typed. Matches the Google sign-up flow below, which does
+        // the same via pushAndRemoveUntil (clears Register *and* Login
+        // off the stack so the back button can't land on either).
+        Navigator.pushAndRemoveUntil(
+          context,
+          fadeSlideRoute(const HomeScreen()),
+          (route) => false,
+        );
       });
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;

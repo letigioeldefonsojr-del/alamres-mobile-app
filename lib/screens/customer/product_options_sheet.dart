@@ -156,18 +156,24 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
   }
 
   // Discount- and wholesale-aware - this is what checkout actually
-  // charges, so it must always go through effectivePriceForQuantity()
+  // charges, so it must always go through effectiveTotalForQuantity()
   // rather than reading price/flavor price fields directly. Passing
   // _amount in is what makes the price drop to wholesale automatically
-  // once the stepper below reaches kWholesaleMinimumQuantity.
+  // once the stepper below reaches kWholesaleMinimumQuantity (in whole
+  // blocks of it - see that function's doc comment). Divides the
+  // full-precision total by _amount itself rather than going through
+  // effectivePriceForQuantity()'s rounded display string, so what gets
+  // stored on the cart item here can't drift from the real total by a
+  // centavo the way a round-then-multiply would.
   double get _unitPrice {
-    final String effective = effectivePriceForQuantity(
+    if (_amount <= 0) return 0;
+    final double total = effectiveTotalForQuantity(
       _liveProduct,
       _regularPriceString,
       _amount,
       variant: _selectedFlavor,
     );
-    return parsePesoAmount(effective) ?? 0;
+    return total / _amount;
   }
 
   String get _priceLabel => effectivePriceForQuantity(

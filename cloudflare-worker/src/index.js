@@ -84,9 +84,19 @@ const TOOLS = [
       "applied) - quote that number directly as the price. `regularPrice` " +
       'only appears when a discount is currently live, as the pre-discount ' +
       'amount to mention alongside it (e.g. "now ₱20, was ₱35"). ' +
-      '`wholesalePrice` is separate and never combines with a discount - ' +
-      "buying 6+ pcs charges wholesalePrice INSTEAD of the discounted " +
-      'price, they never stack. Returns up to 40 matches; call again with ' +
+      '`wholesalePrice` is separate and never combines with a discount for ' +
+      'the pieces it applies to. Wholesale pricing applies in whole BLOCKS ' +
+      'of 6, not as a one-time switch: every full group of 6 pieces of the ' +
+      'same product/flavor in one order is charged at wholesalePrice, and ' +
+      'any leftover pieces (fewer than one more full group of 6) are ' +
+      "charged at the regular/discounted price instead - so 6 pieces is " +
+      '6 x wholesalePrice, 7 pieces is (6 x wholesalePrice) + (1 x regular ' +
+      'price), 13 pieces is (12 x wholesalePrice) + (1 x regular price), ' +
+      'and so on. If a customer asks the total for a specific quantity, ' +
+      'work it out with that exact formula rather than just multiplying ' +
+      'wholesalePrice (or the regular price) by the whole quantity, and ' +
+      'show the breakdown (e.g. "6 x ₱11 + 1 x ₱15 = ₱81") rather than ' +
+      'only the final number. Returns up to 40 matches; call again with ' +
       'a narrower search or category if needed. A discounted product also ' +
       'includes discountStarts/discountEnds (ISO 8601 dates) when those ' +
       'are set - mention the end date in plain language ("through October ' +
@@ -388,11 +398,29 @@ async function runTool(name, input, env, uid, firebaseToken) {
 
     if (name === 'get_order_status') {
       if (input?.order_id) {
-        const order = await getOrderById(env, String(input.order_id), uid);
-        if (!order) {
-          return { error: 'No order with that ID was found for this customer.' };
+        const rawCode = String(input.order_id);
+        const exact = await getOrderById(env, rawCode, uid);
+        if (exact) return { order: summarizeOrder(exact) };
+
+        // The app never actually shows a customer the full order ID -
+        // just a short PREFIX of it (8 or 12 characters, sometimes
+        // uppercased: order_details_screen.dart, orders_tab.dart,
+        // order_confirmation_screen.dart, order_items_list_screen.dart
+        // each do their own truncation), so an exact match on what a
+        // customer types almost never succeeds. Fall back to checking
+        // the SAME recent-orders list the no-order_id branch below
+        // already fetches (same limit, so this costs no more reads than
+        // that path already does) for one whose real ID starts with the
+        // typed code - case-insensitively, so it matches regardless of
+        // which screen's (uppercased or not) short code was copied.
+        const code = rawCode.trim().replace(/^#/, '').toLowerCase();
+        if (code) {
+          const recent = await listRecentOrdersForUser(env, uid, 5);
+          const match = recent.find((o) => o.id.toLowerCase().startsWith(code));
+          if (match) return { order: summarizeOrder(match) };
         }
-        return { order: summarizeOrder(order) };
+
+        return { error: 'No order with that ID was found for this customer.' };
       }
       const orders = await listRecentOrdersForUser(env, uid, 5);
       return { orders: orders.map(summarizeOrder) };
@@ -436,9 +464,13 @@ function buildSystemPrompt({ hasProductLookup, hasOrderLookup }) {
     'and helpful.\n\n' +
     'How ordering works, if a customer asks: browse products by category or ' +
     'search, open a product to pick a flavor/variant and quantity, then add ' +
-    'it to the cart or buy it directly. Buying 6 or more pieces of the same ' +
-    "product/flavor in one go automatically charges that item's wholesale " +
-    'price instead of the regular price. At checkout the customer chooses ' +
+    'it to the cart or buy it directly. Wholesale pricing applies in whole ' +
+    'blocks of 6 pieces of the same product/flavor in one order - every ' +
+    'full group of 6 is charged the wholesale price, and any leftover ' +
+    'pieces below the next group of 6 stay at the regular price (see the ' +
+    'list_products tool description for the exact formula and an example) ' +
+    '- it is not a one-time switch that applies to the whole quantity ' +
+    'once it reaches 6. At checkout the customer chooses ' +
     'Delivery or Pick Up In Store. For Delivery, they pick a delivery ' +
     'address and a delivery fee is calculated from the distance to the ' +
     'nearest branch. For Pick Up In Store, there is no delivery fee (it is ' +

@@ -177,30 +177,104 @@ String effectivePrice(
   return _formatPesoAmount(parsed * (100 - percent) / 100);
 }
 
-/// Layers wholesale pricing on top of effectivePrice(): once [amount]
-/// reaches kWholesaleMinimumQuantity, charges the product's (or variant's)
-/// wholesalePrice instead - if one is actually set. Falls back to the
-/// regular (possibly discounted) price whenever no wholesalePrice is
-/// configured for this product/variant, so a product without wholesale
-/// pricing behaves exactly as before. Wholesale, when it applies, replaces
-/// any active discount rather than stacking with it - it's already meant
-/// to be the best bulk price.
+/// Layers wholesale pricing on top of effectivePrice(): wholesale applies
+/// in whole BLOCKS of kWholesaleMinimumQuantity, not as a one-time switch
+/// once [amount] reaches that threshold - only a full block of units is
+/// actually charged the product's (or variant's) wholesalePrice; whatever
+/// is left over (fewer than one more full block) stays at the regular,
+/// discount-aware price. So at an ₱11 wholesale rate and a
+/// kWholesaleMinimumQuantity of 6: 6 pcs is a flat ₱66 (one block, no
+/// remainder), 7 pcs is that same ₱66 plus one regular-priced piece, 12
+/// pcs is ₱132 (two full blocks), and so on - wholesale pricing doesn't
+/// "turn on for everything" the moment amount crosses 6, it only ever
+/// discounts whole groups of 6.
+///
+/// The string returned is the BLENDED per-unit average for this exact
+/// [amount] (total ÷ amount), not a single flat rate - deliberately, so
+/// every existing caller that multiplies this by [amount] to get a line
+/// total (the cart, checkout, order records) keeps doing exactly that and
+/// still lands on the correct total without having to change at all. Falls
+/// back to the regular (possibly discounted) price whenever no
+/// wholesalePrice is configured for this product/variant, or [amount]
+/// hasn't reached a single full block yet, so a product without wholesale
+/// pricing (or a small order) behaves exactly as before. Within a block,
+/// wholesale replaces any active discount rather than stacking with it -
+/// it's already meant to be the best bulk price; a leftover, non-block
+/// remainder is priced exactly as it would be bought on its own, discount
+/// included if one is active.
 String effectivePriceForQuantity(
   Map<String, dynamic> product,
   String regularPrice,
   int amount, {
   Map<String, dynamic>? variant,
 }) {
-  if (amount >= kWholesaleMinimumQuantity) {
-    final String? wholesaleRaw = (variant ?? product)['wholesalePrice'] as String?;
-    if (wholesaleRaw != null && wholesaleRaw.trim().isNotEmpty) {
-      final double? wholesaleParsed = parsePesoAmount(wholesaleRaw);
-      if (wholesaleParsed != null && wholesaleParsed > 0) {
-        return _formatPesoAmount(wholesaleParsed);
-      }
-    }
+  final String regularEffective = effectivePrice(
+    product,
+    regularPrice,
+    variant: variant,
+  );
+  if (amount < kWholesaleMinimumQuantity) return regularEffective;
+
+  final String? wholesaleRaw = (variant ?? product)['wholesalePrice'] as String?;
+  if (wholesaleRaw == null || wholesaleRaw.trim().isEmpty) {
+    return regularEffective;
   }
-  return effectivePrice(product, regularPrice, variant: variant);
+  final double? wholesaleParsed = parsePesoAmount(wholesaleRaw);
+  if (wholesaleParsed == null || wholesaleParsed <= 0) {
+    return regularEffective;
+  }
+  final double? regularParsed = parsePesoAmount(regularEffective);
+  if (regularParsed == null) {
+    // Shouldn't happen (regularEffective always comes from a parseable
+    // peso string) - keep the old single-rate behavior as a safe fallback
+    // rather than letting a bad parse take down the whole calculation.
+    return _formatPesoAmount(wholesaleParsed);
+  }
+
+  final int fullBlocks = amount ~/ kWholesaleMinimumQuantity;
+  final int remainder = amount % kWholesaleMinimumQuantity;
+  final double total =
+      fullBlocks * kWholesaleMinimumQuantity * wholesaleParsed +
+      remainder * regularParsed;
+  return _formatPesoAmount(total / amount);
+}
+
+/// The ACTUAL total to charge for [amount] of this product/variant, same
+/// block-of-6 formula as [effectivePriceForQuantity] above but kept as a
+/// full-precision double all the way through instead of rounding to the
+/// nearest centavo as a "price per piece" and then multiplying that back
+/// out by [amount]. That round-then-multiply is exactly what used to make
+/// 7 pieces at an ₱11 wholesale rate total ₱80.99 instead of the correct
+/// ₱81.00 (6 x ₱11 + 1 x ₱15, which is ₱81.00 exactly - no rounding
+/// involved in the real math, only in how it used to be re-derived from a
+/// rounded ₱11.57-per-piece label). Use this (not
+/// effectivePriceForQuantity() x amount) for anything that actually
+/// charges or stores money - effectivePriceForQuantity()'s string stays
+/// around purely as a display label (e.g. "₱11.57 each" next to a
+/// quantity stepper), which is fine to round since it's never fed back
+/// into a total.
+double effectiveTotalForQuantity(
+  Map<String, dynamic> product,
+  String regularPrice,
+  int amount, {
+  Map<String, dynamic>? variant,
+}) {
+  final double regularUnit =
+      parsePesoAmount(effectivePrice(product, regularPrice, variant: variant)) ??
+      0;
+  if (amount < kWholesaleMinimumQuantity) return regularUnit * amount;
+
+  final String? wholesaleRaw = (variant ?? product)['wholesalePrice'] as String?;
+  final double? wholesaleUnit =
+      (wholesaleRaw != null && wholesaleRaw.trim().isNotEmpty)
+      ? parsePesoAmount(wholesaleRaw)
+      : null;
+  if (wholesaleUnit == null || wholesaleUnit <= 0) return regularUnit * amount;
+
+  final int fullBlocks = amount ~/ kWholesaleMinimumQuantity;
+  final int remainder = amount % kWholesaleMinimumQuantity;
+  return fullBlocks * kWholesaleMinimumQuantity * wholesaleUnit +
+      remainder * regularUnit;
 }
 
 /// The regular (pre-discount) price to show struck-through next to
@@ -599,14 +673,21 @@ double _effectiveUnitPriceFromData(
   if (regularPrice == null || regularPrice.trim().isEmpty) {
     return fallbackUnitPrice;
   }
+  if (amount <= 0) return fallbackUnitPrice;
 
-  final String effective = effectivePriceForQuantity(
+  // Goes through effectiveTotalForQuantity() (the full-precision total),
+  // not effectivePriceForQuantity() (which rounds to a display label) -
+  // see effectiveTotalForQuantity()'s doc comment for why that distinction
+  // is what keeps non-multiple-of-6 quantities from landing a centavo or
+  // two off their real total once this is multiplied back by [amount] at
+  // every call site (the cart, checkout, order records).
+  final double total = effectiveTotalForQuantity(
     data,
     regularPrice,
     amount,
     variant: variant,
   );
-  return parsePesoAmount(effective) ?? fallbackUnitPrice;
+  return total / amount;
 }
 
 /// Re-reads a product's current price/discount/wholesale state inside an
