@@ -1,3 +1,4 @@
+// product-options-sheet
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -40,13 +41,13 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
   void initState() {
     super.initState();
     _liveProduct = widget.product;
-    // ProductRepository is the single shared source of product data now
-    // (Supabase or Firestore underneath, depending on kUseSupabaseProducts;
-    // see product_repository.dart) - replaces what used to be a Firestore
-    // .snapshots() listener on this one product's doc. Checked once right
-    // away too, in case the repository already has newer data than what
-    // this sheet was opened with (a .snapshots() listener would have
-    // delivered its first snapshot immediately the same way).
+    // ProductRepository is the single shared source of product data
+    // (Supabase or Firestore underneath, depending on
+    // kUseSupabaseProducts; see product_repository.dart) rather than a
+    // Firestore .snapshots() listener on this one product's doc. Checked
+    // once right away too, in case the repository already has newer data
+    // than what this sheet was opened with (a .snapshots() listener would
+    // deliver its first snapshot immediately the same way).
     ProductRepository.instance.productsNotifier.addListener(
       _onCatalogChanged,
     );
@@ -300,15 +301,14 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
       // Stay on the current screen instead of navigating to the cart - the
       // fly-to-cart animation below is confirmation enough on its own, and
       // the cart badge's own count updates on its own once the write above
-      // lands. Deliberately no toast/SnackBar here anymore: this sheet is
-      // opened from the same product grids whose cards can sit close to
-      // the bottom chrome, so a floating confirmation risked landing on
-      // top of product content the same way it did before (see
-      // product_card.dart's quick-add "+" button for the fix that
-      // replaced it there with feedback drawn inside the button itself -
-      // this flow has no equivalent persistent control to draw into,
-      // since the sheet is already gone by this point, so it just relies
-      // on the animation instead).
+      // lands. Deliberately no toast/SnackBar here: this sheet is opened
+      // from the same product grids whose cards can sit close to the
+      // bottom chrome, so a floating confirmation here would risk landing
+      // on top of product content, the same risk product_card.dart's
+      // quick-add "+" button avoids by drawing its feedback inside the
+      // button itself - this flow has no equivalent persistent control to
+      // draw into, since the sheet is already gone by this point, so it
+      // just relies on the animation instead.
       if (imageRect != null) {
         flyToCart(
           overlay,
@@ -799,13 +799,13 @@ class _ProductOptionsSheetState extends State<ProductOptionsSheet> {
                 ),
                 const SizedBox(height: 22),
 
-                // The only action here now is Add to Cart - matching the
+                // The only action here is Add to Cart - matching the
                 // foodpanda-style flow the capstone adviser asked for,
                 // where a product's detail sheet always adds to the cart
                 // rather than offering a separate "skip the cart, order
                 // this one thing now" shortcut. The order-now path
                 // (order_confirmation_screen.dart) is still in the
-                // codebase but no longer reachable from here.
+                // codebase but not reachable from here.
                 SizedBox(
                   width: double.infinity,
                   height: 50,

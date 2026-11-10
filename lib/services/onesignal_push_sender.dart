@@ -1,3 +1,4 @@
+// onesignal-push-sender
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
@@ -10,16 +11,12 @@ import '../core/constants.dart';
 ///
 /// The real OneSignal REST API key never lives in this app - it's a secret
 /// that would let anyone who extracted it from the APK send a push
-/// notification to your entire user base (compiling it in with
-/// --dart-define, as this file used to, still ships it inside the release
-/// APK in a recoverable form - a plain command-line flag was never the
-/// actual problem, baking a secret into the client at all was). The Worker
-/// holds that key as a Cloudflare secret and makes the real call to
-/// OneSignal server-side; this app only ever talks to the Worker, and only
-/// while the user is logged in (same pattern ChatService uses for the
-/// Claude chat endpoint - see chat_service.dart). No --dart-define is
-/// needed for this anymore, so a plain `flutter build apk --release` just
-/// works.
+/// notification to your entire user base, and baking it into the client at
+/// all (even via --dart-define) ships it inside the release APK in a
+/// recoverable form. The Worker holds that key as a Cloudflare secret and
+/// makes the real call to OneSignal server-side; this app only ever talks
+/// to the Worker, and only while the user is logged in (same pattern
+/// ChatService uses for the Claude chat endpoint - see chat_service.dart).
 Future<void> sendPushNotification({
   required String toFirebaseUid,
   required String message,

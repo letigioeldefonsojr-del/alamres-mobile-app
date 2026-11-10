@@ -1,3 +1,4 @@
+// cart-floating-bar
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -15,12 +16,13 @@ import '../screens/customer/cart_screen.dart';
 /// always safe to add - no visible change until there's actually something
 /// to show.
 ///
-/// Was a StatelessWidget that called `cartRef.snapshots()` straight inside
-/// build() - same bug as the old cart_badge.dart (see its doc comment):
+/// A StatefulWidget (not Stateless) so the cart stream is created once, in
+/// initState, and reused across rebuilds - same reasoning as
+/// cart_badge.dart's own stream (see its comment): creating a Stream
+/// inside build() makes StreamBuilder treat it as a new subscription on
 /// every rebuild of whatever screen this sits in as a bottomNavigationBar
-/// (a search keystroke, a sort change, anything) handed StreamBuilder a
-/// brand-new Stream and re-read the whole cart. Now a StatefulWidget so
-/// the stream is created once, in initState, and reused across rebuilds.
+/// (a search keystroke, a sort change, anything), re-reading the whole
+/// cart from Firestore each time.
 class CartFloatingBar extends StatefulWidget {
   const CartFloatingBar({super.key});
 

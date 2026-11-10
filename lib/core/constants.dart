@@ -1,3 +1,4 @@
+// constants
 import 'package:flutter/material.dart';
 
 // Which categories actually exist is no longer decided here - the admin
@@ -97,31 +98,18 @@ const String kChatWorkerUrl =
 // see effectivePriceForQuantity() in product_helpers.dart.
 const int kWholesaleMinimumQuantity = 6;
 
-// Extra bottom clearance every bottom-nav tab's scrollable content should
-// add (on top of its own safe-area padding) so the last row/card never
-// sits behind the chat assistant's floating action button - HomeScreen's
-// FAB is a standard 56dp button with Scaffold's default 16dp margin above
-// the bottom nav bar, so its footprint reaches about 72dp above that bar;
-// this rounds up with a little breathing room. Scaffold positions the FAB
-// correctly relative to the bottom nav bar on its own - this constant is
-// only for keeping a tab's own scrolling content from scrolling underneath
-// where the FAB visually sits.
+// Extra bottom padding each bottom-nav tab's scrollable content adds so its
+// last row/card never sits behind the chat assistant's floating button.
 const double kFabBottomClearance = 88;
 
-// --- Supabase product catalog migration -----------------------------------
+// --- Supabase product catalog ----------------------------------------------
 //
-// Firestore's free (Spark) plan has a 50k-reads/day quota, shared by the
-// admin website and this app - with products added/deleted in 4,500+-row
-// CSV batches and read on every product grid, that quota was getting hit.
-// The admin website already moved its product-facing pages (Cashier,
-// Inventory, Stock Monitoring, Dashboard) to Supabase (which has no
-// per-read billing on its free plan); this flag does the same for this
-// app's customer-facing product catalog. Everything else - Firebase Auth,
-// users/customers, cart, orders, notifications, OneSignal, feedback,
-// driver data - stays on Firestore exactly as before; only `products`
-// reads/writes move. Flip this back to false to instantly revert to the
-// old direct-Firestore product path (kept intact behind this flag, not
-// deleted) if anything about the Supabase side needs rolling back.
+// The product catalog (reads and writes) lives on Supabase, not Firestore,
+// since Firestore's free plan has a 50k-reads/day quota and the catalog is
+// read on every product grid. Everything else - Firebase Auth,
+// users/customers, cart, orders, notifications, OneSignal, feedback, driver
+// data - stays on Firestore. Flip this back to false to revert to the old
+// direct-Firestore product path, kept intact behind this flag.
 const bool kUseSupabaseProducts = true;
 
 const String kSupabaseUrl = 'https://jytrozeqqdyhzrafvfat.supabase.co';
@@ -136,26 +124,20 @@ const String kSupabaseStoreApiUrl =
 
 // --- Supabase login guard ---------------------------------------------------
 //
-// Firestore's `users` collection used to be readable by anyone, which is
-// what let this app query it before a customer was even signed in: turning
-// a typed mobile number into a sign-in email at login, and checking whether
-// a mobile number/email was already registered at sign-up. Tightening the
-// security rules so `users` can only be read by its own signed-in owner
-// broke both of those - there's no "signed-in owner" yet at that point. This
-// Edge Function answers those two narrow questions instead, without needing
-// a Firebase ID token (see login_guard_api.dart).
+// Firestore's `users` collection can only be read by its own signed-in
+// owner, so there's no way for an app to query it before a customer is
+// signed in. This Edge Function answers the two things that need checking
+// pre-sign-in instead: resolving a mobile number to its sign-in email at
+// login, and checking whether a mobile number/email is already registered
+// at sign-up (see login_guard_api.dart).
 const String kSupabaseLoginGuardUrl = '$kSupabaseUrl/functions/v1/login-guard';
 
-// --- Supabase staff notifications migration --------------------------------
+// --- Supabase staff notifications -------------------------------------------
 //
-// Same backend/reasoning as kUseSupabaseProducts above (one Supabase Edge
-// Function, no per-write billing on the free plan), applied to the
-// `employeeNotifications` document this app creates whenever a customer
-// places an order - that's what lights up the admin site's notification
-// bell. Only that write moves; everything else about placing an order (the
-// order document itself, cart cleanup) stays on Firestore exactly as
-// before, and so does every other kind of notification - customer-facing
-// users/{uid}/notifications, push notifications, OneSignal. Flip this back
-// to false to instantly revert to the old direct-Firestore
-// employeeNotifications write (kept intact behind this flag, not deleted).
+// The `employeeNotifications` write (what lights up the admin site's
+// notification bell whenever a customer places an order) goes through
+// Supabase instead of Firestore, same reasoning as kUseSupabaseProducts.
+// Everything else about placing an order, and every other kind of
+// notification, stays on Firestore/OneSignal. Flip back to false to
+// revert to the old direct-Firestore write, kept intact behind this flag.
 const bool kUseSupabaseStaffNotifications = true;

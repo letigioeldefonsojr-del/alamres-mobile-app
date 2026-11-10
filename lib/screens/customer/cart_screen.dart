@@ -1,3 +1,4 @@
+// cart-screen
 import 'dart:async';
 import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
@@ -72,20 +73,18 @@ class _CartScreenState extends State<CartScreen> {
   // once every 20s internally) - never a Firestore read.
   Timer? _catalogCheckTimer;
 
-  // Created once and reused across every rebuild - this is what was
-  // causing the screen to flicker. `stream:` was previously being handed
-  // a brand-new `ref.orderBy(...).snapshots()` call straight in build(),
-  // so every setState() on this screen (a live price arriving, a quantity
-  // change, the Select All postFrameCallback, etc.) created a genuinely
-  // different Stream object. StreamBuilder treats a new stream instance
-  // as a new subscription and resets to its ConnectionState.waiting
-  // branch - the loading spinner - until the first snapshot arrives
-  // again, which is the flicker: tapping the "+" quick-add writes to
-  // Firestore, that write's own snapshot triggers a rebuild here once the
-  // customer reaches the Cart screen, and each rebuild flashed the whole
-  // list back to a spinner for a frame. Caching the stream means the same
-  // Stream instance is passed every time, so StreamBuilder just keeps
-  // delivering new data without ever dropping back to "waiting".
+  // Created once and reused across every rebuild - handing StreamBuilder a
+  // brand-new `ref.orderBy(...).snapshots()` call straight in build()
+  // would make every setState() on this screen (a live price arriving, a
+  // quantity change, the Select All postFrameCallback, etc.) create a
+  // genuinely different Stream object. StreamBuilder treats a new stream
+  // instance as a new subscription and resets to its ConnectionState.waiting
+  // branch - the loading spinner - until the first snapshot arrives again,
+  // which would flicker the whole list back to a spinner for a frame on
+  // every rebuild (e.g. the "+" quick-add writing to Firestore, with that
+  // write's own snapshot triggering a rebuild here). Caching the stream
+  // means the same Stream instance is passed every time, so StreamBuilder
+  // just keeps delivering new data without ever dropping back to "waiting".
   Stream<QuerySnapshot<Map<String, dynamic>>>? _cartStream;
 
   void _reportLivePrice(String docId, double price) {
@@ -294,13 +293,13 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   // Called when a cart row's live product stream reports that its product
-  // doc no longer exists (deleted on the admin side) - previously the cart
-  // kept showing that item indefinitely, still priced and still
+  // doc no longer exists (deleted on the admin side). Without this, the
+  // cart would keep showing that item indefinitely, still priced and still
   // checkout-able, since the cart doc itself is a standalone copy of the
-  // product's name/price/image and nothing was watching for the source
-  // product disappearing. This removes it here too, in real time, the same
-  // way it already vanishes in real time from the product grids (which
-  // listen to the products collection directly).
+  // product's name/price/image and nothing would be watching for the
+  // source product disappearing. This removes it here too, in real time,
+  // the same way it already vanishes in real time from the product grids
+  // (which listen to the products collection directly).
   void _handleProductGone(String docId, String productName) {
     if (_removingGoneIds.contains(docId)) return;
     _removingGoneIds.add(docId);
@@ -393,9 +392,7 @@ class _CartScreenState extends State<CartScreen> {
                     // every doc counts as "new" then too) default to
                     // selected. Anything the customer already selected or
                     // deselected for a doc still in the cart is left
-                    // exactly as they set it - see the comment below on
-                    // why this replaced the old "select everything
-                    // whenever _selectedIds is empty" check.
+                    // exactly as they set it.
                     final Set<String> newlyAddedIds = currentIds.difference(
                       _lastCartDocIds,
                     );
@@ -658,12 +655,12 @@ class _CartScreenState extends State<CartScreen> {
                                         _CartQtyButton(
                                           icon: Icons.remove,
                                           // Disabled at 1 instead of
-                                          // decrementing to 0 - that used to
+                                          // decrementing to 0 - that would
                                           // silently delete the item, making
                                           // this button double as an
                                           // unconfirmed remove. Removing is
                                           // only ever done through the
-                                          // "Remove" link below now. Also
+                                          // "Remove" link below. Also
                                           // disabled outright for an
                                           // unavailable item - nothing to
                                           // adjust toward buying more of.
@@ -696,9 +693,9 @@ class _CartScreenState extends State<CartScreen> {
                                         ),
                                       ],
                                     ),
-                                    // A real gap (there was none before) so
-                                    // a tap meant for the quantity row can't
-                                    // land on "Remove" by accident.
+                                    // A real gap, so a tap meant for the
+                                    // quantity row can't land on "Remove"
+                                    // by accident.
                                     const SizedBox(height: 12),
                                     TextButton(
                                       onPressed: () => _confirmRemoveItem(
@@ -937,10 +934,10 @@ class _LiveUnitPriceTextState extends State<_LiveUnitPriceText> {
       );
     }
 
-    // ProductRepository is the single shared source of product data now
+    // ProductRepository is the single shared source of product data
     // (Supabase or Firestore underneath, depending on kUseSupabaseProducts;
-    // see product_repository.dart) - this replaces what used to be a
-    // per-row Firestore .snapshots() listener on this product's own doc.
+    // see product_repository.dart) rather than a per-row Firestore
+    // .snapshots() listener on this product's own doc.
     return ValueListenableBuilder<List<Map<String, dynamic>>>(
       valueListenable: ProductRepository.instance.productsNotifier,
       builder: (context, products, _) {

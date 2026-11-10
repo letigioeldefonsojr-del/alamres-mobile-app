@@ -1,3 +1,4 @@
+// supabase-chatbot-products
 // Supabase access for the chatbot's list_products tool.
 //
 // Products moved from Firestore to Supabase on the Flutter app side (see
@@ -107,11 +108,11 @@ const PAGE_SIZE = 1000;
 // How many pages to request AT ONCE on a cold cache, before falling back
 // to one-at-a-time. Each page's offset (0, 1000, 2000, ...) doesn't
 // depend on what any other page returned, so there's no real reason to
-// wait for page N before asking for page N+1 - the old code did exactly
-// that, which is what turned a cold cache into up to 5 SEQUENTIAL round
-// trips at today's ~4,500 products (see the latency comment on
-// PRODUCTS_CACHE_MS below). 8 pages (8,000 products) covers that with
-// real headroom to grow before this needs raising.
+// wait for page N before asking for page N+1 - requesting pages one at a
+// time would mean up to 5 SEQUENTIAL round trips at today's ~4,500
+// products (see the latency comment on PRODUCTS_CACHE_MS below). 8 pages
+// (8,000 products) covers that with real headroom to grow before this
+// needs raising.
 const PARALLEL_PAGE_BURST = 8;
 
 // Pages through app_list_products (same action the app itself calls) and

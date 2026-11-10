@@ -1,3 +1,4 @@
+// customer-notifications (unused - no call sites anywhere in the app)
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/onesignal_push_sender.dart';

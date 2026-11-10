@@ -1,3 +1,4 @@
+// chat-panel
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -89,10 +90,10 @@ class ChatPanelState extends State<ChatPanel> {
     if (text.isEmpty || _conversation.isSending) return;
     _controller.clear();
     // Fire-and-forget on purpose: awaiting here would tie the reply to
-    // THIS widget's lifetime again, which is exactly the bug this
-    // refactor removes - ChatConversation.send() already notifies its
-    // listeners (any mounted ChatPanel, bubble or full-screen) once the
-    // reply lands, whether or not this particular widget is still around.
+    // THIS widget's lifetime - ChatConversation.send() already notifies
+    // its listeners (any mounted ChatPanel, bubble or full-screen) once
+    // the reply lands, whether or not this particular widget is still
+    // around.
     unawaited(_conversation.send(text));
   }
 
@@ -248,9 +249,9 @@ class _QuickReplyRow extends StatelessWidget {
   }
 }
 
-/// Styles Markdown in an assistant bubble to look like the plain Text it
-/// replaced - same size/color as before, just with **bold** and "-" lists
-/// actually rendered instead of shown as raw characters.
+/// Styles Markdown in an assistant bubble to match the bubble's plain-text
+/// look, just with **bold** and "-" lists actually rendered instead of
+/// shown as raw characters.
 MarkdownStyleSheet _assistantMarkdownStyle(BuildContext context) {
   const baseStyle = TextStyle(color: Colors.black87, fontSize: 14);
   return MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(

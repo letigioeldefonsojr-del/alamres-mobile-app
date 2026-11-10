@@ -1,3 +1,4 @@
+// profile-cache
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/read_counter.dart';
@@ -5,14 +6,14 @@ import '../core/read_counter.dart';
 /// In-memory, 5-minute cache for the signed-in customer's own
 /// `users/{uid}` document.
 ///
-/// Before this existed, Home (mobile number/address/shop-reminders check),
-/// the Profile tab (phone number + app-update check), Notifications
-/// settings, and Edit Profile each ran their own independent `.get()`
-/// against this exact same document - so just tapping through Profile ->
-/// Notifications -> back -> Edit Profile cost 3-4 reads of one document
-/// that hadn't changed at all. Every one of those screens now calls
-/// [getProfile] instead, which only actually hits Firestore when nothing
-/// is cached yet or the cache has gone stale (>5 minutes).
+/// Every screen that needs this document - Home (mobile number/address/
+/// shop-reminders check), the Profile tab (phone number + app-update
+/// check), Notifications settings, and Edit Profile - calls [getProfile]
+/// instead of running its own independent `.get()`, so tapping through
+/// several of these screens in a row costs at most one real Firestore
+/// read instead of one per screen. [getProfile] only actually hits
+/// Firestore when nothing is cached yet or the cache has gone stale (>5
+/// minutes).
 class CustomerProfileCache {
   CustomerProfileCache._();
   static final CustomerProfileCache instance = CustomerProfileCache._();

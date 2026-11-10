@@ -1,3 +1,4 @@
+// password-confirm-dialog
 import 'dart:async';
 import 'package:flutter/material.dart';
 
@@ -34,10 +35,6 @@ Future<String?> promptPasswordConfirmation(BuildContext context) async {
                   // composing at all, which is the standard fix for that.
                   autocorrect: false,
                   enableSuggestions: false,
-                  // Was autofocus: true - popped the keyboard open the
-                  // instant this dialog appeared, before the user had
-                  // tapped the field at all. Now it only opens once they
-                  // actually tap in.
                   decoration: InputDecoration(
                     hintText: 'Password',
                     filled: true,

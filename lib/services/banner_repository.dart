@@ -1,3 +1,4 @@
+// banner-cache
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -17,18 +18,15 @@ class BannerSnapshot {
 
 /// In-memory, 5-minute cache for the home-screen promo banner data.
 ///
-/// Before this existed, [PromoBannerCarousel] kept a `storeBanners`
-/// collection listener and a legacy `settings/storeBanner` document
-/// listener open for as long as the home screen was alive - and Firestore
-/// bills a snapshot listener for an initial read the moment it attaches,
-/// so simply navigating away from Home and back re-opened both listeners
-/// and paid for both reads all over again, on top of whatever either
-/// stream pushed while open. The carousel now calls [ensureFresh] once
-/// when it first builds (or when 5 minutes have passed), and its own 60s
-/// schedule-window recheck timer - which only needs to re-evaluate which
-/// banners count as "currently live" against the clock, not re-read the
-/// documents - reads [cachedSnapshot] instead, which never touches
-/// Firestore.
+/// Firestore bills a snapshot listener for an initial read the moment it
+/// attaches, so a live listener kept open only for as long as a screen is
+/// visible pays for a fresh read every time that screen is revisited, even
+/// when nothing changed. [PromoBannerCarousel] calls [ensureFresh] once
+/// when it first builds (or when 5 minutes have passed) instead of keeping
+/// its own listeners open; its 60s schedule-window recheck timer - which
+/// only needs to re-evaluate which banners count as "currently live"
+/// against the clock, not re-read the documents - reads [cachedSnapshot]
+/// instead, which never touches Firestore.
 class BannerRepository {
   BannerRepository._();
   static final BannerRepository instance = BannerRepository._();

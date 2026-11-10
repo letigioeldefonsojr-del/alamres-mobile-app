@@ -1,3 +1,4 @@
+// read-counter (debug-only)
 import 'package:flutter/foundation.dart';
 
 /// Debug-only Firestore read accounting.
@@ -12,11 +13,8 @@ import 'package:flutter/foundation.dart';
 ///
 /// Entirely compiled out of behavior in release builds - every method is
 /// a no-op unless [kDebugMode] is true, so this adds no cost and changes
-/// nothing outside of local testing. This was added to track down a read
-/// amplification bug (several Firestore reads re-created on every widget
-/// rebuild instead of once), not meant to ship as a permanent feature -
-/// safe to delete this file and its call sites once that's no longer
-/// being actively investigated.
+/// nothing outside of local testing. Safe to delete this file and its
+/// call sites if it's no longer needed for debugging read volume.
 class ReadCounter {
   ReadCounter._();
 

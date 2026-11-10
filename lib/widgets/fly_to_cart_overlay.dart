@@ -1,3 +1,4 @@
+// fly-to-cart-overlay
 import 'package:flutter/material.dart';
 import '../core/cart_fly_anchor.dart';
 import 'product_image.dart';
@@ -74,13 +75,12 @@ class _FlyToCartImageState extends State<_FlyToCartImage>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      // Slower than the original 550ms - a quick flight read as a stutter
-      // rather than a deliberate motion.
+      // Long enough that the flight reads as deliberate motion rather
+      // than a stutter.
       duration: const Duration(milliseconds: 900),
     );
-    // Eased in and out (gentle start, gentle finish) instead of rushing at
-    // the end - smoother to the eye than the old easeInCubic, which felt
-    // like it was speeding up and snapping into place.
+    // Eased in and out (gentle start, gentle finish) rather than rushing
+    // at the end, which would read as snapping into place.
     _rect = RectTween(begin: widget.startRect, end: widget.endRect).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
     );
@@ -103,11 +103,10 @@ class _FlyToCartImageState extends State<_FlyToCartImage>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _controller,
-      // Built once and reused every tick, instead of being recreated inside
-      // the builder below - rebuilding a network Image's whole widget tree
-      // ~60 times a second was the main source of the dropped-frame
-      // "laggy" feel, since only the position/opacity actually change frame
-      // to frame.
+      // Built once and reused every tick, instead of recreated inside the
+      // builder below - rebuilding a network Image's whole widget tree
+      // ~60 times a second would cost real dropped frames, since only the
+      // position/opacity actually change frame to frame.
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
         child: ProductImage(imageUrl: widget.imageUrl, iconSize: 16),

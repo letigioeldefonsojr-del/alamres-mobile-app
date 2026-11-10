@@ -1,3 +1,4 @@
+// chat-proxy-worker
 // Almares 328 chat proxy (and push-notification sender).
 //
 // This Worker is the ONLY place the real Anthropic (Claude) API key and the
@@ -9,12 +10,11 @@
 // could run up charges on the store's account; a OneSignal REST API key is
 // even more sensitive - anyone who has it can push a notification to EVERY
 // user of the app, not just rack up a bill. Baking either one into the app
-// with --dart-define (as this project used to do for OneSignal) still ships
-// it inside the compiled APK in a recoverable form - anyone who downloads
-// the app can pull it back out with little effort. Routing every request
-// through here keeps both keys on a server you control instead of inside
-// the app bundle, and also means `flutter build apk --release` no longer
-// needs any --dart-define flags at all.
+// with --dart-define still ships it inside the compiled APK in a
+// recoverable form - anyone who downloads the app can pull it back out
+// with little effort. Routing every request through here keeps both keys
+// on a server you control instead of inside the app bundle, and also
+// means `flutter build apk --release` needs no --dart-define flags at all.
 //
 // Two things gate every request before it reaches Claude:
 //   1. The caller must send a valid Firebase ID token for THIS app's

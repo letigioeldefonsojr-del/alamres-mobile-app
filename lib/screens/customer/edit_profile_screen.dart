@@ -1,3 +1,4 @@
+// edit-profile
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -92,8 +93,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
     // Region/Province/City-Municipality are locked to the store's service
     // area - set them up front, before the profile/dataset even load,
-    // since they don't depend on either. _loadProfile no longer touches
-    // these three; only Barangay still needs _phLocations.
+    // since they don't depend on either. _loadProfile only needs
+    // _phLocations for Barangay; these three are already set.
     _regionCode = kServiceAreaRegionCode;
     _regionName = kServiceAreaRegionName;
     _provinceCode = kServiceAreaProvinceCode;
@@ -158,20 +159,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ? storedMobile.substring(1)
             : storedMobile;
         _mobileNationalNumber = _initialMobileNumber;
-        // Structured fields are only present on accounts created (or
-        // already edited) after this screen was split like this - older
-        // accounts will have these blank and need to fill them in once,
-        // same as they now need to pin a location once.
+        // Structured fields are only present on accounts that have filled
+        // in this version of the form - older accounts will have these
+        // blank and need to fill them in once, same as they now need to
+        // pin a location once.
         _houseNoController.text = data['houseNo'] ?? '';
         _streetController.text = data['street'] ?? '';
         _purokController.text = data['purok'] ?? '';
         // Region/Province/City-Municipality stay the fixed service area
         // set in initState, regardless of what's saved - only trust a
-        // saved Barangay when it's both coded (not a legacy free-typed
-        // value from before this was a pick-from-list field) and still
-        // inside that service area; an old account from outside it (or
-        // from before the area was locked down) needs to pick a valid
-        // one instead of showing a barangay that's no longer deliverable.
+        // saved Barangay when it's both coded (a free-typed value isn't a
+        // valid pick-from-list code) and still inside that service area;
+        // an account with a barangay outside it, or with no code at all,
+        // needs to pick a valid one instead of showing a barangay that's
+        // no longer deliverable.
         final String? savedBarangayCode = data['barangayCode'] as String?;
         if (savedBarangayCode != null &&
             kServiceAreaBarangayCodes.contains(savedBarangayCode)) {

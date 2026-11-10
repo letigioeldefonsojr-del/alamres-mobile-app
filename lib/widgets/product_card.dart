@@ -1,3 +1,4 @@
+// product-card
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -32,9 +33,8 @@ class _ProductCardState extends State<ProductCard> {
   // morphs into a checkmark instead of showing any separate floating
   // confirmation. This guarantees the confirmation never overlaps other
   // on-screen content (product badges, stock text, bottom chrome, etc.),
-  // since it only ever draws inside the button's own 28x28 space - unlike
-  // a global toast/SnackBar, which was tried and rejected for exactly that
-  // overlap problem.
+  // since it only ever draws inside the button's own 28x28 space - a
+  // global toast/SnackBar can't make that same guarantee.
   bool _justAdded = false;
   Timer? _justAddedTimer;
 

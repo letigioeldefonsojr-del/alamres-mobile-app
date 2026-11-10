@@ -1,3 +1,4 @@
+// add-mobile-number
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -55,15 +56,15 @@ class _AddMobileNumberScreenState extends State<AddMobileNumberScreen> {
       // A mobile number must map to exactly one account, same rule as
       // registration - otherwise phone-number login could pick the wrong
       // account. Firestore's `users` collection isn't publicly readable
-      // anymore (only a signed-in customer can read their own doc), and a
-      // collection-wide query like this used to be needs read access to
-      // every matched doc, not just the caller's own, so it now goes
-      // through the login-guard Supabase function instead - same one
-      // login/register use. This screen is only ever shown to a customer
-      // with no mobile number on file yet (see the class doc comment), so
-      // there's no "this is already my own saved number" case to guard
-      // against here - whatever they type is necessarily different from
-      // what's on their profile (nothing).
+      // (only a signed-in customer can read their own doc), and a
+      // collection-wide query like this would need read access to every
+      // matched doc, not just the caller's own, so this goes through the
+      // login-guard Supabase function instead - same one login/register
+      // use. This screen is only ever shown to a customer with no mobile
+      // number on file yet (see the class doc comment), so there's no
+      // "this is already my own saved number" case to guard against here
+      // - whatever they type is necessarily different from what's on
+      // their profile (nothing).
       final taken = await LoginGuardApi.instance.checkTaken(
         mobile: mobileDigits,
       );

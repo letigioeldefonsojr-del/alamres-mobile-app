@@ -1,18 +1,17 @@
+// cart-badge
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/read_counter.dart';
 
-// Was a StatelessWidget that called `cartRef.snapshots()` straight inside
-// build() - every time whatever ancestor holds this badge (an AppBar,
-// typically) rebuilt for any reason at all, that line ran again and
-// handed StreamBuilder a brand-new Stream instance. StreamBuilder treats a
-// new stream as a new subscription: it cancels the old one and
-// re-subscribes, which re-reads the customer's whole cart from Firestore
-// again - on every rebuild, however unrelated to the cart. Now a
-// StatefulWidget so the stream itself is created exactly once, in
-// initState, and reused across every rebuild - same fix already applied
-// to cart_screen.dart's own cart listener, see its _cartStream comment.
+// A StatefulWidget (not Stateless) so the cart stream is created exactly
+// once, in initState, and reused across every rebuild of whatever
+// ancestor holds this badge (an AppBar, typically) - StreamBuilder treats
+// a new Stream instance as a new subscription, cancelling the old one and
+// re-reading the customer's whole cart from Firestore, so creating the
+// stream inside build() would re-read on every unrelated rebuild. Same
+// reasoning as cart_screen.dart's own cart listener, see its
+// _cartStream comment.
 class CartBadge extends StatefulWidget {
   // The badge's thin outline - defaults to the app's primary green (matches
   // Home header's green background); pass white when placing this badge

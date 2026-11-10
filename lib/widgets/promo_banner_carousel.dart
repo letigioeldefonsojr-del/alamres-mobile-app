@@ -1,3 +1,4 @@
+// promo-banner-carousel
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -6,20 +7,17 @@ import '../core/banner_helpers.dart';
 import '../services/banner_repository.dart';
 import 'product_image.dart';
 
-/// Home-screen promo carousel. Replaces the old single-banner
-/// `StreamBuilder` that used to live inline in `home_tab.dart`.
+/// Home-screen promo carousel.
 ///
 /// Data sources (in priority order):
-///   1. The new `storeBanners/{id}` collection - any number of promos,
-///      each with its own schedule window, shown in `sortOrder`.
+///   1. The `storeBanners/{id}` collection - any number of promos, each
+///      with its own schedule window, shown in `sortOrder`.
 ///   2. If that collection is empty, falls back to the legacy single
-///      `settings/storeBanner` document so stores that haven't moved to
-///      the new collection yet keep seeing their existing banner exactly
-///      as before.
+///      `settings/storeBanner` document, so a store that hasn't moved to
+///      the new collection yet still sees its existing banner.
 ///
 /// Behaviour:
-///   - 0 live promos: renders nothing (`SizedBox.shrink`), same as the
-///     old banner did when there was no valid banner.
+///   - 0 live promos: renders nothing (`SizedBox.shrink`).
 ///   - Exactly 1 live promo: a single static card - no auto-scroll, no
 ///     swiping, no dot indicators.
 ///   - 2+ live promos: a swipeable, infinitely-looping `PageView` that
@@ -27,11 +25,10 @@ import 'product_image.dart';
 ///     dragging it (resuming ~4s after they let go), pauses while the
 ///     app is backgrounded, and shows dot indicators.
 ///
-/// Both sources used to be held open as live Firestore listeners for as
-/// long as this widget existed. They're now a one-time fetch through
-/// [BannerRepository] (cached 5 minutes) instead - the 60s timer below
-/// still re-checks schedule windows opening/closing while the app sits
-/// open on the home screen, it just does that against whatever
+/// Both sources go through a one-time fetch via [BannerRepository]
+/// (cached 5 minutes) rather than a live Firestore listener - the 60s
+/// timer below still re-checks schedule windows opening/closing while the
+/// app sits open on the home screen, it just does that against whatever
 /// [BannerRepository.cachedSnapshot] last returned rather than opening a
 /// new read every tick.
 class PromoBannerCarousel extends StatefulWidget {
@@ -131,9 +128,8 @@ class _PromoBannerCarouselState extends State<PromoBannerCarousel>
         live = [PromoBanner.fromMap('legacy', data)];
       } else {
         live = const [];
-        // Same cleanup the old single-banner code did: once a scheduled
-        // banner's end date has passed, delete the doc instead of
-        // leaving a dead banner behind forever.
+        // Once a scheduled banner's end date has passed, delete the doc
+        // instead of leaving a dead banner behind forever.
         if (data != null && data['scheduleEnd'] != null) {
           deleteStoreBanner();
           _legacyData = null;
@@ -308,12 +304,11 @@ class _PromoBannerCarouselState extends State<PromoBannerCarousel>
   }
 }
 
-/// One promo slide. Visually identical to the old single-banner card:
-/// image (or a placeholder gradient when there isn't one yet) with a
-/// dark gradient overlay, "SPECIAL OFFER" label, offer headline,
-/// optional description line. `ProductImage` already handles a broken
-/// image URL gracefully (shows a broken-image icon instead of crashing),
-/// so there's nothing extra to do for that here.
+/// One promo slide: image (or a placeholder gradient when there isn't one
+/// yet) with a dark gradient overlay, "SPECIAL OFFER" label, offer
+/// headline, optional description line. `ProductImage` already handles a
+/// broken image URL gracefully (shows a broken-image icon instead of
+/// crashing), so there's nothing extra to do for that here.
 class _PromoCard extends StatelessWidget {
   final PromoBanner banner;
   const _PromoCard({required this.banner});
@@ -363,11 +358,11 @@ class _PromoCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(18),
               // A real uploaded photo can be busy or brightly colored (and
               // sometimes already has its own text baked into it), so it
-              // needs a much stronger, bottom-anchored scrim than the flat
-              // placeholder gradient ever did - otherwise the caption text
+              // needs a much stronger, bottom-anchored scrim than a flat
+              // placeholder gradient needs - otherwise the caption text
               // below fights with whatever's in the picture. The
-              // placeholder case (no image yet) keeps its original subtle
-              // corner scrim since there's no competing imagery to wash out.
+              // placeholder case (no image yet) keeps a subtle corner
+              // scrim since there's no competing imagery to wash out.
               gradient: hasImage
                   ? const LinearGradient(
                       colors: [

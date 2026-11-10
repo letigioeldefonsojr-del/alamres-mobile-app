@@ -1,3 +1,4 @@
+// address-picker
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -67,9 +68,8 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
   };
 
   // Falls back to the main branch's coordinates until an initial address,
-  // search result, or current location narrows it down. This used to be
-  // roughly the center of the Philippines, but now that the map itself is
-  // bounded to Batangas City (see _serviceAreaBounds below), a
+  // search result, or current location narrows it down. The map itself is
+  // bounded to Batangas City (see _serviceAreaBounds below), so a
   // Philippines-wide fallback would sit outside that box and get yanked
   // back on first render - every address on this app is in Batangas City
   // anyway (locked at registration/profile), so this is a sane default.
@@ -197,8 +197,8 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
     _mapController.move(_mapController.camera.center, newZoom);
   }
 
-  /// Why zooming out used to break the Batangas City restriction: flutter_map's
-  /// `cameraConstraint: CameraConstraint.contain(...)` can only keep the
+  /// Why zooming out would break the Batangas City restriction without this:
+  /// flutter_map's `cameraConstraint: CameraConstraint.contain(...)` can only keep the
   /// *visible map area* inside [_serviceAreaBounds] - once zooming out makes
   /// that visible area (in degrees) bigger than the bounds box itself, there's
   /// nothing left for "contain" to do, so the map is free to drift anywhere
@@ -221,9 +221,10 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
   /// move: the closer the viewport size gets to the box size, the smaller
   /// that allowed range gets, until - right at the exact fit zoom with no
   /// margin - the center can barely move off the box's own middle at all.
-  /// That's what made Balagtas (and anything else away from dead-center)
-  /// reachable only once zoomed in a bit further: there was no pan room
-  /// left for it at the minimum zoom. A bigger margin here means the
+  /// Without a margin, a spot away from dead-center (anywhere near the
+  /// edge of the service area) would only become reachable once zoomed in
+  /// further than the minimum zoom, since there'd be no pan room left for
+  /// it there. A bigger margin here means the
   /// viewport is noticeably smaller than the box at minZoom, which leaves
   /// real room to pan - at the cost of not being able to zoom out quite as
   /// far before minZoom kicks in. 1.25 leaves the viewport at roughly 40%
@@ -481,11 +482,10 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
                         initialZoom: math.max(15, minZoomForBox),
                         // minZoomForBox (see above) is what actually keeps
                         // cameraConstraint below from being defeated by
-                        // zooming out - it's always >= 3, the old fixed
-                        // floor that existed only to dodge flutter_map's
-                        // "Infinity or NaN toInt" error at very low zoom.
-                        // 19 matches OpenStreetMap's own supported max
-                        // zoom for street-level detail.
+                        // zooming out - it's always >= 3, avoiding
+                        // flutter_map's "Infinity or NaN toInt" error at
+                        // very low zoom. 19 matches OpenStreetMap's own
+                        // supported max zoom for street-level detail.
                         minZoom: minZoomForBox,
                         maxZoom: 19,
                         // Stops the map from being dragged/zoomed out past

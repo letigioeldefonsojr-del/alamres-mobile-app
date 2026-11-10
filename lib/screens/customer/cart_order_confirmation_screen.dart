@@ -1,3 +1,4 @@
+// cart-order-confirmation
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -67,10 +68,10 @@ class _CartOrderConfirmationScreenState
   // The regular/discounted unit price each item actually had the last time
   // it was checked - used as the baseline _updateAmount below falls back to
   // when the stepper drops back under the wholesale threshold, instead of
-  // being stuck on whatever price was last computed. No longer "untouched
-  // once set": _productSubs below keeps this current, so a discount
-  // starting or ending while this screen is open updates it live rather
-  // than only at the moment "Confirm Order" is tapped.
+  // being stuck on whatever price was last computed. Kept current by the
+  // ProductRepository listener below, so a discount starting or ending
+  // while this screen is open updates it live rather than only at the
+  // moment "Confirm Order" is tapped.
   late List<double> _originalUnitPrices;
   List<DocumentReference<Map<String, dynamic>>>? _cartRefs;
 
@@ -83,8 +84,7 @@ class _CartOrderConfirmationScreenState
 
   // "Pick Up In Store" instead of delivery - skips the address requirement
   // and the delivery fee entirely, and asks which branch the customer will
-  // come to instead. Defaults to Delivery, matching how every order worked
-  // before this option existed.
+  // come to instead. Defaults to Delivery.
   bool _isPickup = false;
   String? _pickupBranch;
 
@@ -106,12 +106,12 @@ class _CartOrderConfirmationScreenState
     _cartRefs = widget.cartRefs == null ? null : List.of(widget.cartRefs!);
     _recalculateDeliveryFee();
 
-    // Replaces what used to be one Firestore .snapshots() listener per
-    // item - ProductRepository is the single shared source of product data
-    // now (Supabase or Firestore underneath, depending on
-    // kUseSupabaseProducts; see product_repository.dart), so this just
-    // listens for it to change and re-derives every item's live price off
-    // whatever it last loaded. Purely a display nicety either way, since
+    // ProductRepository is the single shared source of product data
+    // (Supabase or Firestore underneath, depending on
+    // kUseSupabaseProducts; see product_repository.dart) rather than one
+    // Firestore .snapshots() listener per item - this just listens for it
+    // to change and re-derives every item's live price off whatever it
+    // last loaded. Purely a display nicety either way, since
     // _confirmOrder's own re-validation at checkout time is the real
     // source of truth regardless of what's shown here while browsing.
     ProductRepository.instance.productsNotifier.addListener(_onCatalogChanged);
@@ -234,8 +234,8 @@ class _CartOrderConfirmationScreenState
   // Re-prices an item the instant its stepper changes, purely locally (no
   // network round-trip), so what's shown here never lags behind what
   // Confirm will actually charge. A live discount change is still only
-  // caught at the moment of Confirm itself, same as before this - that's
-  // a much rarer case and not what this is fixing.
+  // caught at the moment of Confirm itself - that's a much rarer case and
+  // not what this handles.
   //
   // Wholesale applies in whole BLOCKS of kWholesaleMinimumQuantity, not as
   // a one-time switch the instant newAmount crosses that threshold - only
@@ -376,8 +376,7 @@ class _CartOrderConfirmationScreenState
     // "Confirm Order" is tapped. Never blocks on a catalog that hasn't
     // successfully loaded at least once, or came back empty -
     // deductStockAndResolvePricesSupabase()'s own stock check further
-    // below is still the real gate in that case, same as before this
-    // existed.
+    // below is still the real gate in that case.
     await ProductRepository.instance.refresh();
     if (!mounted) return;
     if (ProductRepository.instance.hasRefreshedOnce &&
@@ -621,8 +620,8 @@ class _CartOrderConfirmationScreenState
         );
       }
 
-      // No live listener anymore to pick this up on its own - let the
-      // orders list/stats badge know a new order just landed.
+      // No live listener picks this up on its own - let the orders
+      // list/stats badge know a new order just landed.
       notifyOrdersChanged();
 
       if (!mounted) return;
@@ -780,11 +779,10 @@ class _CartOrderConfirmationScreenState
                           ),
                         ),
                         const SizedBox(width: 12),
-                        // Expanded + textAlign.right (rather than the
-                        // unconstrained Text this used to be) so the
-                        // branch-name detail wraps onto a second line within
-                        // its own column instead of overflowing past the
-                        // right edge of the screen.
+                        // Expanded + textAlign.right so the branch-name
+                        // detail wraps onto a second line within its own
+                        // column instead of overflowing past the right
+                        // edge of the screen.
                         Expanded(
                           child: _isPickup
                               ? Text(

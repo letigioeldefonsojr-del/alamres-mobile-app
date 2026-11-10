@@ -1,3 +1,4 @@
+// cart
 import 'dart:ui';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -9,11 +10,9 @@ import '../services/supabase_products.dart';
 import 'product_helpers.dart';
 import 'read_counter.dart';
 
-// In-memory, 5-minute cache for fetchBestSellingProductIds() below - see
-// its own doc comment for why this exists. Keyed by topN so two callers
-// asking for different counts (there's only ever been one in practice -
-// both call sites below use the default) never hand each other a
-// differently-sized result.
+// In-memory, 5-minute cache for fetchBestSellingProductIds() below, keyed
+// by topN so two callers asking for different counts never hand each
+// other a differently-sized result.
 class _BestSellingEntry {
   final Set<String> ids;
   final DateTime fetchedAt;
@@ -24,27 +23,12 @@ const Duration _bestSellingTtl = Duration(minutes: 5);
 final Map<int, _BestSellingEntry> _bestSellingCache = {};
 final Map<int, Future<Set<String>>> _bestSellingInFlight = {};
 
-/// Which product ids are "best selling" right now.
-///
-/// This used to be the actual cause of a Firestore read spike (a routine
-/// ~100-read app tour costing ~14,000 reads instead): both call sites
-/// (home_tab.dart's Featured section, all_products_screen.dart) invoke this
-/// from inside a `FutureBuilder`'s `future:` parameter, which re-evaluates
-/// the expression on every rebuild of that subtree - every product-catalog
-/// refresh, every app resume while a product screen is visible, and in
-/// all_products_screen.dart's case, every single keystroke while
-/// searching - and it ran a full, unfiltered, unlimited `.get()` of the
-/// ENTIRE `orders` collection each time.
-///
-/// A 5-minute cache alone wasn't enough - the collection still got fully
-/// read once per cache expiry, for every customer, forever. This now
-/// computes the answer server-side via the same `store-api` Supabase Edge
-/// Function the rest of this app's product calls already go through (see
-/// [SupabaseProductsApi.bestSellingProductIds]) - the Firestore read is
-/// gone entirely, not just throttled. The 5-minute in-memory cache (same
-/// TTL as [CustomerProfileCache] and [BannerRepository]) and in-flight
-/// de-dup stay, so a rebuild/keystroke/catalog-refresh landing inside that
-/// window still doesn't even cost a network round trip, let alone a read.
+/// Which product ids are "best selling" right now, computed server-side via
+/// the `store-api` Supabase Edge Function (see
+/// [SupabaseProductsApi.bestSellingProductIds]). Cached in memory for 5
+/// minutes with in-flight de-dup, since call sites invoke this from a
+/// `FutureBuilder`'s `future:` parameter, which re-runs on every rebuild of
+/// that subtree.
 Future<Set<String>> fetchBestSellingProductIds({int topN = 5}) async {
   final _BestSellingEntry? cached = _bestSellingCache[topN];
   if (cached != null &&
@@ -73,10 +57,7 @@ Future<Set<String>> _fetchBestSellingProductIds(int topN) async {
     _bestSellingCache[topN] = _BestSellingEntry(result, DateTime.now());
     return result;
   } catch (_) {
-    // Best-effort - worst case the Best Sellers/badge rows just don't show
-    // anything this time. Deliberately NOT falling back to a Firestore
-    // read of the orders collection; that read is exactly what this
-    // function exists to never do again.
+    // Best-effort - worst case the Best Sellers/badge rows just don't show.
     return const <String>{};
   }
 }
@@ -106,19 +87,16 @@ Future<void> seedProductCatalog() async {
 }
 
 /// Reads the current stock for the item being bought and returns the
-/// Firestore update that deducts [amount] from it - or null when there's
-/// nothing to deduct (see below), so the caller knows to skip writing
-/// anything for this product rather than clobbering it with an empty map.
+/// Firestore update that deducts [amount] from it, or null when there's
+/// nothing to deduct, so the caller skips writing anything for this
+/// product rather than clobbering it with an empty map.
 ///
 /// A missing/non-numeric stock value (`stock` on the flavor, or
-/// `stockCount` on a simple product) means the admin side isn't tracking
-/// a count for this item at all - a 4,500+-row CSV import, in particular,
-/// may leave it unset entirely. That's different from an explicit `0`,
-/// which means "tracked, and currently empty": only the explicit-zero
-/// case blocks the purchase or gets decremented. An untracked item is
-/// always purchasable and is left untouched (still untracked) afterwards
-/// - it must never be silently treated as "0 in stock" and block
-/// checkout, which is what happened before this.
+/// `stockCount` on a simple product) means the admin side isn't tracking a
+/// count for this item at all, unlike an explicit `0`, which means
+/// "tracked, and currently empty". Only the explicit-zero case blocks the
+/// purchase or gets decremented; an untracked item is always purchasable
+/// and is left untracked afterwards.
 Future<Map<String, dynamic>?> readStockDeduction(
   Transaction txn,
   DocumentReference<Map<String, dynamic>> productRef,
@@ -169,13 +147,10 @@ Future<Map<String, dynamic>?> readStockDeduction(
 }
 
 /// Best-effort read of the product/variant the backend flagged as short on
-/// stock, for the "Only N pcs left" message below. The migration spec only
-/// pins the error code down to 'insufficient_stock' "with product/variant
-/// info" - not an exact field layout - so this tries a few plausible
-/// shapes rather than assuming one, and falls back to a generic message
-/// instead of throwing if none of them match (this already runs inside a
-/// catch block, so a second failure here must never replace a clear error
-/// with a crash).
+/// stock, for the "Only N pcs left" message below. The error's
+/// product/variant info isn't in one fixed shape, so this tries a few
+/// plausible layouts and falls back to a generic message if none match -
+/// this already runs inside a catch block, so it must never itself throw.
 String _insufficientStockMessage(
   Map<String, dynamic>? details,
   Map<String, Map<String, dynamic>> freshProductsById,
@@ -203,25 +178,16 @@ String _insufficientStockMessage(
   return 'One or more items in your order no longer have enough stock.';
 }
 
-/// Supabase-backed counterpart to [readStockDeduction] +
-/// [resolveLiveUnitPrice] above, used for checkout when
-/// kUseSupabaseProducts is on (see cart_order_confirmation_screen.dart's
-/// _confirmOrder, which branches on that flag). Each entry in [items] is
-/// one cart/order line: {productId, flavor, amount, unitPrice} - unitPrice
-/// is only the fallback used if a fresh price can't be resolved (e.g. the
-/// product or flavor was removed since the cart snapshot was taken).
+/// Supabase-backed counterpart to [readStockDeduction], used for checkout
+/// when kUseSupabaseProducts is on. Each entry in [items] is one
+/// cart/order line: {productId, flavor, amount, unitPrice} - unitPrice is
+/// only the fallback used if a fresh price can't be resolved.
 ///
-/// Does both of app_get_products/app_apply_sale's jobs in one call: a
-/// fresh read re-validates price (including the wholesale tier, since
-/// amount is known here) exactly the way resolveLiveUnitPrice() used to
-/// inside a Firestore transaction, then app_apply_sale deducts stock,
-/// keyed on [orderRef] so a retried call (e.g. after a timeout where the
-/// first attempt actually went through) never double-deducts. Returns the
-/// resolved unit prices in the same order as [items]. Throws a plain
-/// Exception with a customer-facing message on insufficient stock, same
-/// style as [readStockDeduction], so the checkout screen's existing
-/// catch-and-show-SnackBar code doesn't need to know which backend this
-/// came from.
+/// Re-validates price (including the wholesale tier) against a fresh
+/// read, then deducts stock keyed on [orderRef] so a retried call never
+/// double-deducts. Returns the resolved unit prices in the same order as
+/// [items]; throws a plain Exception with a customer-facing message on
+/// insufficient stock.
 Future<List<double>> deductStockAndResolvePricesSupabase({
   required List<Map<String, dynamic>> items,
   required String orderRef,
@@ -314,11 +280,9 @@ Future<void> addProductToCart({
   required Map<String, dynamic>? flavor,
   required int amount,
   required double unitPrice,
-  // Cached alongside the item so the quantity stepper on the Confirm
-  // Order screen can switch to wholesale pricing the instant the amount
-  // crosses kWholesaleMinimumQuantity, without a network round-trip - see
-  // that screen's _updateAmount(). Null when this product/flavor has no
-  // wholesale price set.
+  // Cached alongside the item so the Confirm Order screen's quantity
+  // stepper can switch to wholesale pricing without a network round-trip.
+  // Null when this product/flavor has no wholesale price set.
   String? wholesalePrice,
 }) async {
   final user = FirebaseAuth.instance.currentUser;
@@ -457,21 +421,16 @@ Future<PickedDeliveryAddress?> pickDeliveryAddress(
           final bool profileMatchesSavedAddress = addresses.any(
             (a) => (a['address'] as String? ?? '') == profileAddress,
           );
-          // What actually gets returned/compared for the Profile Address
-          // row - the raw address plus its landmark folded in, so the
-          // landmark rides along through the order automatically without
-          // needing its own field threaded through the whole checkout
-          // flow.
+          // Raw address plus its landmark folded in, so the landmark rides
+          // along through the order automatically.
           final String combinedProfileAddress = combineAddressAndLandmark(
             profileAddress,
             profileLandmark,
           );
 
           // Routed through the map picker (not a plain text dialog) so a
-          // "quick edit" here can never leave the profile address without
-          // exact coordinates - that gap was exactly what let addresses
-          // slip through to the unreliable, Nominatim-dependent delivery
-          // fee fallback instead of the fast, exact coordinate-based one.
+          // quick edit here can never leave the profile address without
+          // exact coordinates, which the delivery fee calculation needs.
           Future<void> editProfileAddress() async {
             final PickedAddress? picked = await Navigator.push<PickedAddress>(
               context,
@@ -651,11 +610,8 @@ Future<PickedDeliveryAddress?> pickDeliveryAddress(
                       );
                     }),
                     const Divider(height: 1),
-                    // Managing saved addresses (adding/removing) now lives
-                    // only in the Profile section, so this sheet is just
-                    // for picking one - no separate "Add New Address" here
-                    // to avoid two different places that do the same
-                    // thing.
+                    // Adding/removing saved addresses lives only in the
+                    // Profile section - this sheet is just for picking one.
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                       child: Row(

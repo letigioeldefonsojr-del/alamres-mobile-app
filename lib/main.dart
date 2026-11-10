@@ -1,3 +1,4 @@
+// app-entry-point
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -84,11 +85,11 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-// StatefulWidget (rather than the StatelessWidget this used to be) purely
-// so WidgetsBindingObserver has somewhere to live - its only job is
-// telling ProductRepository when the app comes back to the foreground, so
-// a catalog that went stale while the app was backgrounded refreshes right
-// away instead of waiting for the next periodic tick.
+// A StatefulWidget (not Stateless) purely so WidgetsBindingObserver has
+// somewhere to live - its only job is telling ProductRepository when the
+// app comes back to the foreground, so a catalog that went stale while
+// the app was backgrounded refreshes right away instead of waiting for
+// the next periodic tick.
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void initState() {

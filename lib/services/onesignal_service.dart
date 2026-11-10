@@ -1,3 +1,4 @@
+// onesignal-service
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -111,10 +112,10 @@ class OneSignalService {
     //
     // Opening the specific order (when orderId is set) is handled by
     // HomeScreen itself, right after this frame - not as a second,
-    // separately timed Navigator call from here. Issuing it as its own
-    // call after an extra Firestore round-trip left a gap, after this
-    // pushAndRemoveUntil completed but before that second push landed,
-    // where the order screen could end up missing its intended target.
+    // separately timed Navigator call from here, which would introduce a
+    // gap (after this pushAndRemoveUntil completes but before a second
+    // push lands) where the order screen could end up missing its
+    // intended target.
     navState.pushAndRemoveUntil(
       fadeSlideRoute(
         HomeScreen(initialTabIndex: tabIndex, openOrderId: orderId),

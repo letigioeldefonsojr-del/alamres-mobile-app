@@ -1,3 +1,4 @@
+// login-screen
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -73,8 +74,8 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isSubmitting = false;
   // Shown as a persistent banner (not just a snackbar that can be missed
   // or dismissed) so the exact reason login failed is always visible on
-  // screen until the next attempt. Suspension no longer goes through
-  // this banner - it gets the dedicated glass overlay instead.
+  // screen until the next attempt. Suspension uses the dedicated glass
+  // overlay instead of this banner.
   String? _errorMessage;
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -231,14 +232,13 @@ class _LoginScreenState extends State<LoginScreen> {
       if (input.contains('@')) {
         email = input;
       } else {
-        // Firestore's `users` collection isn't publicly readable anymore
-        // (only a signed-in customer can read their own doc), and there's
-        // no signed-in customer yet at this point - so this goes through
+        // Firestore's `users` collection isn't publicly readable (only a
+        // signed-in customer can read their own doc), and there's no
+        // signed-in customer yet at this point - so this goes through
         // the login-guard Supabase function instead of a direct Firestore
-        // query. It already resolves to whichever email Firebase Auth
-        // actually has on file for the account (the real one if given,
-        // otherwise the synthetic phone-only placeholder), same as the
-        // authEmail-then-email fallback this used to do by hand.
+        // query. It resolves to whichever email Firebase Auth actually
+        // has on file for the account - the real one if given, otherwise
+        // the synthetic phone-only placeholder.
         final String? resolvedEmail = await LoginGuardApi.instance
             .resolveMobileToEmail(input);
         if (resolvedEmail == null) {
@@ -246,11 +246,11 @@ class _LoginScreenState extends State<LoginScreen> {
           // 'user-not-found' below (same code, different cause: that one
           // means the *resolved* email has no Firebase Auth account - a
           // data mismatch worth telling apart from "login-guard didn't
-          // recognize this mobile number at all"). _mapAuthError's old,
-          // single 'user-not-found' case used to show "No account found
+          // recognize this mobile number at all"). Reusing a single
+          // 'user-not-found' case for both would show "No account found
           // for that email." even when the customer had typed a mobile
-          // number, which was confusing and masked which lookup actually
-          // failed.
+          // number, which would be confusing and would mask which lookup
+          // actually failed.
           throw FirebaseAuthException(
             code: 'mobile-not-found',
             message: 'No account found for that mobile number.',

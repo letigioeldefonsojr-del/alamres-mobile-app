@@ -1,3 +1,4 @@
+// supabase-products
 import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -190,8 +191,6 @@ class SupabaseProductsApi {
   /// (against the backend's own order/sales data, not this client's
   /// Firestore access) by the `app_best_sellers` action - see
   /// fetchBestSellingProductIds() in cart_helpers.dart, the only caller.
-  /// This replaced that function's old `.get()` of the entire `orders`
-  /// collection, which was the actual cause of a Firestore read spike.
   Future<List<String>> bestSellingProductIds({int limit = 20}) async {
     final data = await _call({
       'action': 'app_best_sellers',

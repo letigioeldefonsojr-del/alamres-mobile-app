@@ -1,3 +1,4 @@
+// delivery
 import 'dart:async';
 import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
@@ -108,11 +109,9 @@ NearestBranchResult? nearestBranch(double customerLat, double customerLng) {
   return best;
 }
 
-/// Delivery-fee tiers by straight-line distance from the nearest branch.
-/// Placeholder numbers, per Phoenix: ₱15 for the first 2km, then a few
-/// wider bands further out - to be confirmed with the client/dean. Only
-/// these numbers need to change later; everything that calls this function
-/// stays the same.
+/// Delivery-fee tiers by straight-line distance from the nearest branch:
+/// ₱15 for the first 2km, then a few wider bands further out. Only these
+/// numbers need to change later; every caller stays the same.
 double deliveryFeeForDistanceMeters(double meters) {
   final double km = meters / 1000;
   if (km <= 2) return 15;

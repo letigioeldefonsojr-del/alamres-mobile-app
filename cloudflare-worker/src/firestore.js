@@ -1,3 +1,4 @@
+// firestore-rest-api
 // Firestore REST API access for the chatbot's tools (product lookups,
 // order status) - using a Firebase service account rather than the
 // customer's own Firebase ID token.

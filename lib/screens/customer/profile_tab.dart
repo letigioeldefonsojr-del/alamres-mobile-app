@@ -1,3 +1,4 @@
+// profile-tab
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -121,19 +122,20 @@ class _ProfileTabState extends State<ProfileTab> {
     return false;
   }
 
-  // Was a live `.snapshots()` listener kept open for as long as this tab
-  // was mounted - this badge only ever needs to change right after this
-  // same customer places/cancels/rates an order (see ordersChangedSignal
-  // above), so refetching on that signal gets the same result without
-  // paying for a standing listener the rest of the time.
+  // Refetched only right after this same customer places/cancels/rates an
+  // order (see ordersChangedSignal above), rather than a live
+  // `.snapshots()` listener kept open for as long as this tab is mounted -
+  // this badge only ever needs to change at that moment, so refetching on
+  // that signal gets the same result without paying for a standing
+  // listener the rest of the time.
   //
-  // This used to be one plain `.get()` of every order this customer has
-  // ever placed, just to count 3 numbers off of it - billed as one read
-  // PER ORDER DOCUMENT, every single time this tab opens or any order
-  // anywhere gets placed/cancelled/rated, and only getting more expensive
-  // as a long-time customer's order history grows. Firestore's count
-  // aggregation (`.count().get()`) bills a flat 1 read per query
-  // regardless of how many documents match, so three of those (total,
+  // Counting via Firestore's count aggregation (`.count().get()`, which
+  // bills a flat 1 read per query regardless of how many documents match)
+  // rather than a plain `.get()` of every order this customer has ever
+  // placed just to count 3 numbers off it avoids billing one read PER
+  // ORDER DOCUMENT every single time this tab opens or any order anywhere
+  // gets placed/cancelled/rated - a cost that would only grow as a
+  // long-time customer's order history grows. Three count queries (total,
   // delivered, pending) cost 3 reads total no matter whether this
   // customer has 5 orders or 5,000.
   Map<String, int> _orderStats = const {

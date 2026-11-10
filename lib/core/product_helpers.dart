@@ -1,3 +1,4 @@
+// product-pricing
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -243,11 +244,9 @@ String effectivePriceForQuantity(
 /// block-of-6 formula as [effectivePriceForQuantity] above but kept as a
 /// full-precision double all the way through instead of rounding to the
 /// nearest centavo as a "price per piece" and then multiplying that back
-/// out by [amount]. That round-then-multiply is exactly what used to make
-/// 7 pieces at an ₱11 wholesale rate total ₱80.99 instead of the correct
-/// ₱81.00 (6 x ₱11 + 1 x ₱15, which is ₱81.00 exactly - no rounding
-/// involved in the real math, only in how it used to be re-derived from a
-/// rounded ₱11.57-per-piece label). Use this (not
+/// out by [amount] - rounding first and multiplying after can land a
+/// centavo or two off a total (e.g. 7 pieces at an ₱11 wholesale rate
+/// should total exactly ₱81.00: 6 x ₱11 + 1 x ₱15). Use this (not
 /// effectivePriceForQuantity() x amount) for anything that actually
 /// charges or stores money - effectivePriceForQuantity()'s string stays
 /// around purely as a display label (e.g. "₱11.57 each" next to a

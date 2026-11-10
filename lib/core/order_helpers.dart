@@ -1,3 +1,4 @@
+// order-status
 import 'package:flutter/material.dart';
 
 /// Fires whenever an order is placed, cancelled, or rated - the only three
@@ -64,8 +65,7 @@ Color orderStatusColor(String status) {
 // 'delivered' status, which the admin side repurposes to mean "picked up"
 // for pickup orders - every other status reads the same either way.
 // Passing it is never required: callers that don't have it on hand yet
-// just get the delivery-flavored label, same as before this parameter
-// existed.
+// just get the delivery-flavored label.
 String orderStatusLabel(String status, {String? fulfillmentType}) {
   final bool isPickup = fulfillmentType == 'pickup';
   switch (status.toLowerCase()) {

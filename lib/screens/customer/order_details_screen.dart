@@ -1,3 +1,4 @@
+// order-details
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -93,8 +94,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
   // Starts from whatever the orders list already had on hand (no flash of
   // a blank screen), then one real `.get()` to make sure it's current.
   // While the order is still in progress ([_isActiveStatus]), a real
-  // `.snapshots()` listener on this one doc keeps it live - same as
-  // before this file started one-time-fetching history - so a status
+  // `.snapshots()` listener on this one doc keeps it live, so a status
   // change from the admin side (approved, dispatched, ...) still shows up
   // on its own. The moment the order reaches a terminal status (here or
   // via this same listener's own update), there's nothing left that will
@@ -145,8 +145,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
       // _fetchLatest()'s own call to _syncLiveListener() reattaches it on
       // resume if the order's still active.
       //
-      // Deliberately NOT keying off `inactive` here (that was the actual
-      // bug behind status updates going stale until a manual refresh):
+      // Deliberately NOT keying off `inactive` here (doing so would leave
+      // status updates going stale until a manual refresh):
       // `inactive` fires for all sorts of things that aren't really
       // backgrounding - an incoming call, the notification shade, a
       // permission/share/image-picker sheet, even just the rating dialog
@@ -415,8 +415,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
           };
         });
       }
-      // No live listener anymore to pick this up on its own - let the
-      // orders list behind this screen know a rating just landed.
+      // No live listener picks this up on its own - let the orders
+      // list behind this screen know a rating just landed.
       notifyOrdersChanged();
     } else {
       // Dismissed via the X or by tapping outside the dialog - no rating
@@ -437,10 +437,11 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
       // Same reason as the ratingSubmitted branch above: the My Orders
       // list behind this screen is holding whatever copy of this order it
       // last fetched, from before this dismissal. Without this, reopening
-      // this exact order hands this screen that stale cached copy again -
-      // still missing ratingPromptDismissed - so the auto-popup fired all
-      // over again on every single reopen instead of just once, ever,
-      // per order. Awaited above (rather than fire-and-forget) so this
+      // this exact order would hand this screen that stale cached copy
+      // again - still missing ratingPromptDismissed - so the auto-popup
+      // would fire all over again on every single reopen instead of just
+      // once, ever, per order. Awaited above (rather than fire-and-forget)
+      // so this
       // refetch actually sees the write that just happened, instead of a
       // race that could refetch the pre-dismissal doc.
       notifyOrdersChanged();
@@ -513,10 +514,11 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
                             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                             child: TextField(
                               controller: otherController,
-                              // Was autofocus: true - popped the keyboard
-                              // open the instant "Other" was picked, before
-                              // the customer had tapped this field at all.
-                              // Now it only opens once they actually tap in.
+                              // Deliberately not autofocus: true - that
+                              // would pop the keyboard open the instant
+                              // "Other" is picked, before the customer has
+                              // tapped this field at all. This way it only
+                              // opens once they actually tap in.
                               maxLines: 2,
                               decoration: InputDecoration(
                                 hintText: 'Please specify',

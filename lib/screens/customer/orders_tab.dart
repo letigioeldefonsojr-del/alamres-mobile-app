@@ -1,3 +1,4 @@
+// orders-tab
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -45,28 +46,27 @@ class OrdersListView extends StatefulWidget {
 }
 
 /// One order row for display, decoupled from which Firestore type it came
-/// from. [_recentDocs]/[_activeDocs] used to hold `QueryDocumentSnapshot`s
-/// straight from a query's `.docs`, but the 'removed' change Firestore
-/// sends when an active order transitions to a terminal status hands back
-/// a plain `DocumentSnapshot` instead (not a `QueryDocumentSnapshot` - it's
-/// no longer part of any query result) - this wrapper lets both sit in the
-/// same list without the snapshot-type mismatch.
+/// from. [_recentDocs]/[_activeDocs] mix `QueryDocumentSnapshot`s from a
+/// query's `.docs` with the plain `DocumentSnapshot` that Firestore's
+/// 'removed' change hands back when an active order transitions to a
+/// terminal status (it's no longer part of any query result, so it isn't a
+/// `QueryDocumentSnapshot`) - this wrapper lets both sit in the same list
+/// without the snapshot-type mismatch.
 class _OrderRow {
   final String id;
   final Map<String, dynamic> data;
   const _OrderRow(this.id, this.data);
 }
 
-/// Was a single `.snapshots()` listener on every one of this customer's
-/// orders ever placed, held open for as long as this tab was mounted - a
-/// customer who's been ordering for a year paid to keep that entire
-/// history "live" just to see today's status update, when in practice
-/// only the handful of orders still in progress ever actually change.
-/// This now splits the two:
+/// Splits order loading into two paths rather than one open-ended listener
+/// on every order this customer has ever placed, which would keep a whole
+/// year of order history "live" just to see today's status update, when
+/// in practice only the handful of orders still in progress ever actually
+/// change:
 ///   - "active" ([_activeStatuses], regardless of age - a pure
 ///     multi-equality query, no composite index needed): a real
 ///     `.snapshots()` listener, so an in-progress order's status keeps
-///     updating on its own exactly like before - including an order
+///     updating on its own - including an order
 ///     placed 6 weeks ago that's still `pending`. Attached while this
 ///     tab (or the app) is in the foreground, detached the moment it
 ///     isn't - see [didChangeAppLifecycleState] and [dispose].
@@ -164,9 +164,9 @@ class _OrdersListViewState extends State<OrdersListView>
       // see [didChangeAppLifecycleState]'s resumed branch for where it
       // reattaches.
       //
-      // Deliberately NOT keying off `inactive` here - that was the actual
-      // bug behind active orders' status going stale until a manual
-      // refresh. `inactive` fires for all sorts of things that aren't
+      // Deliberately NOT keying off `inactive` here - doing so would leave
+      // active orders' status going stale until a manual refresh.
+      // `inactive` fires for all sorts of things that aren't
       // really backgrounding (an incoming call, the notification shade, a
       // permission/share sheet, ...) and isn't reliably followed by a
       // `resumed` callback to reattach on. `paused` (and `detached`) are
@@ -239,22 +239,21 @@ class _OrdersListViewState extends State<OrdersListView>
   /// A real `.snapshots()` listener on this customer's in-progress
   /// orders - small by nature (an active order is never one for long),
   /// so keeping it live costs little and is what makes status changes
-  /// (admin approves/dispatches it, etc.) show up on their own, same as
-  /// before this file started one-time-fetching everything else. A no-op
+  /// (admin approves/dispatches it, etc.) show up on their own. A no-op
   /// if one's already attached, so calling this from both [_loadInitial]
   /// and the resumed branch of [didChangeAppLifecycleState] never opens a
   /// second listener on top of one that's already live.
   ///
-  /// This used to assume Firestore's 'removed' `DocumentChange` for an
-  /// order that just stopped matching this query handed back that order's
-  /// *new* data (its final status) - it doesn't. That change's document
-  /// snapshot reflects the order as it looked right before the write that
-  /// caused it to drop out of the query's results, i.e. its last still-
-  /// active status, not the delivered/cancelled/rejected/undelivered
-  /// status that actually caused the removal. Folding that straight into
-  /// history left the customer looking at a frozen "On the Way" (or
-  /// whatever it was) until something else (a manual pull-to-refresh, or
-  /// resuming the app) forced a real re-fetch.
+  /// Firestore's 'removed' `DocumentChange` for an order that just stopped
+  /// matching this query does NOT hand back that order's *new* data (its
+  /// final status). That change's document snapshot reflects the order as
+  /// it looked right before the write that caused it to drop out of the
+  /// query's results, i.e. its last still-active status, not the
+  /// delivered/cancelled/rejected/undelivered status that actually caused
+  /// the removal. Trusting that data directly would leave the customer
+  /// looking at a frozen "On the Way" (or whatever it was) until something
+  /// else (a manual pull-to-refresh, or resuming the app) forced a real
+  /// re-fetch.
   ///
   /// Comparing each new snapshot against [_lastActiveById] instead - which
   /// ids were active a moment ago but aren't anymore - and doing one
@@ -313,8 +312,8 @@ class _OrdersListViewState extends State<OrdersListView>
   /// comment for why this is the only reliable way to learn what it
   /// finished as. Inserted at the top of the in-memory history list
   /// (replacing any stale copy already there from the one-time history
-  /// page, which could be carrying the same last-active status this
-  /// whole fix exists to get past) rather than re-querying history itself.
+  /// page, which could otherwise be carrying the same last-active status)
+  /// rather than re-querying history itself.
   Future<void> _fetchFinishedOrder(String id) async {
     try {
       final doc = await FirebaseFirestore.instance

@@ -1,3 +1,4 @@
+// order-confirmation
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -65,8 +66,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
 
   // "Pick Up In Store" instead of delivery - skips the address requirement
   // and the delivery fee entirely, and asks which branch the customer will
-  // come to instead. Defaults to Delivery, matching how every order worked
-  // before this option existed.
+  // come to instead. Defaults to Delivery.
   bool _isPickup = false;
   String? _pickupBranch;
 
@@ -364,8 +364,8 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
         await batch.commit();
       }
 
-      // No live listener anymore to pick this up on its own - let the
-      // orders list/stats badge know a new order just landed.
+      // No live listener picks this up on its own - let the orders
+      // list/stats badge know a new order just landed.
       notifyOrdersChanged();
 
       if (!mounted) return;
@@ -613,8 +613,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                                 ),
                               ),
                               const SizedBox(width: 12),
-                              // Expanded + textAlign.right (rather than the
-                              // unconstrained Text this used to be) so the
+                              // Expanded + textAlign.right so the
                               // branch-name detail wraps onto a second line
                               // within its own column instead of overflowing
                               // past the right edge of the screen.

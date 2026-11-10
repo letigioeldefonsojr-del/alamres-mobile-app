@@ -1,3 +1,4 @@
+// home-screen
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -30,9 +31,9 @@ class HomeScreen extends StatefulWidget {
   // it opens straight into that order's details. Deliberately handled
   // here, as part of this screen's own first-frame setup (same pattern as
   // the mobile-number check below), rather than as a second, separately
-  // timed Navigator call from the click handler itself - that two-call
-  // approach left a gap where this screen could still be mid-setup when
-  // the second push landed.
+  // timed Navigator call from the click handler itself, which would leave
+  // a gap where this screen could still be mid-setup when the second push
+  // lands.
   final String? openOrderId;
 
   const HomeScreen({
@@ -255,11 +256,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _expandChat() {
-    // No need to hand over the conversation manually anymore - the
-    // floating bubble and the full-screen ChatScreen both read from the
-    // same ChatConversation singleton (see chat_conversation.dart), so the
-    // full-screen view already shows the exact same conversation the
-    // moment it opens, reply-in-progress and all.
+    // The floating bubble and the full-screen ChatScreen both read from
+    // the same ChatConversation singleton (see chat_conversation.dart), so
+    // the full-screen view already shows the exact same conversation the
+    // moment it opens, reply-in-progress and all - no need to hand the
+    // conversation over manually.
     //
     // clearKeyboardFocus here covers the same keyboard-reopens-by-itself
     // bug as the category/product screens - whatever tab is underneath

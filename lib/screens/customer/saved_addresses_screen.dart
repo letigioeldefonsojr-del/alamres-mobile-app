@@ -1,3 +1,4 @@
+// saved-addresses
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -30,13 +31,12 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
         .collection('addresses');
   }
 
-  // Created once in initState and reused across every rebuild - `build()`
-  // used to call `ref.orderBy(...).snapshots()` straight inline, handing
-  // StreamBuilder a brand-new Stream (and re-reading every saved address
-  // again) on every rebuild of this screen, e.g. toggling
-  // _isOpeningAddAddress above. Same fix as cart_screen.dart's
-  // `_cartStream` and the widgets/cart_badge.dart /
-  // widgets/cart_floating_bar.dart rewrite.
+  // Created once in initState and reused across every rebuild, rather
+  // than created inline in build() - that would hand StreamBuilder a
+  // brand-new Stream (and re-read every saved address again) on every
+  // rebuild of this screen, e.g. toggling _isOpeningAddAddress above.
+  // Same pattern as cart_screen.dart's `_cartStream` and
+  // widgets/cart_badge.dart / widgets/cart_floating_bar.dart.
   Stream<QuerySnapshot<Map<String, dynamic>>>? _addressesStream;
 
   @override

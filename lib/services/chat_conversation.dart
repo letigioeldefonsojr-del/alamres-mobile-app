@@ -1,3 +1,4 @@
+// chat-conversation
 import 'package:flutter/foundation.dart';
 import 'chat_service.dart';
 
@@ -32,21 +33,13 @@ const String kContactQuickReply =
 /// The single, app-wide source of truth for the "Ask Almares 328"
 /// conversation. Both the floating chat bubble on HomeScreen and the
 /// full-screen ChatScreen read from (and write to) this same instance,
-/// rather than each keeping its own separate copy of the messages.
+/// rather than each keeping its own separate copy of the messages - so
+/// sending a message in the bubble and then immediately expanding to full
+/// screen can never race a reply that's still in flight; there's only
+/// ever one conversation for a reply to land in.
 ///
-/// Why this exists: the old design had each ChatPanel own its own message
-/// list, and HomeScreen's "expand to full screen" button just copied a
-/// one-time snapshot of the bubble's messages into a brand new ChatPanel.
-/// That meant sending a message in the bubble and then immediately
-/// expanding - before the reply came back - raced: the reply would land
-/// in the now-hidden bubble's own copy once the network call finished,
-/// never in the full-screen conversation the customer was actually
-/// looking at, so it looked like the reply just never arrived. Routing
-/// both views through one shared conversation makes that race impossible
-/// - there's only ever one conversation for a reply to land in.
-///
-/// Still purely in-memory (same as before) - it resets when the app
-/// process is fully closed/restarted, not just when a screen is closed.
+/// Purely in-memory - resets when the app process is fully closed/
+/// restarted, not just when a screen is closed.
 class ChatConversation extends ChangeNotifier {
   ChatConversation._();
   static final ChatConversation instance = ChatConversation._();

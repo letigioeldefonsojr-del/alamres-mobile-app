@@ -1,3 +1,4 @@
+// register-screen
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -332,9 +333,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // whether an email was given - two customers could otherwise end up
       // sharing one number, which would make phone-number login pick the
       // wrong account. Firestore's `users` collection isn't publicly
-      // readable anymore (only a signed-in customer can read their own
-      // doc), and there's no signed-in customer yet at sign-up - so this
-      // goes through the login-guard Supabase function instead of a direct
+      // readable (only a signed-in customer can read their own doc), and
+      // there's no signed-in customer yet at sign-up - so this goes
+      // through the login-guard Supabase function instead of a direct
       // Firestore query.
       try {
         final taken = await LoginGuardApi.instance.checkTaken(

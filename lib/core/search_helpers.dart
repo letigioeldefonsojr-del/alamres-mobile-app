@@ -1,3 +1,4 @@
+// fuzzy-search
 /// Typo-tolerant text matching used by the product search boxes (All
 /// Products screen and the Categories tab's search) - lets something
 /// like "Argntna" still find a product named "Argentina Corned Beef", or
