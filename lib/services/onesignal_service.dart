@@ -40,8 +40,20 @@ class OneSignalService {
 
     OneSignal.initialize(appId);
 
-    // Prompts the OS notification permission dialog.
-    await OneSignal.Notifications.requestPermission(true);
+    // Prompts the OS notification permission dialog - fire-and-forget with
+    // a timeout rather than awaited here. On Android this goes through
+    // Firebase Cloud Messaging registration under the hood, which can hang
+    // indefinitely on a phone with no/outdated Google Play Services or no
+    // network at first launch - common on budget and some OEM Android
+    // phones. Since main() awaits init() before calling runApp(), letting
+    // this hang would leave the native splash screen stuck on the logo
+    // forever instead of just missing/delaying the permission prompt.
+    unawaited(
+      OneSignal.Notifications.requestPermission(true).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => false,
+      ),
+    );
   }
 
   /// Call once, early in main() right after init() - routes a tap on any

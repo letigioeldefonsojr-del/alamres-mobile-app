@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'firebase_options.dart';
 import 'services/onesignal_service.dart';
@@ -51,10 +50,14 @@ void main() async {
   unawaited(ProductRepository.instance.ensureStarted());
 
   if (!kIsWeb) {
+    // init() itself no longer blocks on the OS permission prompt (see
+    // OneSignalService.init) - this await now just covers the fast, local
+    // part of setting the SDK up, so a phone with no/outdated Google Play
+    // Services or no network at first launch can't leave the splash screen
+    // stuck on the logo waiting for it.
     await OneSignalService.instance.init(
       'c3b735fb-99e4-49be-8f63-e8606b95d918',
     );
-    await OneSignal.Notifications.requestPermission(true);
     // Tapping a push (order status update, etc.) should take the customer
     // straight to their Orders tab - see OneSignalService for the details.
     OneSignalService.instance.setupNotificationClickHandling(navigatorKey);
