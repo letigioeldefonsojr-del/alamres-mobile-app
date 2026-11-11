@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import '../../core/auth_persistence.dart';
 import '../../core/read_counter.dart';
 import '../../core/routing.dart';
 import '../../core/validators.dart';
@@ -406,6 +407,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
             'createdAt': FieldValue.serverTimestamp(),
           });
 
+      // createUserWithEmailAndPassword above already signs this customer
+      // straight in, same as an explicit login - so it needs the same
+      // "keep me logged in" bookkeeping login_screen.dart writes, or a
+      // cold start right after registering (e.g. Android killing the app
+      // from the recent-apps list before the customer ever visits Login)
+      // would have nothing to restore the session from. No checkbox on
+      // this screen, so a fresh account defaults to keepLoggedIn: true -
+      // same default login_screen.dart's own checkbox starts at.
+      await saveLoginPersistence(
+        isGoogle: false,
+        email: authEmail,
+        password: _passwordController.text,
+      );
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -537,6 +552,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'signInMethod': 'google',
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      // Same reasoning as the email/password sign-up above - this already
+      // signed the customer in, so it needs the same cold-start fallback
+      // bookkeeping login_screen.dart's own Google login writes.
+      await saveLoginPersistence(isGoogle: true);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

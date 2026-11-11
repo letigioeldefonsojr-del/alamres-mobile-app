@@ -4,12 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../services/login_guard_api.dart';
 import '../../services/onesignal_service.dart';
 import '../../services/suspension_service.dart';
 import '../../widgets/suspended_account_overlay.dart';
+import '../../core/auth_persistence.dart';
 import '../../core/read_counter.dart';
 import '../../core/routing.dart';
 import '../../core/validators.dart';
@@ -87,58 +86,21 @@ class _LoginScreenState extends State<LoginScreen> {
   // When unchecked, the splash screen signs the customer back out on the
   // app's next cold start instead of dropping them straight into HomeScreen.
   bool _keepLoggedIn = true;
-  static const String _keepLoggedInPrefsKey = 'keepLoggedIn';
-  // Remembers which provider the customer most recently signed in with.
-  // splash_screen.dart reads this to decide whether it's worth attempting
-  // a Google-session fallback when Firebase Auth's own persisted session
-  // comes back empty on a cold start - that fallback only makes sense for
-  // an account that actually signed in with Google.
-  static const String _lastSignInWasGooglePrefsKey = 'lastSignInWasGoogle';
 
-  // Firebase Auth's own persisted session doesn't reliably survive this
-  // app being killed from the recent-apps list on every device - Google
-  // logins get around that via Google Sign-In's separate, outside-the-app
-  // session (see splash_screen.dart). Email/password has no equivalent
-  // outside layer to lean on, so the only way to silently restore it on
-  // the next cold start is to keep the credentials themselves ready to
-  // replay - kept in the device's hardware-backed secure storage (Android
-  // Keystore / iOS Keychain), never in plain SharedPreferences, and only
-  // ever written when "keep me logged in" is actually checked. Cleared
-  // immediately on manual logout, a forced sign-out, or switching to
-  // Google login - see profile_tab.dart and suspension_watcher.dart.
-  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
-  static const String _savedEmailKey = 'savedLoginEmail';
-  static const String _savedPasswordKey = 'savedLoginPassword';
-
+  // Shared with register_screen.dart (see core/auth_persistence.dart) -
+  // both screens sign the customer straight into the app, so both need to
+  // leave splash_screen.dart the same cold-start fallback to restore from.
   Future<void> _savePersistencePreference({
     required bool isGoogle,
     String? email,
     String? password,
-  }) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_keepLoggedInPrefsKey, _keepLoggedIn);
-      await prefs.setBool(_lastSignInWasGooglePrefsKey, isGoogle);
-    } catch (_) {
-      // Non-critical - worst case the app just defaults to staying signed
-      // in on the next cold start.
-    }
-
-    try {
-      if (!isGoogle && _keepLoggedIn && email != null && password != null) {
-        await _secureStorage.write(key: _savedEmailKey, value: email);
-        await _secureStorage.write(key: _savedPasswordKey, value: password);
-      } else {
-        // Google login, or "keep me logged in" unchecked - nothing for
-        // the email/password fallback to use, so make sure nothing stale
-        // is left behind from an earlier login.
-        await _secureStorage.delete(key: _savedEmailKey);
-        await _secureStorage.delete(key: _savedPasswordKey);
-      }
-    } catch (_) {
-      // Non-critical - worst case the email/password fallback just can't
-      // run on the next cold start.
-    }
+  }) {
+    return saveLoginPersistence(
+      isGoogle: isGoogle,
+      keepLoggedIn: _keepLoggedIn,
+      email: email,
+      password: password,
+    );
   }
 
   @override
